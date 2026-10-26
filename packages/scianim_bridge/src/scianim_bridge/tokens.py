@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Literal
 
 import numpy as np
 from manim import DL, DOWN, DR, LEFT, ORIGIN, RIGHT, UL, UP, UR, ManimColor, Mobject, Text, config
 
 from scianim_core import ResolvedStyle
-from scianim_core.style import Anchor, Typeface
+from scianim_core.style import Anchor, TextRole, Typeface
 
 CAIRO_LINE_WIDTH_MULTIPLE = 0.01
 """Manim's Cairo camera draws `stroke_width` 1 as 0.01 frame units (Camera default)."""
@@ -148,8 +147,16 @@ class Tokens:
         return mobject.move_to(np.array([x, y, 0.0]), aligned_edge=edge)
 
     # --- typography ---------------------------------------------------------------------------
-    def typeface(self, kind: Literal["title", "body"]) -> Typeface:
-        return self.t.typography.title if kind == "title" else self.t.typography.body
+    def typeface(self, role: TextRole) -> Typeface:
+        """The typeface of a named text role; sizes are tokens, never multiples of another role."""
+        return getattr(self.t.typography, role)
+
+    def smallest_text_px(self, *roles_and_sizes: TextRole | float) -> float:
+        """Output pixels of the smallest em size among text roles and explicit 1080p sizes (layout report)."""
+        sizes = [
+            item if isinstance(item, int | float) else self.typeface(item).size_px_at_1080p for item in roles_and_sizes
+        ]
+        return self.output_px(min(sizes))
 
     def font_size(self, typeface: Typeface, px_at_1080p: float | None = None) -> float:
         """Manim font_size whose capital height matches `px_at_1080p * CAP_HEIGHT_RATIO`."""

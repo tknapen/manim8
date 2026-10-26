@@ -47,8 +47,12 @@ def test_tokens_convert_pixels_to_units() -> None:
             "typography": {
                 "title": typeface,
                 "body": typeface,
-                "equation": {"engine": "typst", "size_px_at_1080p": 46},
-                "minimum_body_px_at_1080p": 26,
+                "annotation": typeface,
+                "axis_label": typeface,
+                "tick_label": typeface,
+                "caption": typeface,
+                "equation": {"engine": "typst", "size_px_at_1080p": 46, "label_size_px_at_1080p": 38},
+                "minimum_text_px_at_1080p": 26,
             },
             "layout": {"safe_margin_fraction": 0.05, "baseline_grid_px_at_1080p": 16, "panel_gap_px_at_1080p": 40},
             "geometry": {
@@ -78,3 +82,81 @@ def test_tokens_convert_pixels_to_units() -> None:
         assert t.color("background").to_hex().lower() == "#111111"
         with pytest.raises(KeyError, match="not in the palette"):
             t.color("nonexistent_role")
+
+
+def _style(**charts):
+    from scianim_core.style import ResolvedStyle, StyleTokens
+
+    typeface = {"font_family": "DejaVu Sans", "font_fallbacks": [], "size_px_at_1080p": 32, "weight": "regular"}
+    roles = (
+        "background",
+        "foreground",
+        "secondary_text",
+        "muted",
+        "neutral",
+        "primary_signal",
+        "emphasis",
+        "warning",
+        "comparison",
+    )
+    tokens = StyleTokens.model_validate(
+        {
+            "palette": dict.fromkeys(roles, "#111111"),
+            "typography": {
+                **{role: typeface for role in ("title", "body", "annotation", "axis_label", "tick_label", "caption")},
+                "equation": {"engine": "typst", "size_px_at_1080p": 46, "label_size_px_at_1080p": 38},
+                "minimum_text_px_at_1080p": 26,
+            },
+            "layout": {"safe_margin_fraction": 0.05, "baseline_grid_px_at_1080p": 16, "panel_gap_px_at_1080p": 40},
+            "geometry": {
+                "axis_stroke_px_at_1080p": 2.0,
+                "curve_stroke_px_at_1080p": 3.5,
+                "annotation_stroke_px_at_1080p": 2.5,
+            },
+            "charts": charts,
+            "motion": {"transition_seconds": 0.65, "reveal_seconds": 0.85},
+            "accessibility": {},
+        }
+    )
+    return ResolvedStyle(
+        theme="t",
+        theme_version="0.1.0",
+        layers=["theme:t@0.1.0"],
+        tokens=tokens,
+        provenance={},
+        hash="sha256:" + "0" * 64,
+    )
+
+
+@pytest.mark.parametrize(
+    ("spines", "expected_lines"),
+    [
+        (["left", "bottom"], 2 + 5 + 5),  # despined default: two spines plus one tick per label
+        (["left", "bottom", "top", "right"], 4 + 5 + 5),
+        ([], 0 + 5 + 5),
+    ],
+)
+def test_axes_draw_only_the_listed_spines(spines, expected_lines) -> None:
+    from manim import Line, config
+
+    from scianim_bridge.components.plots import _axes_with_labels
+    from scianim_bridge.tokens import Tokens
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        tokens = Tokens(_style(spines=spines, spine_offset_px_at_1080p=10))
+        _, labels = _axes_with_labels(tokens, (0, 4, 1), (0, 2, 0.5), 6.0, 3.0, "x", "y")
+        frame = labels.submobjects[0]
+        assert sum(isinstance(m, Line) for m in frame.submobjects) == expected_lines
+
+
+def test_smallest_text_px_mixes_roles_and_explicit_sizes() -> None:
+    from manim import config
+
+    from scianim_bridge.tokens import Tokens
+
+    with manim.tempconfig({"pixel_width": 1920, "pixel_height": 1080}):
+        config.frame_width = config.frame_height * 16 / 9
+        tokens = Tokens(_style())
+        assert tokens.smallest_text_px("tick_label", 46.0) == pytest.approx(32)
+        assert tokens.smallest_text_px("body", 28.0) == pytest.approx(28)

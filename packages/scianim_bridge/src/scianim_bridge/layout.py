@@ -52,9 +52,9 @@ def layout_report(scene: SnapshotScene) -> tuple[list[LayoutItem], list[LayoutWa
                     detail=f"bbox x={b.x:.3f}..{b.x2:.3f} y={b.y:.3f}..{b.y2:.3f} exceeds safe margin {margin:g}",
                 )
             )
-    minimum_px = tokens.output_px(tokens.t.typography.minimum_body_px_at_1080p)
+    minimum_px = tokens.output_px(tokens.t.typography.minimum_text_px_at_1080p)
     text_items = [i for i in items if scene.objects[i.object_id].text_like]
-    for item in text_items:
+    for item in items:  # every object that draws text reports its smallest size, plots included
         if item.text_height_px is not None and item.text_height_px < minimum_px - 1e-6:
             warnings.append(
                 LayoutWarning(

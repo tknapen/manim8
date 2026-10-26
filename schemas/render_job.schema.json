@@ -47,6 +47,29 @@
           "title": "Show Units When Provided",
           "type": "boolean"
         },
+        "spine_offset_px_at_1080p": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Spine Offset Px At 1080P",
+          "type": "number"
+        },
+        "spines": {
+          "default": [
+            "left",
+            "bottom"
+          ],
+          "items": {
+            "enum": [
+              "left",
+              "bottom",
+              "top",
+              "right"
+            ],
+            "type": "string"
+          },
+          "title": "Spines",
+          "type": "array"
+        },
         "use_shared_scales_for_comparison": {
           "default": true,
           "title": "Use Shared Scales For Comparison",
@@ -130,6 +153,11 @@
           "title": "Engine",
           "type": "string"
         },
+        "label_size_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Label Size Px At 1080P",
+          "type": "number"
+        },
         "latex_packages": {
           "default": [],
           "items": {
@@ -165,7 +193,8 @@
         }
       },
       "required": [
-        "size_px_at_1080p"
+        "size_px_at_1080p",
+        "label_size_px_at_1080p"
       ],
       "title": "EquationStyle",
       "type": "object"
@@ -192,6 +221,12 @@
           "default": 6.0,
           "exclusiveMinimum": 0,
           "title": "Marker Radius Px At 1080P",
+          "type": "number"
+        },
+        "tick_length_px_at_1080p": {
+          "default": 8.0,
+          "exclusiveMinimum": 0,
+          "title": "Tick Length Px At 1080P",
           "type": "number"
         }
       },
@@ -631,16 +666,28 @@
     "Typography": {
       "additionalProperties": false,
       "properties": {
+        "annotation": {
+          "$ref": "#/$defs/Typeface"
+        },
+        "axis_label": {
+          "$ref": "#/$defs/Typeface"
+        },
         "body": {
+          "$ref": "#/$defs/Typeface"
+        },
+        "caption": {
           "$ref": "#/$defs/Typeface"
         },
         "equation": {
           "$ref": "#/$defs/EquationStyle"
         },
-        "minimum_body_px_at_1080p": {
+        "minimum_text_px_at_1080p": {
           "exclusiveMinimum": 0,
-          "title": "Minimum Body Px At 1080P",
+          "title": "Minimum Text Px At 1080P",
           "type": "number"
+        },
+        "tick_label": {
+          "$ref": "#/$defs/Typeface"
         },
         "title": {
           "$ref": "#/$defs/Typeface"
@@ -649,8 +696,12 @@
       "required": [
         "title",
         "body",
+        "annotation",
+        "axis_label",
+        "tick_label",
+        "caption",
         "equation",
-        "minimum_body_px_at_1080p"
+        "minimum_text_px_at_1080p"
       ],
       "title": "Typography",
       "type": "object"

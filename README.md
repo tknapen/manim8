@@ -60,7 +60,7 @@ the workspace holds everything that changes.
 
 Milestones 0 to 2 of the implementation plan are implemented and tested on the example: typed contracts and
 JSON Schemas, file and project validation, versioned styles with a cascade that records provenance, workspaces
-with families, groups and projects, `uv` family environments, the component registry with five kinds,
+with families, groups and projects, `uv` family environments, the component registry with six kinds,
 deterministic code generation, in-flow checkpoints with layout reports, content-addressed caching, write-once
 revisions, shared assets, and a static review sheet. Not yet built: the web UI and feedback files, video rendering
 and sections, source ingestion, agent operations, bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.

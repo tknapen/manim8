@@ -30,7 +30,7 @@ typography:
   equation:
     engine: typst
     size_px_at_1080p: 48
-  minimum_body_px_at_1080p: 26
+  minimum_text_px_at_1080p: 26
 layout:
   safe_margin_fraction: 0.055
   baseline_grid_px_at_1080p: 16

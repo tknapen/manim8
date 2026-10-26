@@ -9,8 +9,6 @@ from scianim_bridge.components.base import Component, params_for, place, registe
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
 
-CAPTION_SCALE = 0.8
-
 
 def text_caption(
     scene: SnapshotScene,
@@ -23,10 +21,9 @@ def text_caption(
 ) -> Component:
     p = params_for("text_caption", params)
     tokens = scene.tokens
-    typeface = tokens.typeface("title" if p.role == "title" else "body")
-    px = typeface.size_px_at_1080p * (CAPTION_SCALE if p.role == "caption" else 1.0)
+    typeface = tokens.typeface(p.role)  # title, body or caption: each a named role with its own size token
     color = tokens.color(style_role)
-    mobject = Text(p.text, **tokens.text_kwargs(typeface, color, px))
+    mobject = Text(p.text, **tokens.text_kwargs(typeface, color))
     group = VGroup(mobject)
     place(scene, group, p)
     return register(
@@ -36,7 +33,7 @@ def text_caption(
             "text_caption",
             group,
             text=p.text,
-            font_px=tokens.output_px(px),
+            font_px=tokens.output_px(typeface.size_px_at_1080p),
             text_like=True,
         ),
     )

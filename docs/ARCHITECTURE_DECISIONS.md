@@ -177,3 +177,28 @@ anchored `top_left` overlap, and that a storyboard with no per-object timing can
 scene. An expression whitelist keeps the `YAML never contains executable code` boundary: the expression grammar
 is closed, has no side effects and cannot reach Python objects. Relational placement and reveal times are the
 smallest additions that let an agent compose a scene from the registry alone.
+
+## ADR-017: Axes are despined and every text size is a named token
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** `charts.spines` lists the axis lines a plot draws; the baseline sets `[left, bottom]`, so every
+plot kind is despined: no top or right spine, no frame, the two spines along the data box edges and never
+through the origin, ticks outward, with `charts.spine_offset_px_at_1080p` to move the spines away from the data
+and `geometry.tick_length_px_at_1080p` for the ticks. Typography gains one role per kind of text (`title`,
+`body`, `annotation`, `axis_label`, `tick_label`, `caption`, plus `equation.size_px_at_1080p` and
+`equation.label_size_px_at_1080p`) and `minimum_text_px_at_1080p`, which replaces `minimum_body_px_at_1080p`.
+The resolved style rejects any role below the minimum; components set each piece of text in its role and never
+multiply one size to obtain another; every component reports the smallest text it draws, so the layout report's
+`text_too_small` covers tick labels and symbol definitions. Twin Ink's scale at 1080p is title 54, body 34,
+annotation and axis label 30, tick label and caption 26, equation 46 and 38, minimum 26.
+
+`default@0.2.0` is edited in place rather than versioned to 0.3.0: it was created on the same branch the same
+day, no revision references it, and nothing outside this branch has resolved it, so it is not a published
+version in the sense of section 5.3.
+
+**Why.** The Milestone 2.5 renders set tick labels, captions and marker labels at hidden multiples of the body
+size (22 px at 1080p), below the style's own minimum, and plots never reported their text to the layout check.
+A multiplier in bridge code is a hardcoded size by another name. Named roles make the hierarchy a reviewable
+decision in the sheet, the validator makes the minimum a promise rather than a hope, and despined axes are the
+plotting convention of the field the baseline is for.

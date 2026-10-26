@@ -48,14 +48,19 @@ def test_typst_preamble_and_tex_template_from_tokens() -> None:
             "typography": {
                 "title": typeface,
                 "body": typeface,
+                "annotation": typeface,
+                "axis_label": typeface,
+                "tick_label": typeface,
+                "caption": typeface,
                 "equation": {
                     "engine": "typst",
                     "size_px_at_1080p": 46,
+                    "label_size_px_at_1080p": 38,
                     "math_font": "TeX Gyre Pagella Math",
                     "math_font_fallbacks": ["New Computer Modern Math"],
                     "latex_packages": ["newpxmath"],
                 },
-                "minimum_body_px_at_1080p": 26,
+                "minimum_text_px_at_1080p": 26,
             },
             "layout": {"safe_margin_fraction": 0.05, "baseline_grid_px_at_1080p": 16, "panel_gap_px_at_1080p": 40},
             "geometry": {

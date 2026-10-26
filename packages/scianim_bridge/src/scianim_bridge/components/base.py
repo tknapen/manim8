@@ -73,7 +73,8 @@ class Component:
     group: VGroup
     text: str | None = None
     font_px: float | None = None
-    """Font em size in output pixels for text-like objects (drives `text_too_small`)."""
+    """Em size in output pixels of the smallest text the object draws, tick labels included; None when it
+    draws no text. Drives `text_too_small`."""
     text_like: bool = False
     visible: bool = False
 

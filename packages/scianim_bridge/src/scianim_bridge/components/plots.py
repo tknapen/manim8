@@ -10,13 +10,11 @@ from scianim_bridge.data import Series, apply_binding
 from scianim_bridge.tokens import Tokens
 from scianim_core.expressions import compile_expression
 from scianim_core.storyboard import DataBinding
+from scianim_core.style import TextRole
 
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
 
-TICK_LABEL_SCALE = 0.7
-AXIS_LABEL_SCALE = 0.8
-CAPTION_SCALE = 0.7
 FALLBACK_ROLES = ("comparison", "emphasis", "warning", "neutral", "muted")
 
 
@@ -60,13 +58,15 @@ def _axes_with_labels(
     x_label: str,
     y_label: str,
 ) -> tuple[Axes, VGroup]:
-    """Scientific axes drawn along the box edges (never through the origin), with ticks and labels.
+    """Despined scientific axes: only the spines in `charts.spines` are drawn (left and bottom by default),
+    along the plot box edges and never through the origin, with outward ticks and labels in their own text roles.
 
     The returned `Axes` is invisible and only maps data coordinates to points.
     """
     fg = tokens.color("foreground")
     secondary = tokens.color("secondary_text")
-    body = tokens.typeface("body")
+    tick_face = tokens.typeface("tick_label")
+    axis_face = tokens.typeface("axis_label")
     axes = Axes(
         x_range=list(x_range),
         y_range=list(y_range),
@@ -78,33 +78,42 @@ def _axes_with_labels(
     x0, x1, xs = x_range
     y0, y1, ys = y_range
     stroke = tokens.stroke_width(tokens.t.geometry.axis_stroke_px_at_1080p)
-    tick = tokens.units(8)
-    frame = VGroup(
-        Line(axes.c2p(x0, y0), axes.c2p(x1, y0), color=fg, stroke_width=stroke),
-        Line(axes.c2p(x0, y0), axes.c2p(x0, y1), color=fg, stroke_width=stroke),
-    )
-    tick_px = body.size_px_at_1080p * TICK_LABEL_SCALE
+    tick = tokens.units(tokens.t.geometry.tick_length_px_at_1080p)
+    offset = tokens.units(tokens.t.charts.spine_offset_px_at_1080p)
+    spines = set(tokens.t.charts.spines)
+    bottom_left, bottom_right = axes.c2p(x0, y0), axes.c2p(x1, y0)
+    top_left, top_right = axes.c2p(x0, y1), axes.c2p(x1, y1)
+    frame = VGroup()
+    if "bottom" in spines:
+        frame.add(Line(bottom_left + DOWN * offset, bottom_right + DOWN * offset, color=fg, stroke_width=stroke))
+    if "left" in spines:
+        frame.add(Line(bottom_left + LEFT * offset, top_left + LEFT * offset, color=fg, stroke_width=stroke))
+    if "top" in spines:
+        frame.add(Line(top_left + UP * offset, top_right + UP * offset, color=fg, stroke_width=stroke))
+    if "right" in spines:
+        frame.add(Line(bottom_right + RIGHT * offset, top_right + RIGHT * offset, color=fg, stroke_width=stroke))
     x_labels = VGroup()
     value = x0
     while value <= x1 + 1e-9:
-        frame.add(Line(axes.c2p(value, y0), axes.c2p(value, y0) + DOWN * tick, color=fg, stroke_width=stroke))
-        label = Text(_fmt(value), **tokens.text_kwargs(body, secondary, tick_px))
-        label.next_to(axes.c2p(value, y0) + DOWN * tick, DOWN, buff=tokens.baseline * 0.35)
+        foot = axes.c2p(value, y0) + DOWN * offset
+        frame.add(Line(foot, foot + DOWN * tick, color=fg, stroke_width=stroke))
+        label = Text(_fmt(value), **tokens.text_kwargs(tick_face, secondary))
+        label.next_to(foot + DOWN * tick, DOWN, buff=tokens.baseline * 0.35)
         x_labels.add(label)
         value += xs
     y_labels = VGroup()
     value = y0
     while value <= y1 + 1e-9:
-        frame.add(Line(axes.c2p(x0, value), axes.c2p(x0, value) + LEFT * tick, color=fg, stroke_width=stroke))
-        label = Text(_fmt(value), **tokens.text_kwargs(body, secondary, tick_px))
-        label.next_to(axes.c2p(x0, value) + LEFT * tick, LEFT, buff=tokens.baseline * 0.35)
+        foot = axes.c2p(x0, value) + LEFT * offset
+        frame.add(Line(foot, foot + LEFT * tick, color=fg, stroke_width=stroke))
+        label = Text(_fmt(value), **tokens.text_kwargs(tick_face, secondary))
+        label.next_to(foot + LEFT * tick, LEFT, buff=tokens.baseline * 0.35)
         y_labels.add(label)
         value += ys
-    label_px = body.size_px_at_1080p * AXIS_LABEL_SCALE
-    xlab = Text(x_label, **tokens.text_kwargs(body, fg, label_px))
+    xlab = Text(x_label, **tokens.text_kwargs(axis_face, fg))
     xlab.next_to(x_labels, DOWN, buff=tokens.baseline * 0.9)
     xlab.set_x(float(axes.c2p((x0 + x1) / 2, y0)[0]))
-    ylab = Text(y_label, **tokens.text_kwargs(body, fg, label_px)).rotate(PI / 2)
+    ylab = Text(y_label, **tokens.text_kwargs(axis_face, fg)).rotate(PI / 2)
     ylab.next_to(y_labels, LEFT, buff=tokens.baseline * 0.9)
     ylab.set_y(float(axes.c2p(x0, (y0 + y1) / 2)[1]))
     return axes, VGroup(frame, x_labels, y_labels, xlab, ylab)
@@ -126,17 +135,14 @@ def _curve(
 
 
 def _caption(tokens: Tokens, text: str, anchor_mobject: VGroup) -> Text:
-    body = tokens.typeface("body")
-    caption = Text(
-        text, **tokens.text_kwargs(body, tokens.color("secondary_text"), body.size_px_at_1080p * CAPTION_SCALE)
-    )
+    caption = Text(text, **tokens.text_kwargs(tokens.typeface("caption"), tokens.color("secondary_text")))
     caption.next_to(anchor_mobject, DOWN, buff=tokens.baseline)
     caption.align_to(anchor_mobject, RIGHT)
     return caption
 
 
 def _legend(tokens: Tokens, axes: Axes, entries: list[tuple[str, ManimColor]]) -> VGroup:
-    body = tokens.typeface("body")
+    annotation = tokens.typeface("annotation")
     legend = VGroup()
     for label, color in entries:
         swatch = Line(
@@ -145,9 +151,7 @@ def _legend(tokens: Tokens, axes: Axes, entries: list[tuple[str, ManimColor]]) -
             color=color,
             stroke_width=tokens.stroke_width(tokens.t.geometry.curve_stroke_px_at_1080p),
         )
-        text = Text(
-            label, **tokens.text_kwargs(body, tokens.color("foreground"), body.size_px_at_1080p * CAPTION_SCALE)
-        )
+        text = Text(label, **tokens.text_kwargs(annotation, tokens.color("foreground")))
         legend.add(VGroup(swatch, text).arrange(RIGHT, buff=tokens.baseline * 0.5))
     legend.arrange(DOWN, aligned_edge=LEFT, buff=tokens.baseline * 0.4)
     corner = {
@@ -158,6 +162,18 @@ def _legend(tokens: Tokens, axes: Axes, entries: list[tuple[str, ManimColor]]) -
     }[tokens.t.charts.legend_position]
     legend.move_to(axes.get_corner(corner) - corner * tokens.baseline * 2, aligned_edge=corner)
     return legend
+
+
+def _text_roles(*, caption: bool, annotation: bool, body: bool = False) -> list[TextRole]:
+    """The text roles a plot draws, for reporting its smallest text in the layout report."""
+    roles: list[TextRole] = ["tick_label", "axis_label"]
+    if caption:
+        roles.append("caption")
+    if annotation:
+        roles.append("annotation")
+    if body:
+        roles.append("body")
+    return roles
 
 
 def _roles_for(tokens: Tokens, primary: str, count: int) -> list[str]:
@@ -208,7 +224,10 @@ def scientific_plot(
     if p.data_label:
         group.add(_caption(tokens, p.data_label, labels))
     tokens.place(group, p.anchor)
-    return register(scene, Component(object_id, "scientific_plot", group, text=None, font_px=None, text_like=False))
+    font_px = tokens.smallest_text_px(
+        *_text_roles(caption=bool(p.data_label), annotation=p.show_legend and len(series) > 1)
+    )
+    return register(scene, Component(object_id, "scientific_plot", group, text=None, font_px=font_px, text_like=False))
 
 
 def function_plot(
@@ -244,7 +263,7 @@ def function_plot(
     group = VGroup(labels)
     for _, sx, sy, role in sampled:
         group.add(_curve(tokens, axes, sx, sy, tokens.color(role), False))
-    body = tokens.typeface("body")
+    annotation = tokens.typeface("annotation")
     for marker in p.markers:
         color = tokens.color(marker.style_role or "secondary_text")
         line = DashedLine(
@@ -256,7 +275,7 @@ def function_plot(
         )
         group.add(line)
         if marker.label:
-            text = Text(marker.label, **tokens.text_kwargs(body, color, body.size_px_at_1080p * CAPTION_SCALE))
+            text = Text(marker.label, **tokens.text_kwargs(annotation, color))
             text.next_to(axes.c2p(marker.x, y_range[1]), UP, buff=tokens.baseline * 0.5)
             group.add(text)
     if p.show_legend and len(sampled) > 1:
@@ -264,7 +283,9 @@ def function_plot(
     if p.data_label:
         group.add(_caption(tokens, p.data_label, labels))
     tokens.place(group, p.anchor)
-    return register(scene, Component(object_id, "function_plot", group, text=None, font_px=None, text_like=False))
+    labelled = (p.show_legend and len(sampled) > 1) or any(marker.label for marker in p.markers)
+    font_px = tokens.smallest_text_px(*_text_roles(caption=bool(p.data_label), annotation=labelled))
+    return register(scene, Component(object_id, "function_plot", group, text=None, font_px=font_px, text_like=False))
 
 
 def comparison_plot(
@@ -315,4 +336,5 @@ def comparison_plot(
     if p.data_label:
         group.add(_caption(tokens, p.data_label, panels))
     tokens.place(group, p.anchor)
-    return register(scene, Component(object_id, "comparison_plot", group, text=None, font_px=None, text_like=False))
+    font_px = tokens.smallest_text_px(*_text_roles(caption=bool(p.data_label), annotation=False, body=True))
+    return register(scene, Component(object_id, "comparison_plot", group, text=None, font_px=font_px, text_like=False))

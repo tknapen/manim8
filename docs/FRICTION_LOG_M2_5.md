@@ -96,3 +96,9 @@ label absent at 16 s and present at 21 s together with the highlighted σ; the e
 `x₀` and `σ` typeset; the comparison shows two panels on identical axes without points. The only worker warning
 is the font substitution Helvetica → TeX Gyre Heros, as ADR-015 intends. The integration test
 `test_prf_tuning_renders_timed_reveals_and_relational_placement` reproduces this run in CI.
+
+## Follow-up
+
+After the dry run, the text sizes that the renders exposed as hidden multipliers (tick labels, captions and
+marker labels at 22 px at 1080p) became named roles with a validated minimum, and the despined-axes convention
+became a chart token (ADR-017). The acceptance table above records the run as it happened, before that change.

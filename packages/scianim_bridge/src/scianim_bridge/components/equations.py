@@ -13,9 +13,6 @@ from scianim_core.storyboard import EquationRef
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
 
-DEFINITION_SCALE = 0.8
-LABEL_EQUATION_SCALE = 0.8
-
 
 def _group_symbols(source: str, symbols: list[str]) -> str:
     """Wrap each highlighted symbol in a labelled Typst group: `{{ P : hl_P }}`."""
@@ -93,15 +90,16 @@ def equation_block(
     px = tokens.t.typography.equation.size_px_at_1080p * p.scale
     main = build_equation(tokens, eq, ref.highlight, tokens.color(style_role), tokens.color("emphasis"), px)
     group = VGroup(main)
+    smallest = [px]
     if p.define_symbols and eq.symbols:
-        body = tokens.typeface("body")
-        def_px = body.size_px_at_1080p * DEFINITION_SCALE
+        annotation = tokens.typeface("annotation")
+        smallest.append(annotation.size_px_at_1080p)
         lines = VGroup()
         for name, definition in eq.symbols.items():
             text = f"{pretty_symbol(name)}: {definition.meaning}" + (
                 f" ({definition.units})" if definition.units else ""
             )
-            lines.add(Text(text, **tokens.text_kwargs(body, tokens.color("secondary_text"), def_px)))
+            lines.add(Text(text, **tokens.text_kwargs(annotation, tokens.color("secondary_text"))))
         lines.arrange(DOWN, aligned_edge=LEFT, buff=tokens.baseline * 0.5)
         lines.next_to(main, DOWN, buff=tokens.panel_gap)
         lines.align_to(main, LEFT)
@@ -114,7 +112,7 @@ def equation_block(
             "equation_block",
             group,
             text=eq.source_for(tokens.t.typography.equation.engine),
-            font_px=tokens.output_px(px),
+            font_px=tokens.smallest_text_px(*smallest),
             text_like=True,
         ),
     )
@@ -135,8 +133,10 @@ def equation_label(
     body = tokens.typeface("body")
     label = Text(p.text, **tokens.text_kwargs(body, tokens.color(style_role)))
     group = VGroup(label)
+    smallest = [body.size_px_at_1080p]
     if p.show_equation:
-        px = tokens.t.typography.equation.size_px_at_1080p * LABEL_EQUATION_SCALE
+        px = tokens.t.typography.equation.label_size_px_at_1080p
+        smallest.append(px)
         formula = build_equation(tokens, eq, ref.highlight, tokens.color("foreground"), tokens.color(style_role), px)
         formula.next_to(label, DOWN, buff=tokens.baseline)
         formula.align_to(label, LEFT)
@@ -149,7 +149,7 @@ def equation_label(
             "equation_label",
             group,
             text=p.text,
-            font_px=tokens.output_px(body.size_px_at_1080p),
+            font_px=tokens.smallest_text_px(*smallest),
             text_like=True,
         ),
     )

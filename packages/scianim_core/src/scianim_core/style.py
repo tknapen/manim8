@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, create_model
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, create_model, model_validator
 
 from scianim_core.common import HexColor, SchemaVersion, SemVer, Slug, StrictModel
 
@@ -50,6 +50,9 @@ class Typeface(StrictModel):
 class EquationStyle(StrictModel):
     engine: EquationEngine = "typst"
     size_px_at_1080p: float = Field(gt=0)
+    """Em size of a displayed equation (`equation_block`)."""
+    label_size_px_at_1080p: float = Field(gt=0)
+    """Em size of the compact equation shown under an `equation_label`."""
     math_font: str | None = None
     """OpenType math font for the typst engine (e.g. 'TeX Gyre Pagella Math'); None keeps Typst's default."""
     math_font_fallbacks: list[str] = []
@@ -57,11 +60,44 @@ class EquationStyle(StrictModel):
     """Packages added to the LaTeX preamble for the latex engine (e.g. 'newpxmath' for Palatino math)."""
 
 
+TextRole = Literal["title", "body", "annotation", "axis_label", "tick_label", "caption"]
+"""Every piece of text a component draws is set in one of these named roles; sizes are never derived
+by multiplying another role's size."""
+
+
 class Typography(StrictModel):
     title: Typeface
+    """Scene titles."""
     body: Typeface
+    """Running text: subtitles, panel titles, label text."""
+    annotation: Typeface
+    """Marker labels, legend entries, symbol definitions."""
+    axis_label: Typeface
+    """Axis titles."""
+    tick_label: Typeface
+    """Tick values."""
+    caption: Typeface
+    """Data labels and figure captions."""
     equation: EquationStyle
-    minimum_body_px_at_1080p: float = Field(gt=0)
+    minimum_text_px_at_1080p: float = Field(gt=0)
+    """No role may be smaller than this, and the layout report warns when rendered text falls below it."""
+
+    @model_validator(mode="after")
+    def _roles_meet_the_minimum(self) -> Typography:
+        minimum = self.minimum_text_px_at_1080p
+        sizes = {role: getattr(self, role).size_px_at_1080p for role in TEXT_ROLES}
+        sizes["equation"] = self.equation.size_px_at_1080p
+        sizes["equation.label"] = self.equation.label_size_px_at_1080p
+        small = {role: size for role, size in sizes.items() if size < minimum}
+        if small:
+            raise ValueError(
+                f"text roles below minimum_text_px_at_1080p={minimum:g}: "
+                + ", ".join(f"{role}={size:g}" for role, size in sorted(small.items()))
+            )
+        return self
+
+
+TEXT_ROLES: tuple[str, ...] = ("title", "body", "annotation", "axis_label", "tick_label", "caption")
 
 
 class Layout(StrictModel):
@@ -76,9 +112,19 @@ class Geometry(StrictModel):
     curve_stroke_px_at_1080p: float = Field(gt=0)
     annotation_stroke_px_at_1080p: float = Field(gt=0)
     marker_radius_px_at_1080p: float = Field(default=6.0, gt=0)
+    tick_length_px_at_1080p: float = Field(default=8.0, gt=0)
+    """Length of the outward tick marks on the spines."""
+
+
+Spine = Literal["left", "bottom", "top", "right"]
 
 
 class Charts(StrictModel):
+    spines: list[Spine] = ["left", "bottom"]
+    """Which axis lines are drawn. Every plot kind is despined by default: only the left and bottom
+    spines exist, drawn along the plot box edges and never through the origin."""
+    spine_offset_px_at_1080p: float = Field(default=0.0, ge=0)
+    """How far the left and bottom spines (with their ticks and labels) sit outside the data box."""
     grid_visible: bool = False
     use_shared_scales_for_comparison: bool = True
     legend_position: Literal["upper_right", "upper_left", "lower_right", "lower_left"] = "upper_right"

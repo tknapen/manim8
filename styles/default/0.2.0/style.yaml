@@ -31,15 +31,36 @@ typography:
   body:
     font_family: "Helvetica"
     font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
-    size_px_at_1080p: 32
+    size_px_at_1080p: 34
+    weight: regular
+  annotation:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 30
+    weight: regular
+  axis_label:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 30
+    weight: regular
+  tick_label:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
+    weight: regular
+  caption:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
     weight: regular
   equation:
     engine: typst
     size_px_at_1080p: 46
+    label_size_px_at_1080p: 38
     math_font: "TeX Gyre Pagella Math"
     math_font_fallbacks: ["Asana Math", "New Computer Modern Math"]
     latex_packages: ["newpxmath"]
-  minimum_body_px_at_1080p: 26
+  minimum_text_px_at_1080p: 26
 layout:
   safe_margin_fraction: 0.055
   baseline_grid_px_at_1080p: 16
@@ -50,7 +71,10 @@ geometry:
   curve_stroke_px_at_1080p: 3.2
   annotation_stroke_px_at_1080p: 2.0
   marker_radius_px_at_1080p: 5.0
+  tick_length_px_at_1080p: 8
 charts:
+  spines: [left, bottom]
+  spine_offset_px_at_1080p: 0
   grid_visible: false
   use_shared_scales_for_comparison: true
   legend_position: upper_right

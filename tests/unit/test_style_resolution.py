@@ -5,9 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from scianim.styles.resolve import StyleResolutionError, list_styles, resolve_style
 from scianim_core import GroupManifest, StyleSelection
+from scianim_core.style import StyleTokens
 
 
 def selection(**overrides: object) -> StyleSelection:
@@ -92,7 +94,7 @@ def test_project_override_applies_and_changes_hash(styles_copy: Path) -> None:
 
 def test_project_override_outside_allowlist_rejected(styles_copy: Path) -> None:
     with pytest.raises(StyleResolutionError, match="not allowed"):
-        resolve_style(selection(**{"typography.minimum_body_px_at_1080p": 4}), [styles_copy])
+        resolve_style(selection(**{"typography.minimum_text_px_at_1080p": 4}), [styles_copy])
 
 
 def test_override_of_unknown_path_rejected(styles_copy: Path) -> None:
@@ -137,3 +139,18 @@ def test_unversioned_sheet_gets_a_migration_hint(styles_copy: Path) -> None:
 def test_unknown_theme_fails(styles_copy: Path) -> None:
     with pytest.raises(StyleResolutionError, match="not found"):
         resolve_style(StyleSelection(name="nope", version="0.1.0"), [styles_copy])
+
+
+def test_every_text_role_is_a_token_at_or_above_the_minimum(styles_copy: Path) -> None:
+    style = resolve_style(selection(), [styles_copy])
+    typography = style.tokens.typography
+    minimum = typography.minimum_text_px_at_1080p
+    for role in ("title", "body", "annotation", "axis_label", "tick_label", "caption"):
+        assert getattr(typography, role).size_px_at_1080p >= minimum, role
+    assert typography.equation.label_size_px_at_1080p >= minimum
+    assert style.tokens.charts.spines == ["left", "bottom"]  # despined by default
+
+    too_small = style.tokens.model_dump()
+    too_small["typography"]["tick_label"]["size_px_at_1080p"] = minimum - 1
+    with pytest.raises(ValidationError, match="below minimum_text_px_at_1080p"):
+        StyleTokens.model_validate(too_small)

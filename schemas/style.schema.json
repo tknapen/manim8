@@ -88,6 +88,39 @@
           "default": null,
           "title": "Show Units When Provided"
         },
+        "spine_offset_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spine Offset Px At 1080P"
+        },
+        "spines": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "left",
+                  "bottom",
+                  "top",
+                  "right"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spines"
+        },
         "use_shared_scales_for_comparison": {
           "anyOf": [
             {
@@ -122,6 +155,18 @@
           ],
           "default": null,
           "title": "Engine"
+        },
+        "label_size_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label Size Px At 1080P"
         },
         "latex_packages": {
           "anyOf": [
@@ -231,6 +276,18 @@
           ],
           "default": null,
           "title": "Marker Radius Px At 1080P"
+        },
+        "tick_length_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Length Px At 1080P"
         }
       },
       "title": "PartialGeometry",
@@ -437,7 +494,40 @@
     "PartialTypography": {
       "additionalProperties": false,
       "properties": {
+        "annotation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axis_label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "body": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caption": {
           "anyOf": [
             {
               "$ref": "#/$defs/PartialTypeface"
@@ -459,7 +549,7 @@
           ],
           "default": null
         },
-        "minimum_body_px_at_1080p": {
+        "minimum_text_px_at_1080p": {
           "anyOf": [
             {
               "type": "number"
@@ -469,7 +559,18 @@
             }
           ],
           "default": null,
-          "title": "Minimum Body Px At 1080P"
+          "title": "Minimum Text Px At 1080P"
+        },
+        "tick_label": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "title": {
           "anyOf": [

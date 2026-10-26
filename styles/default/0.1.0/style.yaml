@@ -25,10 +25,31 @@ typography:
     font_fallbacks: ["Liberation Sans", "sans-serif"]
     size_px_at_1080p: 32
     weight: regular
+  annotation:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 28
+    weight: regular
+  axis_label:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 28
+    weight: regular
+  tick_label:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
+    weight: regular
+  caption:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
+    weight: regular
   equation:
     engine: typst
     size_px_at_1080p: 46
-  minimum_body_px_at_1080p: 26
+    label_size_px_at_1080p: 38
+  minimum_text_px_at_1080p: 26
 layout:
   safe_margin_fraction: 0.05
   baseline_grid_px_at_1080p: 16
