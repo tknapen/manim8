@@ -610,6 +610,7 @@ Checkpoints are **named markers reached by the real animation flow**, not states
 # Illustrative; the committed API lives in scianim_bridge.
 from scianim_bridge import SnapshotScene, checkpoint
 
+
 class DivisiveNormalizationIntro(SnapshotScene):
     def construct(self):
         self.next_section("excitation")
