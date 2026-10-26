@@ -304,6 +304,7 @@
           "enum": [
             "text_caption",
             "scientific_plot",
+            "function_plot",
             "equation_block",
             "equation_label",
             "comparison_plot",
@@ -317,6 +318,19 @@
           "default": {},
           "title": "Params",
           "type": "object"
+        },
+        "reveal_at_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reveal At Seconds"
         },
         "style_role": {
           "anyOf": [

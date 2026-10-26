@@ -1,0 +1,101 @@
+schema_version: "1.0"
+project_id: prf_tuning
+based_on_animation_revision: "draft"
+scenes:
+  - id: introduction
+    start_seconds: 0
+    end_seconds: 12
+    purpose: "A recording site weights visual input by position."
+    narration:
+      text: >-
+        A population receptive field describes how strongly a recording site responds to
+        a stimulus at each position in the visual field. It is a weight over position.
+    objects:
+      - id: title
+        kind: text_caption
+        style_role: foreground
+        params: {text: "Population receptive field", role: title}
+      - id: subtitle
+        kind: text_caption
+        style_role: secondary_text
+        params: {text: "a weight over visual field position", role: body, below: title}
+        reveal_at_seconds: 3
+    snapshots:
+      - id: intro_visible
+        at_seconds: 6
+        description: "Title with the subtitle beneath it, nothing else."
+  - id: gaussian
+    start_seconds: 12
+    end_seconds: 24
+    purpose: "The Gaussian model: a centre and a size."
+    narration:
+      text: >-
+        The simplest model is a Gaussian. Its centre is the preferred position, and its
+        width, sigma, is the size of the receptive field.
+    objects:
+      - id: profile_plot
+        kind: function_plot
+        style_role: primary_signal
+        params:
+          x_label: "visual field position x (deg)"
+          y_label: "pRF weight g(x)"
+          x_range: [-10, 10]
+          series:
+            - {label: "sigma = 1.5 deg", expression: "exp(-((x - 2)^2) / (2 * 1.5^2))"}
+          markers:
+            - {x: 2, label: "x₀", style_role: secondary_text}
+            - {x: 3.5, label: "x₀ + σ", style_role: emphasis}
+          data_label: "analytic curve from the equation, centre 2 deg"
+      - id: size_label
+        kind: equation_label
+        style_role: emphasis
+        equation: {id: gaussian_prf, highlight: [sigma]}
+        params: {text: "size sigma", anchor: top_right}
+        reveal_at_seconds: 18
+    snapshots:
+      - id: gaussian_visible
+        at_seconds: 16
+        description: "One Gaussian profile with labelled axes and the centre and size markers; no label yet."
+      - id: size_labelled
+        at_seconds: 21
+        description: "The same profile with the size label and highlighted sigma in the equation."
+  - id: equation
+    start_seconds: 24
+    end_seconds: 34
+    purpose: "The equation and its terms."
+    narration:
+      text: "The weight falls off with the squared distance from the centre, scaled by two sigma squared."
+    objects:
+      - id: prf_equation
+        kind: equation_block
+        style_role: foreground
+        equation: {id: gaussian_prf}
+        params: {define_symbols: true}
+    snapshots:
+      - id: equation_complete
+        at_seconds: 30
+        description: "The complete equation with all four symbols defined."
+  - id: comparison
+    start_seconds: 34
+    end_seconds: 45
+    purpose: "Small versus large pRF on identical axes."
+    narration:
+      text: "A small receptive field is selective for position; a large one pools over a wide region."
+    objects:
+      - id: size_comparison
+        kind: comparison_plot
+        style_role: comparison
+        data:
+          source: profiles
+          encoding: {x: position_deg, y: weight, group: prf_size}
+        params:
+          condition_roles: {small: primary_signal, large: comparison}
+          shared_axes: true
+          show_points: false
+          x_label: "visual field position x (deg)"
+          y_label: "pRF weight g(x)"
+          data_label: "synthetic profiles, centre 2 deg"
+    snapshots:
+      - id: comparison_complete
+        at_seconds: 42
+        description: "Two panels, small and large pRF, identical axes."

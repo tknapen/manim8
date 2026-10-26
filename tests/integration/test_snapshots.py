@@ -85,3 +85,44 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
     assert not (project / ".scianim" / "media").exists()
     assert len(manifests(project, "working")) == 1
     assert len(manifests(project, "rev_0001")) == 1
+
+
+def test_prf_tuning_renders_timed_reveals_and_relational_placement(workspace: Path, scianim) -> None:
+    """The Milestone 2.5 dry-run storyboard: function_plot with markers, `below` placement, `reveal_at_seconds`."""
+    project = workspace / "families" / "computational_neuroscience" / "prf_tuning"
+    assert scianim("validate", str(project)).returncode == 0
+    assert scianim("codegen", str(project)).returncode == 0
+    generated = (project / "code" / "scene_prf_tuning.py").read_text()
+    assert (
+        generated.index("self.reveal(title)")
+        < generated.index("self.wait_until(3)")
+        < generated.index("self.reveal(subtitle)")
+    )
+    run = scianim("snapshot", str(project), "--all", "--no-cache")
+    assert run.returncode == 0, run.stdout + run.stderr
+    manifest = manifests(project, "working")[-1]
+    assert manifest.result.status == "succeeded"
+    records = {c.snapshot_id: c for c in manifest.result.checkpoints}
+    assert list(records) == [
+        "intro_visible",
+        "gaussian_visible",
+        "size_labelled",
+        "equation_complete",
+        "comparison_complete",
+    ]
+    for record in records.values():
+        assert record.fidelity == "exact"
+        assert record.warnings == [], (record.snapshot_id, record.warnings)
+        assert (project / record.png).stat().st_size > 1000
+
+    # `below: title` puts the subtitle under the title with the left edges aligned, and nothing overlaps.
+    intro = {item.object_id: item for item in records["intro_visible"].layout}
+    assert set(intro) == {"title", "subtitle"}
+    title, subtitle = intro["title"].bbox, intro["subtitle"].bbox
+    assert subtitle.y >= title.y + title.height
+    assert abs(subtitle.x - title.x) < 1e-6
+
+    # The size label is revealed at 18 s: absent at 16 s, present at 21 s.
+    assert {item.object_id for item in records["gaussian_visible"].layout} == {"profile_plot"}
+    assert {item.object_id for item in records["size_labelled"].layout} == {"profile_plot", "size_label"}
+    assert records["gaussian_visible"].sha256 != records["size_labelled"].sha256

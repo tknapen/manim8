@@ -21,6 +21,7 @@ shared_assets: []
 components:
   - text_caption
   - scientific_plot
+  - function_plot
   - equation_label
   - equation_block
   - comparison_plot

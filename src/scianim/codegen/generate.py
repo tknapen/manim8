@@ -60,15 +60,27 @@ def scene_block(scene: Scene, transition_seconds: float, is_last: bool) -> list[
     ]
     if scene.narration is not None:
         lines.append(f"{ind}self.narrate({scene.narration.text!r})")
-    # Reveal objects in storyboard order, then reach each snapshot at its requested time.
-    events: list[tuple[float, str, object]] = [(snap.at_seconds, "snapshot", snap) for snap in scene.snapshots]
-    events.sort(key=lambda e: e[0])
+    # Build every object first (placement may refer to earlier objects), then reveal objects and
+    # reach checkpoints in time order. Objects without reveal_at_seconds appear at the scene start.
     for obj in scene.objects:
         lines.append(object_call(obj, 8))
-        lines.append(f"{ind}self.reveal({obj.id})")
-    for at, _, snap in events:
-        lines.append(f"{ind}self.wait_until({at:g})")
-        lines.append(f'{ind}checkpoint(self, "{snap.id}", expected_time={at:g})')
+    events: list[tuple[float, int, str, object]] = []
+    for index, obj in enumerate(scene.objects):
+        at = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+        events.append((at, 0, "reveal", obj))
+        del index
+    for snap in scene.snapshots:
+        events.append((snap.at_seconds, 1, "snapshot", snap))
+    events.sort(key=lambda e: (e[0], e[1]))
+    for at, _, kind, item in events:
+        if kind == "reveal":
+            obj = item  # type: SceneObject
+            if at > scene.start_seconds:
+                lines.append(f"{ind}self.wait_until({at:g})")
+            lines.append(f"{ind}self.reveal({obj.id})")  # type: ignore[attr-defined]
+        else:
+            lines.append(f"{ind}self.wait_until({at:g})")
+            lines.append(f'{ind}checkpoint(self, "{item.id}", expected_time={at:g})')  # type: ignore[attr-defined]
     fade_start = max(scene.end_seconds - transition_seconds, scene.start_seconds)
     lines.append(f"{ind}self.wait_until({fade_start:g})")
     lines.append(f"{ind}self.end_scene(end_seconds={scene.end_seconds:g}, keep={is_last})")

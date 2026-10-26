@@ -139,9 +139,16 @@ def init_workspace(
         report.created.extend(copied)
     if with_example:
         family_dir = init_family(target, EXAMPLE_FAMILY, from_example=EXAMPLE_FAMILY, report=report)
-        init_project(target, EXAMPLE_FAMILY, EXAMPLE_PROJECT, from_example=EXAMPLE_PROJECT, report=report)
+        for name in example_projects(EXAMPLE_FAMILY):
+            init_project(target, EXAMPLE_FAMILY, name, from_example=name, report=report)
         report.notes.append(f"run `scianim family env sync {family_dir}` before rendering")
     return report
+
+
+def example_projects(family: str) -> list[str]:
+    """Names of the project templates nested under an example family, in sorted order."""
+    family_dir = examples_root() / "families" / family
+    return sorted(p.name for p in family_dir.iterdir() if p.is_dir() and (p / ANIMATION_FILE).exists())
 
 
 def copy_styles(source: Path, destination: Path) -> list[Path]:
@@ -437,6 +444,7 @@ __all__ = [
     "InitReport",
     "ProjectNode",
     "WorkspaceScan",
+    "example_projects",
     "examples_root",
     "find_workspace",
     "init_family",

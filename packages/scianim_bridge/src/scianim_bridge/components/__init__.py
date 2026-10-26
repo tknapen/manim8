@@ -3,7 +3,7 @@
 from scianim_bridge.components.base import Component
 from scianim_bridge.components.custom import custom
 from scianim_bridge.components.equations import equation_block, equation_label
-from scianim_bridge.components.plots import comparison_plot, scientific_plot
+from scianim_bridge.components.plots import comparison_plot, function_plot, scientific_plot
 from scianim_bridge.components.text import text_caption
 
 __all__ = [
@@ -12,6 +12,7 @@ __all__ = [
     "custom",
     "equation_block",
     "equation_label",
+    "function_plot",
     "scientific_plot",
     "text_caption",
 ]

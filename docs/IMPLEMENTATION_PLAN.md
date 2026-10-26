@@ -19,6 +19,7 @@ versioned styles, the nearest-family rule with groups, workspaces with read-only
 `asset://` sources and family components. Known gaps: `environment.manager` values other than `uv` are rejected
 rather than implemented; the `custom` kind is validated but has no rendered example; the job log is per job
 rather than append-only across jobs; approvals, feedback files and the SQLite index are Milestone 3. Milestone 2.5
+(the agent dry run) is complete and documented in [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md); Milestone 3
 onward has not started.
 
 ## Milestone 0 — repository and contracts
@@ -86,10 +87,16 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 
 ## Milestone 2.5 — agent dry run
 
-- [ ] A coding agent takes the example from brief to storyboard to rendered checkpoints through the CLI alone, without schema changes during the run.
-- [ ] Record every point where the YAML vocabulary, registry or CLI was awkward; adjust schemas and registry before Milestone 3.
+- [x] A coding agent takes the example from brief to storyboard to rendered checkpoints through the CLI alone, without schema changes during the run.
+- [x] Record every point where the YAML vocabulary, registry or CLI was awkward; adjust schemas and registry before Milestone 3.
 
 **Acceptance:** A storyboard written by the agent validates and renders; the friction log is in `docs/`.
+
+**Result:** the dry run produced a second example, `examples/families/computational_neuroscience/prf_tuning`,
+and [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md). The first pass rendered with the Milestone 2 registry but
+exposed eight friction points; the registry gained `function_plot`, relational placement, timed reveals and
+`scianim registry` (ADR-016), after which the storyboard rendered without layout warnings. Two items are
+deferred (see the log).
 
 ## Milestone 3 — local review UI
 

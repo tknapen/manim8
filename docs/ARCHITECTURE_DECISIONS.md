@@ -157,3 +157,23 @@ copied into the project's `.scianim/assets/` and the job references that project
 
 **Why.** Job payloads and manifests must stay free of machine-specific absolute paths; the copy is cheap and
 hashed.
+
+## ADR-016: Analytic curves, relational placement and timed reveals are storyboard vocabulary
+
+**Status:** accepted, 26 October 2026 (Milestone 2.5 dry run)
+
+**Decision.** The registry gains `function_plot`: curves sampled from arithmetic expressions in `x` that
+`scianim_core.expressions` validates against a whitelist (the binary operators `+ - * / ** %` with `^` accepted
+for power, unary sign, numeric literals, the constants `pi`, `e`, `tau`, and the elementary functions `exp`,
+`log`, `log10`, `sqrt`, `sin`, `cos`, `tan`, `tanh`, `abs`, `min`, `max`, `pow`, `floor`, `ceil`). Names,
+attributes, subscripts, comprehensions and any other call are rejected at validation, and the renderer evaluates
+the compiled expression with an empty builtins namespace. Every text-like object accepts `below` or `right_of`
+naming an earlier object of the same scene, with `gap_px_at_1080p` defaulting to the style's baseline grid, and
+every storyboard object accepts `reveal_at_seconds`. `scianim registry [kind]` prints the kinds and parameter
+models. The registry version is `0.2.0`, so earlier cache keys are invalidated.
+
+**Why.** The dry run showed that a Gaussian receptive-field profile should not need a CSV, that two captions
+anchored `top_left` overlap, and that a storyboard with no per-object timing cannot stage a reveal inside a
+scene. An expression whitelist keeps the `YAML never contains executable code` boundary: the expression grammar
+is closed, has no side effects and cannot reach Python objects. Relational placement and reveal times are the
+smallest additions that let an agent compose a scene from the registry alone.

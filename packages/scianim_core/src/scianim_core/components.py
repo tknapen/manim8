@@ -11,16 +11,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from scianim_core.common import Slug, StrictModel
+from scianim_core.expressions import validate_expression
 from scianim_core.style import Anchor
 
-REGISTRY_VERSION = "0.1.0"
+REGISTRY_VERSION = "0.2.0"
 
 ComponentKind = Literal[
     "text_caption",
     "scientific_plot",
+    "function_plot",
     "equation_block",
     "equation_label",
     "comparison_plot",
@@ -29,10 +31,26 @@ ComponentKind = Literal[
 TextRole = Literal["title", "body", "caption"]
 
 
-class TextCaptionParams(StrictModel):
+class Placement(StrictModel):
+    """Where a text-like object goes: an anchor, or relative to an earlier object in the scene."""
+
+    anchor: Anchor = "top_left"
+    below: Slug | None = None
+    """Place under this object (same scene, declared earlier), left edges aligned."""
+    right_of: Slug | None = None
+    gap_px_at_1080p: float | None = Field(default=None, gt=0)
+    """Gap for `below` and `right_of`; defaults to the style's baseline grid."""
+
+    @model_validator(mode="after")
+    def _one_reference(self) -> Placement:
+        if self.below and self.right_of:
+            raise ValueError("use either 'below' or 'right_of', not both")
+        return self
+
+
+class TextCaptionParams(Placement):
     text: str = Field(min_length=1)
     role: TextRole = "body"
-    anchor: Anchor = "top_left"
 
 
 class ScientificPlotParams(StrictModel):
@@ -56,7 +74,7 @@ class EquationBlockParams(StrictModel):
     scale: float = Field(default=1.0, gt=0)
 
 
-class EquationLabelParams(StrictModel):
+class EquationLabelParams(Placement):
     text: str = Field(min_length=1)
     anchor: Anchor = "top_right"
     show_equation: bool = True
@@ -67,6 +85,7 @@ class ComparisonPlotParams(StrictModel):
     condition_roles: dict[str, Slug] = Field(min_length=2)
     """Group value (from `data.encoding.group`) to palette role."""
     shared_axes: bool = True
+    show_points: bool = True
     x_label: str = Field(min_length=1)
     y_label: str = Field(min_length=1)
     x_range: tuple[float, float] | None = None
@@ -75,6 +94,54 @@ class ComparisonPlotParams(StrictModel):
     anchor: Anchor = "center"
     width_fraction: float = Field(default=0.86, gt=0, le=1)
     height_fraction: float = Field(default=0.6, gt=0, le=1)
+
+
+class FunctionSeries(StrictModel):
+    label: str = Field(min_length=1)
+    expression: str = Field(min_length=1)
+    """Arithmetic in x: operators + - * / ^ %, functions exp log log10 sqrt sin cos tan tanh abs min max pow, constants pi e tau."""
+    style_role: Slug | None = None
+
+    @field_validator("expression")
+    @classmethod
+    def _safe(cls, value: str) -> str:
+        validate_expression(value, ("x",))
+        return value
+
+
+class Marker(StrictModel):
+    """A labelled vertical reference line at x."""
+
+    x: float
+    label: str | None = None
+    style_role: Slug | None = None
+
+
+class FunctionPlotParams(StrictModel):
+    x_label: str = Field(min_length=1)
+    y_label: str = Field(min_length=1)
+    x_range: tuple[float, float]
+    y_range: tuple[float, float] | None = None
+    samples: int = Field(default=200, ge=2, le=5000)
+    series: list[FunctionSeries] = Field(min_length=1)
+    markers: list[Marker] = []
+    show_legend: bool = True
+    data_label: str | None = None
+    """Caption such as 'analytic curve, not measurements'."""
+    anchor: Anchor = "center"
+    width_fraction: float = Field(default=0.62, gt=0, le=1)
+    height_fraction: float = Field(default=0.62, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def _ranges(self) -> FunctionPlotParams:
+        if self.x_range[0] >= self.x_range[1]:
+            raise ValueError("x_range must be [low, high] with low < high")
+        if self.y_range is not None and self.y_range[0] >= self.y_range[1]:
+            raise ValueError("y_range must be [low, high] with low < high")
+        for marker in self.markers:
+            if not (self.x_range[0] <= marker.x <= self.x_range[1]):
+                raise ValueError(f"marker at x={marker.x} lies outside x_range {list(self.x_range)}")
+        return self
 
 
 class CustomParams(StrictModel):
@@ -120,6 +187,14 @@ REGISTRY: dict[str, ComponentDefinition] = {
             "charts",
             "layout",
         ),
+    ),
+    "function_plot": ComponentDefinition(
+        kind="function_plot",
+        params_model=FunctionPlotParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=("palette.<style_role>", "palette.*", "typography.body", "geometry", "charts", "layout"),
     ),
     "equation_block": ComponentDefinition(
         kind="equation_block",

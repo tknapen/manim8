@@ -49,8 +49,17 @@ GREEK = {
 }
 
 
+SUBSCRIPT_DIGITS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+
 def pretty_symbol(name: str) -> str:
-    return GREEK.get(name, name)
+    """Map a symbol name to display form: a Greek name becomes the Greek letter and a trailing
+    ``_<digits>`` suffix becomes Unicode subscript digits ('sigma', 'x_0', 'tau_1'); anything else is unchanged."""
+    base, _, suffix = name.partition("_")
+    base = GREEK.get(base, base)
+    if suffix and suffix.isdigit():
+        return base + suffix.translate(SUBSCRIPT_DIGITS)
+    return base + ("_" + suffix if suffix else "")
 
 
 def pretty_condition(value: str) -> str:
@@ -79,3 +88,23 @@ def params_for(kind: str, params: dict[str, Any] | None) -> Any:
 def register(scene: SnapshotScene, component: Component) -> Component:
     scene.register(component)
     return component
+
+
+def place(scene: SnapshotScene, group: VGroup, params: Any) -> None:
+    """Anchor placement, or `below` / `right_of` an earlier object with the style's baseline gap."""
+    from manim import DOWN, LEFT, RIGHT
+
+    tokens = scene.tokens
+    gap = tokens.units(params.gap_px_at_1080p or tokens.t.layout.baseline_grid_px_at_1080p)
+    reference = params.below or params.right_of
+    if reference is None:
+        tokens.place(group, params.anchor)
+        return
+    try:
+        target = scene.objects[reference].group
+    except KeyError:
+        raise ValueError(f"placement refers to unknown object '{reference}'") from None
+    if params.below:
+        group.next_to(target, DOWN, buff=gap, aligned_edge=LEFT)
+    else:
+        group.next_to(target, RIGHT, buff=gap, aligned_edge=DOWN)

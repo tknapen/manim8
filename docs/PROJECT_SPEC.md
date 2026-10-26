@@ -330,7 +330,7 @@ Storyboard revisions are distinct from intent revisions. The storyboard adds imp
 
 - Ordered `scenes` with stable IDs, start/end times, titles, pedagogical purposes. Each scene becomes one Manim section.
 - `narration` per scene: the script, optionally with named marks (`<mark name="pool"/>`). It anchors pacing, produces subtitles, and later aligns voiceover.
-- `objects`: instances of registered component kinds (section 10.4) with typed `params`. Data-driven objects carry an explicit `data` binding (`source`, `encoding`, `transforms`); equation objects reference `equations[].id` from the animation spec and may name terms to `highlight`. Every object is bound to style roles, never to literal colors.
+- `objects`: instances of registered component kinds (section 10.4) with typed `params`. Data-driven objects carry an explicit `data` binding (`source`, `encoding`, `transforms`); equation objects reference `equations[].id` from the animation spec and may name terms to `highlight`. Every object is bound to style roles, never to literal colors. An object may carry `reveal_at_seconds`, an absolute time inside its scene at which it appears; objects without it appear at the scene start in declaration order. Text-like objects are placed by `anchor`, or relative to an earlier object of the same scene with `below` or `right_of` and an optional `gap_px_at_1080p` (the style's baseline grid by default).
 - Layout constraints such as anchors, grids, safe zones, target positions.
 - Transitions, camera movements, emphasis actions, animation timing.
 - **Snapshot checkpoints** at explicit moments, naming expected visual states. Each becomes a `checkpoint()` marker in the generated code.
@@ -778,9 +778,9 @@ The registry is the contract shared by the storyboard author (human or agent), t
 - an implementation in `scianim-bridge` that builds Manim mobjects from the resolved style, the bound data and the parameters, registers them under the object ID for the layout report, and exposes deterministic reveal animations;
 - a version, included in cache keys.
 
-Initial kinds (V1): `scientific_plot` (axes, curves, optional bands and legend), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
+Initial kinds (V1): `scientific_plot` (axes, curves, optional bands and legend), `function_plot` (analytic curves from arithmetic expressions in `x`, with labelled vertical markers; no data file), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
 
-`scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code.
+`scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code. The only computed values a storyboard may carry are the `function_plot` expressions, which `scianim_core.expressions` parses and checks against a whitelist of arithmetic operators, named constants and elementary functions before the renderer compiles them; anything else (names, attributes, calls outside the whitelist) is rejected at validation. `scianim registry [kind]` prints the registered kinds and, for one kind, its parameter model, so an author or agent never has to read the Python models.
 
 ---
 
@@ -892,6 +892,7 @@ scianim family init computational_neuroscience --style tomas_scientific@0.1.0 [-
 scianim family env sync computational_neuroscience
 scianim project init divisive_normalization --family computational_neuroscience [--from-example ...]
 scianim style list path/to/project           # Visible themes by name and version
+scianim registry [kind]                   # Registered component kinds and their parameter models
 scianim validate path/to/animation.yaml
 scianim validate path/to/project          # Cross-file checks: storyboard, style roles, markers
 scianim style resolve path/to/project     # Resolved tokens with provenance and hash

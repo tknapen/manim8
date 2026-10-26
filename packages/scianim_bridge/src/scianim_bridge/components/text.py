@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from manim import Text, VGroup
 
-from scianim_bridge.components.base import Component, params_for, register
+from scianim_bridge.components.base import Component, params_for, place, register
 
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
@@ -28,7 +28,7 @@ def text_caption(
     color = tokens.color(style_role)
     mobject = Text(p.text, **tokens.text_kwargs(typeface, color, px))
     group = VGroup(mobject)
-    tokens.place(group, p.anchor)
+    place(scene, group, p)
     return register(
         scene,
         Component(

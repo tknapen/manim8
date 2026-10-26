@@ -13,7 +13,7 @@ from scianim.project import Project, scene_class_name
 from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
 from scianim_core.common import is_asset_uri
-from scianim_core.components import ComparisonPlotParams
+from scianim_core.components import ComparisonPlotParams, FunctionPlotParams
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -172,6 +172,12 @@ def check_storyboard(
                         report.error(
                             f"object '{obj.id}': condition_roles['{condition}'] = '{role}' is not a palette role"
                         )
+            if obj.kind == "function_plot" and palette is not None:
+                params = obj.typed_params()
+                assert isinstance(params, FunctionPlotParams)
+                for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
+                    if role is not None and role not in palette:
+                        report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
             if obj.kind == "custom":
                 module_name = obj.params["builder"].split(":")[0]
                 if not builder_module_exists(module_name, project, report.family):
@@ -199,7 +205,10 @@ def check_markers(storyboard: Storyboard, scene_module: Path, report: Report) ->
     missing = sorted(set(wanted) - set(markers))
     extra = sorted(set(markers) - set(wanted))
     if missing:
-        report.error(f"{scene_module.name}: storyboard snapshots without a checkpoint() marker: {missing}")
+        report.error(
+            f"{scene_module.name}: storyboard snapshots without a checkpoint() marker: {missing}; "
+            "run `scianim codegen` to regenerate the scene module"
+        )
     if extra:
         report.error(f"{scene_module.name}: checkpoint() markers not in the storyboard: {extra}")
     duplicates = sorted({m for m in markers if markers.count(m) > 1})

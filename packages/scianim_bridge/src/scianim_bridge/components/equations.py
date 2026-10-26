@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from manim import DOWN, LEFT, ManimColor, Mobject, Text, VGroup
 
-from scianim_bridge.components.base import Component, params_for, pretty_symbol, register
+from scianim_bridge.components.base import Component, params_for, place, pretty_symbol, register
 from scianim_bridge.tokens import Tokens
 from scianim_core.animation import Equation
 from scianim_core.storyboard import EquationRef
@@ -141,7 +141,7 @@ def equation_label(
         formula.next_to(label, DOWN, buff=tokens.baseline)
         formula.align_to(label, LEFT)
         group.add(formula)
-    tokens.place(group, p.anchor)
+    place(scene, group, p)
     return register(
         scene,
         Component(

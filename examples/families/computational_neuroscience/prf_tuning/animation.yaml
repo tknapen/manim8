@@ -1,0 +1,74 @@
+schema_version: "1.0"
+id: prf_tuning
+title: "The Gaussian population receptive field"
+sources:
+  - id: profiles
+    type: csv
+    path: data/prf_profiles.csv
+    role: illustrative_data
+    citation: "Synthetic Gaussian profiles computed for this example; not measurements"
+output:
+  duration_seconds: 45
+  width_px: 1920
+  height_px: 1080
+  aspect_ratio: "16:9"
+  fps: 30
+  container: mp4
+  video_codec: h264
+  audio: none
+style:
+  name: tomas_scientific
+  version: "0.2.0"
+  overrides: {}
+equations:
+  - id: gaussian_prf
+    typst: "g(x) = exp(-(x - x_0)^2 / (2 sigma^2))"
+    latex: "g(x) = \\exp\\left(-\\frac{(x - x_0)^2}{2\\sigma^2}\\right)"
+    symbols:
+      g: {meaning: "pRF weight at visual field position x"}
+      x: {meaning: "visual field position", units: "deg"}
+      x_0: {meaning: "pRF centre (preferred position)", units: "deg"}
+      sigma: {meaning: "pRF size (standard deviation)", units: "deg"}
+audience: graduate_neuroscience
+objective: >-
+  Explain that a population receptive field summarizes how strongly a recording site
+  responds to each visual field position, show the one-dimensional Gaussian model with
+  its centre and size, and compare a small and a large pRF on identical axes.
+scientific_constraints:
+  - id: equation_exact
+    kind: hard
+    equation: gaussian_prf
+    text: "Show the Gaussian pRF equation exactly as stored and define x, x_0 and sigma."
+  - id: synthetic_label
+    kind: hard
+    text: "Label the plotted profiles as synthetic, computed from the equation, not as measurements."
+  - id: shared_axes
+    kind: hard
+    text: "When comparing pRF sizes, keep the centre, the position axis and the weight axis identical."
+timeline:
+  - id: introduction
+    at_seconds: 0
+    tolerance_seconds: 0
+    kind: hard
+    instruction: "State what a pRF is: a weight over visual field position."
+  - id: gaussian
+    at_seconds: 12
+    tolerance_seconds: 2
+    kind: preferred
+    instruction: "Show one Gaussian profile with its centre and size."
+  - id: equation
+    at_seconds: 24
+    tolerance_seconds: 1
+    kind: hard
+    instruction: "Show the equation and define its terms."
+  - id: comparison
+    at_seconds: 34
+    tolerance_seconds: 2
+    kind: preferred
+    instruction: "Compare a small and a large pRF."
+direction:
+  tone: "Plain, precise, unhurried"
+  avoid:
+    - "Decorative motion"
+    - "Unlabelled axes"
+extensions: {}

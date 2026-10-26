@@ -38,7 +38,7 @@ from scianim.workspace import (
     init_workspace,
     scan_workspace,
 )
-from scianim_core import ArtifactManifest
+from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest
 from scianim_core.schemas import export_schemas
 
 QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
@@ -229,6 +229,70 @@ def style_list(
         for version, sheet in sorted(versions.items()):
             table.add_row(name, version, str(sheet))
     out.print(table)
+
+
+@app.command()
+def registry(
+    kind: Annotated[str | None, typer.Argument(help="A component kind to describe; omit to list all kinds.")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the parameter JSON Schema.")] = False,
+) -> None:
+    """Describe the component registry: kinds, requirements and parameters."""
+    if kind is None:
+        table = Table(show_header=True, header_style="bold", title=f"component registry {REGISTRY_VERSION}")
+        for column in ("kind", "needs data", "needs equation", "text-like", "params"):
+            table.add_column(column)
+        for name, definition in REGISTRY.items():
+            fields = ", ".join(definition.params_model.model_fields)
+            table.add_row(
+                name,
+                "yes" if definition.requires_data else "-",
+                "yes" if definition.requires_equation else "-",
+                "yes" if definition.text_like else "-",
+                fields,
+            )
+        out.print(table)
+        return
+    definition = REGISTRY.get(kind)
+    if definition is None:
+        fail(f"unknown kind '{kind}'; known: {sorted(REGISTRY)}")
+    schema = definition.params_model.model_json_schema()
+    if as_json:
+        out.print_json(json.dumps(schema))
+        return
+    out.print(
+        f"[bold]{kind}[/bold]  needs data: {definition.requires_data}  needs equation: {definition.requires_equation}  consumes: {', '.join(definition.consumes)}"
+    )
+    table = Table(show_header=True, header_style="bold")
+    for column in ("parameter", "type", "default", "description"):
+        table.add_column(column, overflow="fold")
+    defs = schema.get("$defs", {})
+
+    def describe(prop: dict) -> str:
+        if "$ref" in prop:
+            return prop["$ref"].split("/")[-1]
+        if "anyOf" in prop:
+            return " | ".join(describe(p) for p in prop["anyOf"])
+        if prop.get("type") == "array":
+            return (
+                f"list[{describe(prop.get('items', {})) or 'any'}]"
+                if "prefixItems" not in prop
+                else "tuple[" + ", ".join(describe(p) for p in prop["prefixItems"]) + "]"
+            )
+        if "enum" in prop:
+            return " | ".join(repr(v) for v in prop["enum"])
+        if "const" in prop:
+            return repr(prop["const"])
+        return str(prop.get("type", "any"))
+
+    required = set(schema.get("required", []))
+    for name, prop in schema.get("properties", {}).items():
+        default = "required" if name in required else json.dumps(prop.get("default"))
+        table.add_row(name, describe(prop), default, prop.get("description", ""))
+    out.print(table)
+    for name, sub in defs.items():
+        out.print(
+            f"[bold]{name}[/bold]: " + ", ".join(f"{k} ({describe(v)})" for k, v in sub.get("properties", {}).items())
+        )
 
 
 @schemas_app.command("export")

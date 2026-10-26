@@ -61,6 +61,8 @@ class SceneObject(StrictModel):
     data: DataBinding | None = None
     equation: EquationRef | None = None
     params: dict[str, Any] = {}
+    reveal_at_seconds: float | None = Field(default=None, ge=0)
+    """When the object appears; omitted means at the scene start, in declaration order."""
 
     @model_validator(mode="after")
     def _registry_checks(self) -> SceneObject:
@@ -128,6 +130,22 @@ class Scene(StrictModel):
             )
         ensure_unique((o.id for o in self.objects), f"object (scene '{self.id}')")
         ensure_unique((s.id for s in self.snapshots), f"snapshot (scene '{self.id}')")
+        seen: list[str] = []
+        for obj in self.objects:
+            if obj.reveal_at_seconds is not None and not (
+                self.start_seconds <= obj.reveal_at_seconds <= self.end_seconds
+            ):
+                raise ValueError(
+                    f"object '{obj.id}' reveal_at_seconds={obj.reveal_at_seconds} lies outside scene "
+                    f"'{self.id}' [{self.start_seconds}, {self.end_seconds}]"
+                )
+            for key in ("below", "right_of"):
+                ref = obj.params.get(key)
+                if ref is not None and ref not in seen:
+                    raise ValueError(
+                        f"object '{obj.id}': {key}='{ref}' must name an object declared earlier in scene '{self.id}'"
+                    )
+            seen.append(obj.id)
         for snapshot in self.snapshots:
             if not (self.start_seconds <= snapshot.at_seconds <= self.end_seconds):
                 raise ValueError(
