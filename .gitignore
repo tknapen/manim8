@@ -234,3 +234,6 @@ examples/**/renders/
 
 # User workspaces (created by `scianim workspace init`); remove this line to version your own
 workspace/
+
+# Manim text/tex cache written when bridge tests run from the repository root
+media/
