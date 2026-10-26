@@ -8,6 +8,7 @@ This directory is a **documentation-first project handoff** for building a perso
 2. **[`AGENTS.md`](AGENTS.md)** — explicit instructions and guardrails for a coding agent working in this repository.
 3. **[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)** — prioritized milestones, acceptance criteria and suggested first three pull requests.
 4. **[`examples/`](examples/)** — editable YAML examples for an animation, storyboard, family, stylesheet, and a small synthetic CSV.
+5. **[`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md)** — review of the plan against the Manim 0.22 source: component registry, in-flow checkpoints, sections, narration, layout reports, Typst, package split.
 
 ## Suggested first prompt to a coding agent
 
