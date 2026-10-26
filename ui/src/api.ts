@@ -142,12 +142,9 @@ export type Snapshot = { id: string; at_seconds: number; description: string; ki
 export type SceneAction = {
   id: string;
   kind: string;
-  target: string;
-  parameter: string;
-  to: number;
   at_seconds: number;
   end_seconds: number;
-  emphasize: string[];
+  summary: string;
 };
 export type Scene = {
   id: string;

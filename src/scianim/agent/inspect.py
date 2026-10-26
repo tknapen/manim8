@@ -36,7 +36,7 @@ def expected_objects(storyboard: Storyboard, scene_id: str, at_seconds: float) -
     if scene is None:
         return []
     objects = [o.id for o in scene.objects if o.reveal_at_seconds is None or o.reveal_at_seconds <= at_seconds + 1e-9]
-    readouts = [a.id for a in scene.actions if a.show_value and a.at_seconds <= at_seconds + 1e-9]
+    readouts = [a.id for a in scene.actions if getattr(a, "show_value", False) and a.at_seconds < at_seconds - 1e-9]
     return objects + readouts
 
 

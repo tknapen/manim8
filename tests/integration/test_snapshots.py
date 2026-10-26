@@ -89,48 +89,41 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
 
 
 def test_prf_tuning_renders_timed_reveals_and_relational_placement(workspace: Path, scianim) -> None:
-    """The pRF clip: one scene, two sweeps on the same plot, a checkpoint inside the second sweep, stacked readouts."""
+    """The pRF clip: a surface under an orbiting camera, two concurrent centre sweeps, then the size, with stacked
+    readouts and a checkpoint inside the concurrent segment; plus relational placement in the other example."""
     project = workspace / "families" / "computational_neuroscience" / "prf_tuning"
     assert scianim("validate", str(project)).returncode == 0
     assert scianim("codegen", str(project)).returncode == 0
     generated = (project / "code" / "scene_prf_tuning.py").read_text()
-    assert (
-        generated.index("self.reveal(profile_plot)")
-        < generated.index("self.reveal(prf_label)")
-        < generated.index("self.wait_until(2)")
-        < generated.index("shift = self.begin_vary(profile_plot")
-        < generated.index("self.vary_until(shift, 5.5)")
-        < generated.index("widen = self.begin_vary(profile_plot")
-        < generated.index("self.vary_until(widen, 8.5)")
-        < generated.index('checkpoint(self, "half_widened", expected_time=8.5)')
-        < generated.index("self.vary_until(widen, 10.5)")
+    assert "self.run_until(0.85, [reveal_prf_surface, reveal_prf_label, orbit])" in generated
+    assert "self.run_until(5, [orbit, move_x, move_y])" in generated
+    assert generated.index('checkpoint(self, "moving", expected_time=5)') < generated.index(
+        "self.run_until(7, [orbit, move_x, move_y])"
     )
     run = scianim("snapshot", str(project), "--all", "--no-cache")
     assert run.returncode == 0, run.stdout + run.stderr
     manifest = manifests(project, "working")[-1]
     assert manifest.result.status == "succeeded"
     records = {c.snapshot_id: c for c in manifest.result.checkpoints}
-    assert list(records) == ["gaussian_visible", "centre_shifted", "half_widened", "widened"]
+    assert list(records) == ["gaussian_visible", "moving", "moved", "grown"]
     for record in records.values():
         assert record.fidelity == "exact"
         assert record.warnings == [], (record.snapshot_id, record.warnings)
         assert (project / record.png).stat().st_size > 1000
 
-    # Before anything moves: the plot and the equation label, no readout.
     start = {item.object_id: item for item in records["gaussian_visible"].layout}
-    assert set(start) == {"profile_plot", "prf_label"}
-    # After the first sweep its readout shows the final centre; inside the second sweep a second readout
-    # stacks under the first and carries the eased value; both stay to the end.
-    shifted = {item.object_id: item for item in records["centre_shifted"].layout}
-    assert set(shifted) == {"profile_plot", "prf_label", "shift"}
-    assert shifted["shift"].kind == "value_readout" and shifted["shift"].text == "x₀ = -3.0 deg"
-    halfway = {item.object_id: item for item in records["half_widened"].layout}
-    assert set(halfway) == {"profile_plot", "prf_label", "shift", "widen"}
-    assert halfway["widen"].text == "σ = 2.8 deg"  # noqa: RUF001
-    assert halfway["widen"].bbox.y > halfway["shift"].bbox.y and halfway["shift"].bbox.y > halfway["prf_label"].bbox.y
-    done = {item.object_id: item for item in records["widened"].layout}
-    assert done["widen"].text == "σ = 4.0 deg" and done["shift"].text == "x₀ = -3.0 deg"  # noqa: RUF001
-    assert records["gaussian_visible"].sha256 != records["centre_shifted"].sha256 != records["widened"].sha256
+    assert set(start) == {"prf_surface", "prf_label"}
+    assert 0 < start["prf_surface"].bbox.width < 1 and start["prf_surface"].kind == "surface_plot"
+    moving = {item.object_id: item for item in records["moving"].layout}
+    assert set(moving) == {"prf_surface", "prf_label", "move_x", "move_y"}
+    assert moving["move_x"].text.startswith("x₀ = ") and moving["move_x"].text.endswith(" deg")
+    assert moving["move_x"].text not in ("x₀ = 2.0 deg", "x₀ = -3.0 deg")
+    moved = {item.object_id: item for item in records["moved"].layout}
+    assert moved["move_x"].text == "x₀ = -3.0 deg" and moved["move_y"].text == "y₀ = 3.0 deg"
+    grown = {item.object_id: item for item in records["grown"].layout}
+    assert grown["grow"].text == "σ = 3.5 deg"  # noqa: RUF001
+    assert grown["grow"].bbox.y > grown["move_y"].bbox.y > grown["move_x"].bbox.y > grown["prf_label"].bbox.y
+    assert records["gaussian_visible"].sha256 != records["moved"].sha256 != records["grown"].sha256
 
     # `below: drive_caption` in the other example puts the note under the caption, left edges aligned.
     dn = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
@@ -154,3 +147,31 @@ def test_gallery_kinds_still_render(workspace: Path, scianim) -> None:
     [record] = manifests(project, "working")[-1].result.checkpoints
     assert {item.object_id for item in record.layout} == {"comparison", "field"}
     assert record.warnings == [], record.warnings
+
+
+def test_gabor_filter_renders_under_an_orbiting_camera(workspace: Path, scianim) -> None:
+    """A surface mesh, a camera orbit running the whole clip, three sweeps in turn, and a checkpoint inside the
+    concurrent segment: every checkpoint exact, the surface's projected box inside the frame, readouts stacked."""
+    project = workspace / "families" / "computational_neuroscience" / "gabor_filter"
+    assert scianim("validate", str(project)).returncode == 0
+    assert scianim("codegen", str(project)).returncode == 0
+    generated = (project / "code" / "scene_gabor_filter.py").read_text()
+    assert "orbit = self.begin_orbit(to_theta_degrees=310.0" in generated
+    assert "self.run_until(5.5, [orbit, rotate])" in generated and "self.run_until(8, [orbit, rotate])" in generated
+    run = scianim("snapshot", str(project), "--all", "--no-cache")
+    assert run.returncode == 0, run.stdout + run.stderr
+    manifest = manifests(project, "working")[-1]
+    records = {c.snapshot_id: c for c in manifest.result.checkpoints}
+    assert list(records) == ["gabor_start", "rotating", "rotated", "higher_frequency", "smaller"]
+    for record in records.values():
+        assert record.fidelity == "exact" and record.warnings == [], (record.snapshot_id, record.warnings)
+    surface = next(i for i in records["rotating"].layout if i.object_id == "gabor_surface")
+    assert surface.kind == "surface_plot" and surface.bbox.x >= 0 and surface.bbox.x + surface.bbox.width <= 1
+    rotating = {i.object_id: i for i in records["rotating"].layout}
+    assert rotating["rotate"].text.startswith("θ = ") and rotating["rotate"].text not in ("θ = 0.0 deg", "θ = 90.0 deg")
+    final = {i.object_id: i for i in records["smaller"].layout}
+    assert final["rotate"].text == "θ = 90.0 deg" and final["size"].text == "σ = 0.6 deg"  # noqa: RUF001
+    assert final["size"].bbox.y > final["frequency"].bbox.y > final["rotate"].bbox.y
+    # The camera moved: the surface's box differs between the first and the last checkpoint.
+    first = next(i for i in records["gabor_start"].layout if i.object_id == "gabor_surface")
+    assert first.bbox != surface.bbox

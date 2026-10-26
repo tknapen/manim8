@@ -29,4 +29,6 @@ components:
   - schematic_population
   - receptive_field_glyph
   - network_graph
+  - surface_plot
+  - function_image
 schema_extensions: []

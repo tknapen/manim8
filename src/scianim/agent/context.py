@@ -37,11 +37,15 @@ YAML in the project is the specification, and nothing you say in a conversation 
    Ask; do not invent numbers, citations or mechanisms.
 3. Prefer registered component kinds (section "Registry"). Declare any bespoke object as `kind: custom` with a
    named builder in `code/`; never put executable code in YAML.
-   Make the animation move where a figure could not: give a `function_plot` named `parameters` (named after the
-   equation's symbols) and add a scene action of kind `vary_parameter` that sweeps one of them over a few
-   seconds, with `emphasize` naming the equation object that highlights that symbol. The curve and its
-   markers follow, the term pulses, and a readout shows the value. Keep `y_range` fixed on such a plot. Do
-   not place two conditions side by side when one quantity can vary while the viewer watches.
+   Make the animation move where a figure could not: give a `function_plot`, `surface_plot` or
+   `function_image` named `parameters` (named after the equation's symbols) and add scene actions of kind
+   `vary_parameter` that sweep them, with `emphasize` naming the equation object that highlights that symbol.
+   The picture follows, the term pulses, and a readout shows the value. Actions run concurrently when they
+   drive different things (a surface's parameter while the camera orbits; two parameters of one plot), so
+   let several things move at once where it helps, one after another where the viewer must follow each.
+   A `surface_plot` is a fine mesh of z = f(x, y) that an `orbit_camera` action turns; a `function_image`
+   is a field sampled to pixels (a grating, a kernel). Keep ranges fixed on anything that varies. Do not
+   place two conditions side by side when one quantity can vary while the viewer watches.
 4. Answer with proposal files under `proposals/` in the project (template in `proposal.template.yaml`):
    `create_spec` or `revise_spec` targets `animation.yaml`; `create_storyboard` or `revise_storyboard` targets
    `storyboard.yaml`. A `revise_*` proposal should be a small `patch` (JSON-pointer operations); a `create_*`
@@ -241,10 +245,14 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
                     + ")"
                 )
             for action in scene.actions:
+                if action.kind == "orbit_camera":
+                    what = "camera orbit"
+                else:
+                    what = f"`{action.target}.{action.parameter}` to {action.to:g}" + (
+                        f", emphasizing {', '.join(f'`{e}`' for e in action.emphasize)}" if action.emphasize else ""
+                    )
                 lines.append(
-                    f"  - action `{action.id}` ({action.kind}): `{action.target}.{action.parameter}` to {action.to:g} "
-                    f"over {action.at_seconds:g}-{action.end_seconds:g} s"
-                    + (f", emphasizing {', '.join(f'`{e}`' for e in action.emphasize)}" if action.emphasize else "")
+                    f"  - action `{action.id}` ({action.kind}): {what} over {action.at_seconds:g}-{action.end_seconds:g} s"
                 )
             for snap in scene.snapshots:
                 lines.append(f"  - snapshot `{snap.id}` at {snap.at_seconds:g} s: {snap.description}")

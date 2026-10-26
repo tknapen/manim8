@@ -1,0 +1,72 @@
+schema_version: "1.0"
+id: gabor_filter
+title: "A Gabor filter in three dimensions"
+sources: []
+output:
+  duration_seconds: 24
+  width_px: 1920
+  height_px: 1080
+  aspect_ratio: "16:9"
+  fps: 30
+  container: mp4
+  video_codec: h264
+  audio: none
+style:
+  name: tomas_scientific
+  version: "0.2.0"
+  overrides: {}
+equations:
+  - id: gabor
+    typst: "g(x, y) = exp(-(x'^2 + y'^2) / (2 sigma^2)) cos(2 pi f x' + phi), quad x' = x cos theta + y sin theta"
+    latex: "g(x, y) = \\exp\\left(-\\frac{x'^2 + y'^2}{2\\sigma^2}\\right)\\cos(2\\pi f x' + \\phi),\\quad x' = x\\cos\\theta + y\\sin\\theta"
+    symbols:
+      g: {meaning: "filter weight at position (x, y)"}
+      x: {meaning: "horizontal position", units: "deg"}
+      y: {meaning: "vertical position", units: "deg"}
+      theta: {meaning: "orientation of the carrier", units: "deg"}
+      f: {meaning: "spatial frequency of the carrier", units: "cycles/deg"}
+      sigma: {meaning: "size of the Gaussian envelope", units: "deg"}
+      phi: {meaning: "phase of the carrier", units: "rad"}
+audience: graduate_neuroscience
+objective: >-
+  A brief clip: one Gabor filter as a fine mesh in three dimensions, seen from a camera that turns
+  around it, while its orientation, spatial frequency and size change one after the other beside
+  the equation whose term is changing.
+scientific_constraints:
+  - id: equation_exact
+    kind: hard
+    equation: gabor
+    text: "Show the Gabor equation exactly as stored, with theta, f and sigma highlighted."
+  - id: analytic_label
+    kind: hard
+    text: "Label the surface as computed from the equation, not as a measured filter."
+  - id: fixed_box
+    kind: hard
+    text: "Keep the x, y and z ranges fixed while the parameters vary."
+timeline:
+  - id: start
+    at_seconds: 0
+    tolerance_seconds: 0
+    kind: hard
+    instruction: "The surface and the equation are on screen from the first frame; the camera begins to turn."
+  - id: orientation
+    at_seconds: 3
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Turn the carrier from 0 to 90 degrees."
+  - id: frequency
+    at_seconds: 9.5
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Raise the spatial frequency."
+  - id: size
+    at_seconds: 16
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Shrink the envelope."
+direction:
+  tone: "Plain, unhurried"
+  avoid:
+    - "Decorative motion beyond the slow orbit"
+    - "Unlabelled axes"
+extensions: {}

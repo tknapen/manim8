@@ -87,6 +87,11 @@ motion:
   emphasis_seconds: 0.8
   avoid_decorative_motion: true
   narration_words_per_minute: 150
+three_d:
+  camera_phi_degrees: 62
+  camera_theta_degrees: -50
+  mesh_stroke_px_at_1080p: 0.8
+  surface_opacity: 0.5
 accessibility:
   do_not_rely_on_color_alone: true
   warn_on_low_contrast: true

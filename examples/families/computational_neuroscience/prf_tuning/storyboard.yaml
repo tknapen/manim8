@@ -4,63 +4,75 @@ based_on_animation_revision: "draft"
 scenes:
   - id: prf
     start_seconds: 0
-    end_seconds: 12
-    purpose: "One Gaussian population receptive field: move its centre, then grow its size."
+    end_seconds: 16
+    purpose: "The pRF as a Gaussian over the visual field: move its centre, then grow its size, while the camera turns."
     narration:
       text: >-
-        A population receptive field weights the visual field around a centre with a size.
-        Moving the centre shifts the profile; growing sigma widens it.
+        A population receptive field weights the visual field around a centre with a size. Moving
+        the centre moves the hill across the field; growing sigma widens it.
     objects:
-      - id: profile_plot
-        kind: function_plot
+      - id: prf_surface
+        kind: surface_plot
         style_role: primary_signal
         equation: {id: gaussian_prf}
         params:
-          x_label: "visual field position x (deg)"
-          y_label: "pRF weight g(x)"
-          x_range: [-10, 10]
-          y_range: [0, 1.2]
-          anchor: center_left
-          width_fraction: 0.55
-          parameters: {x_0: 2, sigma: 1.5}
-          series:
-            - {label: "Gaussian pRF", expression: "exp(-((x - x_0)^2) / (2 * sigma^2))"}
-          markers:
-            - {x: "x_0", label: "x₀", style_role: secondary_text}
-            - {x: "x_0 + sigma", label: "x₀ + σ", style_role: emphasis}
-          data_label: "analytic curve from the equation"
+          x_label: "x (deg)"
+          y_label: "y (deg)"
+          z_label: "g"
+          x_range: [-8, 8]
+          y_range: [-8, 8]
+          z_range: [0, 1]
+          expression: "exp(-((x - x_0)^2 + (y - y_0)^2) / (2 * sigma^2))"
+          parameters: {x_0: 2, y_0: 0, sigma: 1.5}
+          resolution: 40
+          fill: by_height
+          data_label: "analytic surface from the equation"
       - id: prf_label
         kind: equation_label
         style_role: emphasis
-        equation: {id: gaussian_prf, highlight: [x_0, sigma]}
+        equation: {id: gaussian_prf, highlight: [x_0, y_0, sigma]}
         params: {text: "population receptive field", anchor: top_right}
     actions:
-      - id: shift
+      - id: orbit
+        kind: orbit_camera
+        to_theta_degrees: 40
+        at_seconds: 0
+        duration_seconds: 16
+        easing: linear
+      - id: move_x
         kind: vary_parameter
-        target: profile_plot
+        target: prf_surface
         parameter: x_0
         to: -3
-        at_seconds: 2.5
-        duration_seconds: 3
+        at_seconds: 3
+        duration_seconds: 4
         emphasize: [prf_label]
-      - id: widen
+      - id: move_y
         kind: vary_parameter
-        target: profile_plot
+        target: prf_surface
+        parameter: y_0
+        to: 3
+        at_seconds: 3
+        duration_seconds: 4
+        emphasize: [prf_label]
+      - id: grow
+        kind: vary_parameter
+        target: prf_surface
         parameter: sigma
-        to: 4
-        at_seconds: 6.5
+        to: 3.5
+        at_seconds: 8.5
         duration_seconds: 4
         emphasize: [prf_label]
     snapshots:
       - id: gaussian_visible
         at_seconds: 2
-        description: "The Gaussian profile centred at 2 deg with sigma 1.5 deg, its two markers, and the equation beside it; nothing has moved yet."
-      - id: centre_shifted
-        at_seconds: 6
-        description: "After the first sweep the profile is centred at -3 deg and the readout under the equation reads x₀ = -3.0 deg; sigma is unchanged."
-      - id: half_widened
-        at_seconds: 8.5
-        description: "Inside the second sweep: the profile is wider than before, the x₀ + σ marker has moved right, and a second readout shows sigma between 1.5 and 4 deg."
-      - id: widened
-        at_seconds: 11
-        description: "After both sweeps: a broad profile centred at -3 deg, sigma = 4.0 deg in the readout, the x₀ + σ marker at 1 deg."
+        description: "A narrow hill at (2, 0) deg over the visual field, the equation beside it; nothing has moved yet."
+      - id: moving
+        at_seconds: 5
+        description: "Inside the two concurrent sweeps: the hill is between its start and (-3, 3) deg, two readouts under the equation show x₀ and y₀ on their way."
+      - id: moved
+        at_seconds: 7.5
+        description: "The hill centred at (-3, 3) deg; the readouts read x₀ = -3.0 deg and y₀ = 3.0 deg."
+      - id: grown
+        at_seconds: 14
+        description: "A broad hill: sigma = 3.5 deg in the third readout; the camera has turned a quarter circle."

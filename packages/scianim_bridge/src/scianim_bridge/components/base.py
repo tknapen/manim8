@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from manim import Animation, FadeIn, VGroup
@@ -77,9 +78,26 @@ class Component:
     draws no text. Drives `text_too_small`."""
     text_like: bool = False
     visible: bool = False
+    three_d: bool = False
+    """True for objects that live in the rotating world (surfaces); flat objects stay fixed in the frame."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)
+
+
+@dataclass
+class ParametricComponent(Component):
+    """An object with named parameters that can be re-evaluated in place; `vary_parameter` drives it.
+
+    `set_parameters` returns warnings (a value that leaves a fixed range is clipped, for instance).
+    """
+
+    parameters: dict[str, float] = field(default_factory=dict)
+    rebuild: Callable[[dict[str, float]], list[str]] | None = None
+
+    def set_parameters(self, **values: float) -> list[str]:
+        self.parameters.update(values)
+        return self.rebuild(dict(self.parameters)) if self.rebuild else []
 
 
 def params_for(kind: str, params: dict[str, Any] | None) -> Any:

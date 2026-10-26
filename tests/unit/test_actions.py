@@ -80,7 +80,7 @@ def test_function_plot_parameters_and_marker_expressions() -> None:
     assert params.marker_x(params.markers[1], {"sigma": 4}) == pytest.approx(6)
     with pytest.raises(ValueError, match="unknown name 'k'"):
         validate_params("function_plot", {**PLOT, "series": [{"label": "g", "expression": "k * x"}]})
-    with pytest.raises(ValueError, match="other than 'x'"):
+    with pytest.raises(ValueError, match="other than"):
         validate_params("function_plot", {**PLOT, "parameters": {"x": 1}})
     with pytest.raises(ValueError, match="built-in function"):
         validate_params("function_plot", {**PLOT, "parameters": {"exp": 1}})
@@ -96,15 +96,23 @@ def test_vary_parameter_validation() -> None:
             Storyboard.model_validate(_storyboard(actions=[{**SWEEP, **changes}]))
 
     rejected("not an object", target="nope")
-    rejected("needs a function_plot", target="label")
+    rejected("needs one of", target="label")
     rejected("declares no parameter 'tau'", parameter="tau")
     rejected("outside scene", at_seconds=16)
     rejected("starts before 'label' is revealed", at_seconds=1)
     rejected("must reference an equation whose highlight includes", emphasize=["plot"])
     rejected("not an object of scene", emphasize=["ghost"])
-    rejected("one thing plays at a time", at_seconds=1.5, emphasize=[])  # the label is revealed at 2 s, inside
-    with pytest.raises(ValueError, match="one action plays at a time"):
+    # Concurrency: two actions may overlap unless they drive the same parameter; orbits need a surface.
+    Storyboard.model_validate(
+        _storyboard(actions=[SWEEP, {**SWEEP, "id": "shift", "parameter": "x_0", "to": 0, "emphasize": []}])
+    )
+    with pytest.raises(ValueError, match=r"both vary 'plot\.sigma'"):
         Storyboard.model_validate(_storyboard(actions=[SWEEP, {**SWEEP, "id": "again", "at_seconds": 8}]))
+    orbit = {"id": "orbit", "kind": "orbit_camera", "to_theta_degrees": 40, "at_seconds": 0, "duration_seconds": 20}
+    with pytest.raises(ValueError, match="needs a surface_plot"):
+        Storyboard.model_validate(_storyboard(actions=[orbit]))
+    with pytest.raises(ValueError, match="to_theta_degrees, to_phi_degrees or both"):
+        Storyboard.model_validate(_storyboard(actions=[{**orbit, "to_theta_degrees": None}]))
     with pytest.raises(ValueError, match="y_range"):
         plot = {**PLOT}
         del plot["y_range"]
@@ -135,10 +143,11 @@ def test_codegen_splits_a_sweep_at_the_checkpoints_inside_it(project_copy: Proje
     lines = [line.strip() for line in code.splitlines() if line.strip()]
     begin = next(i for i, line in enumerate(lines) if line.startswith("widen = self.begin_vary(plot"))
     assert 'checkpoint(self, "before", expected_time=5)' in lines[:begin]
-    assert lines[begin + 1] == "self.vary_until(widen, 8)"
+    assert lines[begin + 1] == "self.run_until(8, [widen])"
     assert lines[begin + 2] == "self.wait_until(8)"
     assert lines[begin + 3] == 'checkpoint(self, "halfway", expected_time=8)'
-    assert lines[begin + 4] == "self.vary_until(widen, 11)"
+    assert lines[begin + 4] == "self.run_until(11, [widen])"
+    assert "reveal_plot = self.begin_reveal(plot)" in lines and "self.run_until(0.85, [reveal_plot])" in lines
     assert 'checkpoint(self, "after", expected_time=12)' in lines[begin + 5 :]
     assert 'to=4.0, at_seconds=5, duration_seconds=6, action_id="widen", easing=None, emphasize=[label]' in lines[begin]
     module = tmp_path / "scene.py"
@@ -168,19 +177,18 @@ def test_timing_staleness_and_inspection_notice_actions(project_copy: Project) -
     by_id = {c.scene_id: c for c in changes.scenes}
     assert "actions changed" in by_id["normalization"].reasons and not by_id["excitation"].reasons
     # The readout counts as an expected object once the sweep has begun.
-    assert "raise_pool" not in expected_objects(report.storyboard, "normalization", 8)
-    assert "raise_pool" in expected_objects(report.storyboard, "normalization", 8.5)
+    assert "raise_pool" not in expected_objects(report.storyboard, "normalization", 8.5)
+    assert "raise_pool" in expected_objects(report.storyboard, "normalization", 9)
 
 
-def test_project_checks_warn_about_late_sweeps_and_unnamed_parameters(project_copy: Project) -> None:
+def test_project_checks_warn_about_snapshots_in_reveals_and_unnamed_parameters(project_copy: Project) -> None:
     report = validate_project(project_copy)
     assert report.ok and not report.warnings, report.warnings
     storyboard = report.storyboard.model_copy(deep=True)
     assert storyboard is not None
-    scene = storyboard.scenes[1]
-    scene.actions[0].at_seconds = 7.5  # the equation is still fading in at 7.5 s
-    late = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
-    assert any("will start late" in w for w in late.warnings), late.warnings
+    storyboard.scenes[1].snapshots[0].at_seconds = 7.4  # the equation is still fading in at 7.4 s
+    fading = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
+    assert any("still fading in" in w for w in fading.warnings), fading.warnings
     storyboard = report.storyboard.model_copy(deep=True)
     plot = storyboard.scenes[1].objects[0]
     plot.params["parameters"] = {"sigma": 1, "P": 1, "gain": 2}

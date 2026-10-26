@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from manim import DOWN, LEFT, PI, RIGHT, UP, Axes, DashedLine, Line, ManimColor, Text, VGroup
 
-from scianim_bridge.components.base import Component, params_for, pretty_condition, register
+from scianim_bridge.components.base import Component, ParametricComponent, params_for, pretty_condition, register
 from scianim_bridge.data import Series, apply_binding
 from scianim_bridge.tokens import Tokens
 from scianim_core.expressions import compile_expression
@@ -167,15 +165,27 @@ def _legend(tokens: Tokens, axes: Axes, entries: list[tuple[str, ManimColor]]) -
     return legend
 
 
-def _arrange_marker_labels(labels: list[tuple[Text, float]], top_y: float, buff: float, line_step: float) -> None:
-    """Marker labels sit just above the plot box, centred on their marker. A label that would run into the
-    one to its left moves up a line, so labels stay legible when markers come close (or a sweep brings them
-    together)."""
+def _arrange_marker_labels(
+    labels: list[tuple[Text, float]],
+    top_y: float,
+    buff: float,
+    line_step: float,
+    x_limits: tuple[float, float] | None = None,
+) -> None:
+    """Marker labels sit just above the plot box, centred on their marker and kept within the box's width.
+    A label that would run into the one to its left moves up a line, so labels stay legible when markers
+    come close (or a sweep brings them together)."""
     rows: list[float] = []  # right edge of the last label placed in each row
     gap = buff
     for text, px in sorted(labels, key=lambda item: item[1]):
         text.next_to(np.array([px, top_y, 0.0]), UP, buff=buff)
         text.set_x(px)
+        if x_limits is not None:
+            left, right = x_limits
+            if float(text.get_right()[0]) > right:
+                text.shift(LEFT * (float(text.get_right()[0]) - right))
+            if float(text.get_left()[0]) < left:
+                text.shift(RIGHT * (left - float(text.get_left()[0])))
         row = 0
         while row < len(rows) and rows[row] + gap > float(text.get_left()[0]):
             row += 1
@@ -253,20 +263,9 @@ def scientific_plot(
     return register(scene, Component(object_id, "scientific_plot", group, text=None, font_px=font_px, text_like=False))
 
 
-@dataclass
-class FunctionPlotComponent(Component):
-    """A `function_plot` that can be re-evaluated for new parameter values.
-
-    `set_parameters` moves the curves and markers in place and returns warnings (a series that leaves the
-    fixed y_range is clipped at the edge). `SnapshotScene.begin_vary` drives it frame by frame.
-    """
-
-    parameters: dict[str, float] = field(default_factory=dict)
-    rebuild: Callable[[dict[str, float]], list[str]] | None = None
-
-    def set_parameters(self, **values: float) -> list[str]:
-        self.parameters.update(values)
-        return self.rebuild(dict(self.parameters)) if self.rebuild else []
+class FunctionPlotComponent(ParametricComponent):
+    """A `function_plot` that can be re-evaluated for new parameter values: the curves and markers move in
+    place; a series that leaves the fixed y_range is clipped at the edge."""
 
 
 def function_plot(
@@ -324,8 +323,9 @@ def function_plot(
 
     def arrange_labels(positions: list[float]) -> None:
         top_y = float(axes.c2p(x_range[0], y_range[1])[1])
+        limits = (float(axes.c2p(x_range[0], y_range[0])[0]), float(axes.c2p(x_range[1], y_range[0])[0]))
         labelled = [(text, px) for (_, _, text), px in zip(marker_parts, positions, strict=True) if text is not None]
-        _arrange_marker_labels(labelled, top_y, label_buff, line_step)
+        _arrange_marker_labels(labelled, top_y, label_buff, line_step, limits)
 
     for marker in p.markers:
         color = tokens.color(marker.style_role or "secondary_text")

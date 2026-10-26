@@ -25,7 +25,8 @@ Milestone 4 (frame-exact timing, draft and final video with sections, subtitles,
 complete except for section splicing (ADR-019). Milestone 5 (source adapters, context bundles, proposals,
 self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
 guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
-readouts, exercised by all three examples) is complete (ADR-022). Open items across milestones: section splicing
+readouts) is complete (ADR-022), and Milestone 8 (surfaces, the orbiting camera, concurrent tracks; four examples) is
+complete (ADR-024). Open items across milestones: section splicing
 (ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
 
 ## Milestone 0 — repository and contracts
@@ -183,6 +184,16 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 - [ ] Further action kinds: move or fade an object, transform one equation into another, sweep a parameter of a data-bound plot.
 
 **Acceptance:** a checkpoint inside a sweep is `exact` and shows the eased value in its readout and curve; the draft and final videos keep frame-exact timing through the sweeps; `scianim validate` reports a sweep that would start late or end in a fade-out.
+
+## Milestone 8 — surfaces, the orbiting camera and concurrent tracks
+
+- [x] `surface_plot` (a fine mesh of z = f(x, y) in three dimensions, two-ink fill by sign or height, despined frame, labels facing the viewer) and `function_image` (a field sampled to pixels), both parametric (ADR-024).
+- [x] `orbit_camera` as a second action kind; the bridge scene is three-dimensional with flat objects fixed in the frame; layout reports project surfaces through the camera.
+- [x] Actions and reveals run concurrently as tracks; codegen emits one `run_until` per segment between breakpoints; readouts are reused per swept parameter.
+- [x] Examples: a Gabor filter under a full orbit with orientation, frequency and size changing in turn; the pRF as a hill over the visual field with the centre moving in both directions at once; a grating turning while a marker follows it on the tuning curve; two normalization parameters moving at once.
+- [ ] Depth-correct drawing of a surface's frame lines (they draw on top); an OpenGL path for long surface videos; vectorised sampling for large images.
+
+**Acceptance:** the Gabor clip's five checkpoints are exact with the readouts stacked and the surface's projected box inside the frame; the pRF checkpoint inside the concurrent segment shows two readouts between their end values; the loop example's turning grating and marker share one parameter value.
 
 ## Core automated test matrix
 

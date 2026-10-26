@@ -10,7 +10,7 @@ proposal:
     and the earlier reveal pairs it with the curve.
   based_on_revision: rev_0001
   in_response_to:
-    - fb_20261026T190620_c251b0
+    - fb_20261026T194610_f36794
   uncertainties: []
   claims: []
   targets:
@@ -23,7 +23,7 @@ proposal:
           path: /scenes/1/objects/1/reveal_at_seconds
           value: 7
   touches_science: false
-applied_at: '2026-10-26T19:06:21+00:00'
+applied_at: '2026-10-26T19:46:11+00:00'
 applied_to_revision: working
 latest_revision_before: rev_0001
 diffs:

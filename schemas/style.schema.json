@@ -450,6 +450,61 @@
       "title": "PartialMotion",
       "type": "object"
     },
+    "PartialThreeD": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_phi_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Phi Degrees"
+        },
+        "camera_theta_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Theta Degrees"
+        },
+        "mesh_stroke_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Stroke Px At 1080P"
+        },
+        "surface_opacity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Surface Opacity"
+        }
+      },
+      "title": "PartialThreeD",
+      "type": "object"
+    },
     "PartialTypeface": {
       "additionalProperties": false,
       "properties": {
@@ -715,6 +770,17 @@
       "const": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "three_d": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialThreeD"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "typography": {
       "anyOf": [

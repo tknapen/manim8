@@ -86,8 +86,9 @@ receptive-field glyphs, network graphs); a third example, `orientation_tuning`, 
 Milestone 6 adds verified bundles (`scianim bundle export|inspect|import`) and the
 [user guide](docs/USER_GUIDE.md). Milestone 7 adds scene actions: a `vary_parameter` action sweeps a named
 parameter of a `function_plot` while the equation term pulses and a readout counts, with checkpoints inside the
-sweep captured frame-exactly; the three examples are brief clips (12 to 20 s) built around such sweeps
-rather than decks of static scenes. Deferred: section
+sweep captured frame-exactly. Milestone 8 adds surfaces as fine meshes in three dimensions, a camera that
+orbits them, fields sampled to images, and actions that run concurrently; the four examples are brief clips
+(16 to 24 s) built around such motion rather than decks of static scenes. Deferred: section
 splicing for incremental video, voiceover and further action kinds. See `docs/IMPLEMENTATION_PLAN.md` for the
 checklist.
 

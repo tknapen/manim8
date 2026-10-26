@@ -198,13 +198,105 @@
       "title": "NormalizeTransform",
       "type": "object"
     },
+    "OrbitCamera": {
+      "additionalProperties": false,
+      "description": "Turn the camera around the scene's surface over a window: the azimuth (`theta`) and the elevation (`phi`)\nmove from where they are to the given angles with the easing. Flat objects stay fixed in the frame; only\n`surface_plot` objects turn, so a scene needs one. Orbits may run alongside parameter sweeps.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "orbit_camera",
+          "title": "Kind",
+          "type": "string"
+        },
+        "to_phi_degrees": {
+          "anyOf": [
+            {
+              "maximum": 90,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Phi Degrees"
+        },
+        "to_theta_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Theta Degrees"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "OrbitCamera",
+      "type": "object"
+    },
     "Scene": {
       "additionalProperties": false,
       "properties": {
         "actions": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/VaryParameter"
+            "discriminator": {
+              "mapping": {
+                "orbit_camera": "#/$defs/OrbitCamera",
+                "vary_parameter": "#/$defs/VaryParameter"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/VaryParameter"
+              },
+              {
+                "$ref": "#/$defs/OrbitCamera"
+              }
+            ]
           },
           "title": "Actions",
           "type": "array"
@@ -313,6 +405,8 @@
             "text_caption",
             "scientific_plot",
             "function_plot",
+            "surface_plot",
+            "function_image",
             "equation_block",
             "equation_label",
             "comparison_plot",
@@ -475,7 +569,6 @@
         },
         "kind": {
           "const": "vary_parameter",
-          "default": "vary_parameter",
           "title": "Kind",
           "type": "string"
         },
@@ -519,6 +612,7 @@
         }
       },
       "required": [
+        "kind",
         "id",
         "target",
         "parameter",

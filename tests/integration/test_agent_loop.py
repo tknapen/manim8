@@ -64,12 +64,22 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
         "circuit_shown",
         "curve_cited",
         "model_labelled",
+        "stimulus_mid",
+        "stimulus_end",
         "half_sharpened",
         "model_complete",
     ]
     by_id = {c.snapshot_id: c for c in manifest.result.checkpoints}
     assert {i.object_id for i in by_id["circuit_shown"].layout} == {"circuit_graph", "population"}
-    assert {i.object_id for i in by_id["model_complete"].layout} == {"model_curve", "kappa_label", "sharpen"}
+    assert {i.object_id for i in by_id["model_complete"].layout} == {
+        "grating",
+        "model_curve",
+        "kappa_label",
+        "rotate_stimulus",
+        "sharpen",
+    }
+    stimulus = next(i for i in by_id["stimulus_mid"].layout if i.object_id == "rotate_stimulus")
+    assert stimulus.text.startswith("θ = ") and stimulus.text not in ("θ = 0.0 deg", "θ = 180.0 deg")
     readout = next(i for i in by_id["model_complete"].layout if i.object_id == "sharpen")
     assert readout.kind == "value_readout" and readout.text == "κ = 8.0"
     note = next(i for i in by_id["curve_cited"].layout if i.object_id == "data_note")

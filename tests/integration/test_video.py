@@ -89,20 +89,22 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
 
 
 def test_video_job_through_the_api_runner(workspace: Path, scianim) -> None:
-    project = workspace / "families" / "computational_neuroscience" / "prf_tuning"
+    project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
     assert scianim("codegen", str(project)).returncode == 0
     client = TestClient(create_app(workspace))
     runner = client.app.state.runner
-    rejected = client.post("/api/projects/prf_tuning/jobs", json={"operation": "render_video", "profile": "snapshot"})
+    rejected = client.post(
+        "/api/projects/orientation_tuning/jobs", json={"operation": "render_video", "profile": "snapshot"}
+    )
     assert rejected.status_code == 422
     accepted = client.post(
-        "/api/projects/prf_tuning/jobs",
-        json={"operation": "render_video", "profile": "draft", "samples": {"halfway": 6.0}},
+        "/api/projects/orientation_tuning/jobs",
+        json={"operation": "render_video", "profile": "draft", "samples": {"halfway": 12.0}},
     )
     assert accepted.status_code == 202, accepted.text
     final = runner.wait(accepted.json()["job_id"], timeout=900)
     assert final.status == "succeeded", final.error
-    job = client.get(f"/api/projects/prf_tuning/jobs/{final.job_id}").json()
-    assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 12 * 30
+    job = client.get(f"/api/projects/orientation_tuning/jobs/{final.job_id}").json()
+    assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 24 * 30
     assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"gaussian_visible", "widened", "halfway"}
     assert job["timing"]["within_tolerance"], job["timing"]["problems"]

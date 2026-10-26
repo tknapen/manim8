@@ -37,7 +37,16 @@ from scianim_core.jobs import (
 from scianim_core.proposals import AppliedProposal, Claim, PatchOperation, Proposal, ProposalTarget
 from scianim_core.revisions import RevisionHashes, RevisionRecord
 from scianim_core.sources import Inference, SourceExtract
-from scianim_core.storyboard import Narration, Scene, SceneAction, SceneObject, Snapshot, Storyboard, VaryParameter
+from scianim_core.storyboard import (
+    Narration,
+    OrbitCamera,
+    Scene,
+    SceneAction,
+    SceneObject,
+    Snapshot,
+    Storyboard,
+    VaryParameter,
+)
 from scianim_core.style import ResolvedStyle, StyleSheet, StyleTokens, split_style_ref
 from scianim_core.timing import SceneTiming, TimingReport, frames_for, verify_timing
 from scianim_core.workspace import WorkspaceManifest
@@ -69,6 +78,7 @@ __all__ = [
     "Milestone",
     "Narration",
     "OmittedSource",
+    "OrbitCamera",
     "OutputSpec",
     "PatchOperation",
     "Proposal",

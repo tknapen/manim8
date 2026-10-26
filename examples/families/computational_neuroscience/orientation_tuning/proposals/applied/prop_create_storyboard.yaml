@@ -5,8 +5,9 @@ proposal:
   kind: create_storyboard
   created_at: '2026-10-26T18:05:00+00:00'
   author: agent:test-loop
-  summary: 'A twenty-second clip in three scenes: the circuit with its population, the cited synthetic curve with
-    the model label, and the model curve sharpening as kappa rises.'
+  summary: 'A twenty-four-second clip in three scenes: the circuit with its population, the cited synthetic curve
+    with the model label, and a turning grating whose angle a marker follows on the model curve before kappa sharpens
+    it.'
   rationale: 'One idea per scene as the brief directs and nothing static for its own sake: no title card, the equation
     beside the curve, and kappa varies while the viewer watches; every curve carries a synthetic label.'
   based_on_revision: working
@@ -141,12 +142,34 @@ proposal:
                 description: The curve with the von Mises label and the highlighted preferred orientation.
           - id: model
             start_seconds: 12
-            end_seconds: 20
-            purpose: The model curve, and what its concentration does.
+            end_seconds: 24
+            purpose: The stimulus turns while a marker follows it on the model curve; then the concentration 
+              rises.
             narration:
-              text: The von Mises model reproduces the shape; raising kappa sharpens the peak at the preferred
-                orientation.
+              text: As the grating turns, the model's response follows the marker over the curve; raising 
+                kappa sharpens the peak.
             objects:
+              - id: grating
+                kind: function_image
+                style_role: primary_signal
+                params:
+                  expression: cos(2 * pi * f * (x * cos(theta * pi / 180) + y * sin(theta * pi / 180)))
+                  parameters:
+                    theta: 0
+                    f: 2
+                  x_range:
+                    - -1
+                    - 1
+                  y_range:
+                    - -1
+                    - 1
+                  resolution: 64
+                  colors: grey
+                  mask: circle
+                  label: stimulus
+                  data_label: synthetic grating
+                  anchor: center_left
+                  size_fraction: 0.42
               - id: model_curve
                 kind: function_plot
                 style_role: primary_signal
@@ -161,12 +184,13 @@ proposal:
                   y_range:
                     - 0
                     - 40
-                  anchor: center_left
-                  width_fraction: 0.55
+                  anchor: center_right
+                  width_fraction: 0.5
                   parameters:
                     r_max: 30
                     kappa: 2
                     theta_0: 90
+                    theta: 0
                   series:
                     - label: von Mises model
                       expression: r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))
@@ -174,6 +198,9 @@ proposal:
                     - x: theta_0
                       label: θ₀
                       style_role: secondary_text
+                    - x: theta
+                      label: stimulus
+                      style_role: emphasis
                   data_label: analytic curve from the equation
               - id: kappa_label
                 kind: equation_label
@@ -182,34 +209,59 @@ proposal:
                   id: von_mises
                   highlight:
                     - kappa
+                    - theta
                 params:
-                  text: concentration kappa
-                  anchor: top_right
+                  text: von Mises model
+                  anchor: top_left
                 reveal_at_seconds: 13
             actions:
+              - id: rotate_stimulus
+                kind: vary_parameter
+                target: grating
+                parameter: theta
+                to: 180
+                at_seconds: 14
+                duration_seconds: 6
+                emphasize:
+                  - kappa_label
+              - id: track_stimulus
+                kind: vary_parameter
+                target: model_curve
+                parameter: theta
+                to: 180
+                at_seconds: 14
+                duration_seconds: 6
+                show_value: false
               - id: sharpen
                 kind: vary_parameter
                 target: model_curve
                 parameter: kappa
                 to: 8
-                at_seconds: 14.5
-                duration_seconds: 4
+                at_seconds: 20.3
+                duration_seconds: 3
                 emphasize:
                   - kappa_label
             snapshots:
+              - id: stimulus_mid
+                at_seconds: 17
+                description: 'Halfway through the turn: the grating near 90 deg and the stimulus marker near the
+                  peak of the curve; the readout shows theta between 0 and 180.'
+              - id: stimulus_end
+                at_seconds: 20.2
+                description: The grating at 180 deg and the marker at the right edge of the curve.
               - id: half_sharpened
-                at_seconds: 16.5
-                description: 'Inside the sweep: the curve is narrower than at kappa = 2 and the readout shows kappa
-                  between 2 and 8.'
+                at_seconds: 21.8
+                description: 'Inside the sharpening: the curve narrower than at kappa = 2 and the readout shows
+                  kappa between 2 and 8.'
               - id: model_complete
-                at_seconds: 19
-                description: The sharpened model curve (kappa = 8) with the preferred-orientation marker, the 
-                  kappa label and its readout.
+                at_seconds: 23.3
+                description: The sharpened model curve (kappa = 8) with both markers, the grating at 180 deg, 
+                  the label with its readouts.
   touches_science: false
-applied_at: '2026-10-26T19:06:10+00:00'
+applied_at: '2026-10-26T19:45:58+00:00'
 applied_to_revision: working
 diffs:
-  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,184 @@\n+schema_version: '1.0'\n+project_id:
+  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,234 @@\n+schema_version: '1.0'\n+project_id:
     orientation_tuning\n+based_on_animation_revision: working\n+scenes:\n+  - id: circuit\n+    start_seconds: 0\n\
     +    end_seconds: 6\n+    purpose: 'Where the signal comes from: a schematic circuit and a population of units.'\n\
     +    narration:\n+      text: A stimulus drives a population in V1, read out downstream and checked by inhibition.\n\
@@ -244,24 +296,39 @@ diffs:
     curve_cited\n+        at_seconds: 8.5\n+        description: The synthetic control tuning curve with labelled
     axes and the cited data note above it; \n+          no model label yet.\n+      - id: model_labelled\n+    \
     \    at_seconds: 10.5\n+        description: The curve with the von Mises label and the highlighted preferred
-    orientation.\n+  - id: model\n+    start_seconds: 12\n+    end_seconds: 20\n+    purpose: The model curve, and
-    what its concentration does.\n+    narration:\n+      text: The von Mises model reproduces the shape; raising
-    kappa sharpens the peak at the preferred \n+        orientation.\n+    objects:\n+      - id: model_curve\n\
-    +        kind: function_plot\n+        style_role: primary_signal\n+        equation:\n+          id: von_mises\n\
-    +        params:\n+          x_label: orientation (deg)\n+          y_label: r (Hz)\n+          x_range:\n+\
+    orientation.\n+  - id: model\n+    start_seconds: 12\n+    end_seconds: 24\n+    purpose: The stimulus turns
+    while a marker follows it on the model curve; then the concentration rises.\n+    narration:\n+      text: As
+    the grating turns, the model's response follows the marker over the curve; raising kappa \n+        sharpens
+    the peak.\n+    objects:\n+      - id: grating\n+        kind: function_image\n+        style_role: primary_signal\n\
+    +        params:\n+          expression: cos(2 * pi * f * (x * cos(theta * pi / 180) + y * sin(theta * pi /
+    180)))\n+          parameters:\n+            theta: 0\n+            f: 2\n+          x_range:\n+           \
+    \ - -1\n+            - 1\n+          y_range:\n+            - -1\n+            - 1\n+          resolution: 64\n\
+    +          colors: grey\n+          mask: circle\n+          label: stimulus\n+          data_label: synthetic
+    grating\n+          anchor: center_left\n+          size_fraction: 0.42\n+      - id: model_curve\n+       \
+    \ kind: function_plot\n+        style_role: primary_signal\n+        equation:\n+          id: von_mises\n+\
+    \        params:\n+          x_label: orientation (deg)\n+          y_label: r (Hz)\n+          x_range:\n+\
     \            - 0\n+            - 180\n+          y_range:\n+            - 0\n+            - 40\n+          anchor:
-    center_left\n+          width_fraction: 0.55\n+          parameters:\n+            r_max: 30\n+            kappa:
-    2\n+            theta_0: 90\n+          series:\n+            - label: von Mises model\n+              expression:
-    r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))\n+          markers:\n+            - x: theta_0\n+\
-    \              label: θ₀\n+              style_role: secondary_text\n+          data_label: analytic curve from
-    the equation\n+      - id: kappa_label\n+        kind: equation_label\n+        style_role: emphasis\n+    \
-    \    equation:\n+          id: von_mises\n+          highlight:\n+            - kappa\n+        params:\n+ \
-    \         text: concentration kappa\n+          anchor: top_right\n+        reveal_at_seconds: 13\n+    actions:\n\
-    +      - id: sharpen\n+        kind: vary_parameter\n+        target: model_curve\n+        parameter: kappa\n\
-    +        to: 8\n+        at_seconds: 14.5\n+        duration_seconds: 4\n+        emphasize:\n+          - kappa_label\n\
-    +    snapshots:\n+      - id: half_sharpened\n+        at_seconds: 16.5\n+        description: 'Inside the sweep:
-    the curve is narrower than at kappa = 2 and the readout shows kappa between\n+          2 and 8.'\n+      -
-    id: model_complete\n+        at_seconds: 19\n+        description: The sharpened model curve (kappa = 8) with
-    the preferred-orientation marker, the kappa \n+          label and its readout."
+    center_right\n+          width_fraction: 0.5\n+          parameters:\n+            r_max: 30\n+            kappa:
+    2\n+            theta_0: 90\n+            theta: 0\n+          series:\n+            - label: von Mises model\n\
+    +              expression: r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))\n+          markers:\n+\
+    \            - x: theta_0\n+              label: θ₀\n+              style_role: secondary_text\n+          \
+    \  - x: theta\n+              label: stimulus\n+              style_role: emphasis\n+          data_label: analytic
+    curve from the equation\n+      - id: kappa_label\n+        kind: equation_label\n+        style_role: emphasis\n\
+    +        equation:\n+          id: von_mises\n+          highlight:\n+            - kappa\n+            - theta\n\
+    +        params:\n+          text: von Mises model\n+          anchor: top_left\n+        reveal_at_seconds:
+    13\n+    actions:\n+      - id: rotate_stimulus\n+        kind: vary_parameter\n+        target: grating\n+\
+    \        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds: 6\n+      \
+    \  emphasize:\n+          - kappa_label\n+      - id: track_stimulus\n+        kind: vary_parameter\n+     \
+    \   target: model_curve\n+        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds:
+    6\n+        show_value: false\n+      - id: sharpen\n+        kind: vary_parameter\n+        target: model_curve\n\
+    +        parameter: kappa\n+        to: 8\n+        at_seconds: 20.3\n+        duration_seconds: 3\n+      \
+    \  emphasize:\n+          - kappa_label\n+    snapshots:\n+      - id: stimulus_mid\n+        at_seconds: 17\n\
+    +        description: 'Halfway through the turn: the grating near 90 deg and the stimulus marker near the peak
+    of\n+          the curve; the readout shows theta between 0 and 180.'\n+      - id: stimulus_end\n+        at_seconds:
+    20.2\n+        description: The grating at 180 deg and the marker at the right edge of the curve.\n+      -
+    id: half_sharpened\n+        at_seconds: 21.8\n+        description: 'Inside the sharpening: the curve narrower
+    than at kappa = 2 and the readout shows kappa between\n+          2 and 8.'\n+      - id: model_complete\n+\
+    \        at_seconds: 23.3\n+        description: The sharpened model curve (kappa = 8) with both markers, the
+    grating at 180 deg, the \n+          label with its readouts."
 scientific_review_required: true
 validation_warnings: []

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
-from itertools import pairwise
+from itertools import combinations
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
 from scianim_core.common import SchemaVersion, Slug, StrictModel, ensure_unique
-from scianim_core.components import REGISTRY, ComponentKind, FunctionPlotParams, validate_params
+from scianim_core.components import PARAMETRIC_KINDS, REGISTRY, ComponentKind, FunctionPlotParams, validate_params
 from scianim_core.style import Easing
 
 MARK_PATTERN = re.compile(r'<mark\s+name="([A-Za-z0-9_]+)"\s*/>')
@@ -98,10 +98,10 @@ class VaryParameter(StrictModel):
     at that frame, so it is still reached by the real animation flow. One action plays at a time.
     """
 
-    kind: Literal["vary_parameter"] = "vary_parameter"
+    kind: Literal["vary_parameter"]
     id: Slug
     target: Slug
-    """A `function_plot` object in the same scene that declares `parameter` under `params.parameters`."""
+    """A `function_plot`, `surface_plot` or `function_image` in the same scene that declares `parameter`."""
     parameter: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     to: float = Field(allow_inf_nan=False)
     at_seconds: float = Field(ge=0)
@@ -120,8 +120,32 @@ class VaryParameter(StrictModel):
         return self.at_seconds + self.duration_seconds
 
 
-SceneAction = VaryParameter
-"""Further action kinds join a discriminated union on `kind`."""
+class OrbitCamera(StrictModel):
+    """Turn the camera around the scene's surface over a window: the azimuth (`theta`) and the elevation (`phi`)
+    move from where they are to the given angles with the easing. Flat objects stay fixed in the frame; only
+    `surface_plot` objects turn, so a scene needs one. Orbits may run alongside parameter sweeps."""
+
+    kind: Literal["orbit_camera"]
+    id: Slug
+    to_theta_degrees: float | None = Field(default=None, allow_inf_nan=False)
+    to_phi_degrees: float | None = Field(default=None, ge=0, le=90)
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+
+    @model_validator(mode="after")
+    def _some_target(self) -> OrbitCamera:
+        if self.to_theta_degrees is None and self.to_phi_degrees is None:
+            raise ValueError("orbit_camera needs to_theta_degrees, to_phi_degrees or both")
+        return self
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+SceneAction = Annotated[VaryParameter | OrbitCamera, Field(discriminator="kind")]
+"""Actions run concurrently; the validator refuses two that drive the same thing at once."""
 
 
 class Narration(StrictModel):
@@ -202,36 +226,37 @@ class Scene(StrictModel):
         def reveal_time(obj: SceneObject) -> float:
             return self.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
 
-        ordered = sorted(self.actions, key=lambda a: a.at_seconds)
-        for earlier, later in pairwise(ordered):
-            if later.at_seconds < earlier.end_seconds:
-                raise ValueError(
-                    f"action '{later.id}' at {later.at_seconds:g}s overlaps action '{earlier.id}' "
-                    f"({earlier.at_seconds:g}-{earlier.end_seconds:g}s); one action plays at a time"
-                )
         for action in self.actions:
             if action.at_seconds < self.start_seconds or action.end_seconds > self.end_seconds:
                 raise ValueError(
                     f"action '{action.id}' ({action.at_seconds:g}-{action.end_seconds:g}s) lies outside scene "
                     f"'{self.id}' [{self.start_seconds}, {self.end_seconds}]"
                 )
+            if isinstance(action, OrbitCamera):
+                if not any(o.kind == "surface_plot" for o in self.objects):
+                    raise ValueError(
+                        f"action '{action.id}': orbit_camera needs a surface_plot in scene '{self.id}'; flat objects "
+                        "stay fixed in the frame"
+                    )
+                continue
             target = objects.get(action.target)
             if target is None:
                 raise ValueError(
                     f"action '{action.id}': target '{action.target}' is not an object of scene '{self.id}'"
                 )
-            if target.kind != "function_plot":
+            if target.kind not in PARAMETRIC_KINDS:
                 raise ValueError(
-                    f"action '{action.id}': target '{target.id}' is a {target.kind}; vary_parameter needs a function_plot"
+                    f"action '{action.id}': target '{target.id}' is a {target.kind}; vary_parameter needs one of "
+                    f"{sorted(PARAMETRIC_KINDS)}"
                 )
             params = target.typed_params()
-            assert isinstance(params, FunctionPlotParams)
-            if action.parameter not in params.parameters:
+            declared = getattr(params, "parameters", {})
+            if action.parameter not in declared:
                 raise ValueError(
                     f"action '{action.id}': '{target.id}' declares no parameter '{action.parameter}' "
-                    f"(declared: {sorted(params.parameters) or 'none'})"
+                    f"(declared: {sorted(declared) or 'none'})"
                 )
-            if params.y_range is None:
+            if isinstance(params, FunctionPlotParams) and params.y_range is None:
                 raise ValueError(
                     f"action '{action.id}': give '{target.id}' a y_range so the axes stay fixed while "
                     f"'{action.parameter}' varies"
@@ -257,12 +282,21 @@ class Scene(StrictModel):
                         f"action '{action.id}' at {action.at_seconds:g}s starts before '{object_id}' is revealed "
                         f"at {reveal_time(obj):g}s"
                     )
-            for obj in self.objects:
-                if obj.reveal_at_seconds is not None and action.at_seconds < obj.reveal_at_seconds < action.end_seconds:
-                    raise ValueError(
-                        f"object '{obj.id}' is revealed at {obj.reveal_at_seconds:g}s, inside action '{action.id}' "
-                        f"({action.at_seconds:g}-{action.end_seconds:g}s); one thing plays at a time"
-                    )
+        for first, second in combinations(self.actions, 2):
+            overlapping = first.at_seconds < second.end_seconds and second.at_seconds < first.end_seconds
+            if not overlapping:
+                continue
+            if isinstance(first, OrbitCamera) and isinstance(second, OrbitCamera):
+                raise ValueError(f"camera orbits '{first.id}' and '{second.id}' overlap; one orbit at a time")
+            if (
+                isinstance(first, VaryParameter)
+                and isinstance(second, VaryParameter)
+                and (first.target, first.parameter) == (second.target, second.parameter)
+            ):
+                raise ValueError(
+                    f"actions '{first.id}' and '{second.id}' both vary '{first.target}.{first.parameter}' at the "
+                    "same time"
+                )
 
     @property
     def duration_seconds(self) -> float:

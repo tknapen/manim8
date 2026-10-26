@@ -145,6 +145,8 @@
               "text_caption",
               "scientific_plot",
               "function_plot",
+              "surface_plot",
+              "function_image",
               "equation_block",
               "equation_label",
               "comparison_plot",

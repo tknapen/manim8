@@ -37,6 +37,7 @@ from scianim.render.manifests import (
 from scianim.server.runner import JobRequest, JobRunner
 from scianim_core import ArtifactManifest, CheckpointRecord
 from scianim_core.feedback import FeedbackKind, Region, ReviewStatus, Severity
+from scianim_core.storyboard import OrbitCamera, SceneAction
 
 STATIC_DIR = Path(__file__).parent / "static"
 SLUG = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -70,6 +71,20 @@ class FeedbackCreate(BaseModel):
     job_id: str | None = Field(default=None, pattern=JOB_ID_PATTERN.pattern)
     author: str | None = None
     time_seconds: float | None = None
+
+
+def action_summary(action: SceneAction) -> str:
+    if isinstance(action, OrbitCamera):
+        parts = []
+        if action.to_theta_degrees is not None:
+            parts.append(f"azimuth to {action.to_theta_degrees:g} deg")
+        if action.to_phi_degrees is not None:
+            parts.append(f"elevation to {action.to_phi_degrees:g} deg")
+        return "camera " + ", ".join(parts)
+    text = f"{action.target}.{action.parameter} to {action.to:g}"
+    if action.emphasize:
+        text += ", emphasizing " + ", ".join(action.emphasize)
+    return text
 
 
 def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
@@ -207,12 +222,9 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                             {
                                 "id": a.id,
                                 "kind": a.kind,
-                                "target": a.target,
-                                "parameter": a.parameter,
-                                "to": a.to,
                                 "at_seconds": a.at_seconds,
                                 "end_seconds": a.end_seconds,
-                                "emphasize": list(a.emphasize),
+                                "summary": action_summary(a),
                             }
                             for a in scene.actions
                         ],

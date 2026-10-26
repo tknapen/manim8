@@ -59,8 +59,8 @@ def test_missing_csv_column_is_an_error(project_copy: Project) -> None:
 def test_unknown_equation_reference_is_an_error(project_copy: Project) -> None:
     rewrite(
         project_copy.storyboard_path,
-        "equation: {id: schematic_equation, highlight: [P]}",
-        "equation: {id: other_equation, highlight: [P]}",
+        "equation: {id: schematic_equation, highlight: [P, sigma]}",
+        "equation: {id: other_equation, highlight: [P, sigma]}",
     )
     report = validate_project(project_copy)
     assert any("equation 'other_equation'" in e for e in report.errors)

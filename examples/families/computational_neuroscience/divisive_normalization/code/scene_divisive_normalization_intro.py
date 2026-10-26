@@ -38,10 +38,14 @@ class DivisiveNormalizationIntro(SnapshotScene):
              'y_label': 'response r',
              'data_label': 'synthetic data'},
         )
-        self.reveal(drive_caption)
-        self.reveal(drive_curve)
-        self.wait_until(1)
-        self.reveal(drive_note)
+        reveal_drive_caption = self.begin_reveal(drive_caption)
+        reveal_drive_curve = self.begin_reveal(drive_curve)
+        self.run_until(0.85, [reveal_drive_caption, reveal_drive_curve])
+        self.wait_until(0.85)
+        self.wait_until(2)
+        reveal_drive_note = self.begin_reveal(drive_note)
+        self.run_until(2.85, [reveal_drive_note])
+        self.wait_until(2.85)
         self.wait_until(4)
         checkpoint(self, "excitation_visible", expected_time=4)
         self.wait_until(5.35)
@@ -50,7 +54,7 @@ class DivisiveNormalizationIntro(SnapshotScene):
         # --- scene 'normalization': 6s to 18s
         # Divide by a normalization pool, then raise the pool and watch the response compress.
         self.begin_scene("normalization", start_seconds=6)
-        self.narrate('Dividing by a normalization pool P compresses it: as the pool grows, the same drive yields a smaller response.')
+        self.narrate('Dividing by a pool P compresses the response as the pool grows; a larger sigma softens the division as the pool recedes.')
         response_curve = C.function_plot(
             self,
             "response_curve",
@@ -70,19 +74,30 @@ class DivisiveNormalizationIntro(SnapshotScene):
             self,
             "normalization_equation",
             style_role="foreground",
-            equation={'id': 'schematic_equation', 'highlight': ['P']},
+            equation={'id': 'schematic_equation', 'highlight': ['P', 'sigma']},
             params={'anchor': 'top_right', 'scale': 0.9},
         )
-        self.reveal(response_curve)
+        reveal_response_curve = self.begin_reveal(response_curve)
+        self.run_until(6.85, [reveal_response_curve])
+        self.wait_until(6.85)
         self.wait_until(7)
-        self.reveal(normalization_equation)
+        reveal_normalization_equation = self.begin_reveal(normalization_equation)
+        self.run_until(7.85, [reveal_normalization_equation])
+        self.wait_until(7.85)
         self.wait_until(8)
         checkpoint(self, "pool_introduced", expected_time=8)
         self.wait_until(8.5)
         raise_pool = self.begin_vary(response_curve, "P", to=4.0, at_seconds=8.5, duration_seconds=4, action_id="raise_pool", easing=None, emphasize=[normalization_equation], show_value=True, value_decimals=1, value_label=None)
-        self.vary_until(raise_pool, 12.5)
-        self.wait_until(14)
-        checkpoint(self, "pool_raised", expected_time=14)
+        self.run_until(12.5, [raise_pool])
+        self.wait_until(12.5)
+        self.wait_until(13)
+        checkpoint(self, "pool_raised", expected_time=13)
+        stabilize = self.begin_vary(response_curve, "sigma", to=3.0, at_seconds=13, duration_seconds=3.5, action_id="stabilize", easing=None, emphasize=[normalization_equation], show_value=True, value_decimals=1, value_label=None)
+        lower_pool = self.begin_vary(response_curve, "P", to=1.0, at_seconds=13, duration_seconds=3.5, action_id="lower_pool", easing=None, emphasize=[], show_value=True, value_decimals=1, value_label=None)
+        self.run_until(16.5, [stabilize, lower_pool])
+        self.wait_until(16.5)
+        self.wait_until(17.2)
+        checkpoint(self, "rebalanced", expected_time=17.2)
         self.wait_until(17.35)
         self.end_scene(end_seconds=18, keep=True)
 

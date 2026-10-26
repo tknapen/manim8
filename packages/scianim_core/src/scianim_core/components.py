@@ -25,6 +25,8 @@ ComponentKind = Literal[
     "text_caption",
     "scientific_plot",
     "function_plot",
+    "surface_plot",
+    "function_image",
     "equation_block",
     "equation_label",
     "comparison_plot",
@@ -103,6 +105,19 @@ class ComparisonPlotParams(StrictModel):
 
 
 PARAMETER_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+PARAMETRIC_KINDS: frozenset[str] = frozenset({"function_plot", "surface_plot", "function_image"})
+"""Kinds with named `parameters` that a `vary_parameter` action can sweep."""
+
+
+def check_parameters(parameters: dict[str, float], reserved: tuple[str, ...]) -> None:
+    for name, value in parameters.items():
+        if not PARAMETER_NAME.match(name) or name in reserved or name in ALLOWED_FUNCTIONS or name in ALLOWED_CONSTANTS:
+            raise ValueError(
+                f"parameter name '{name}' must be an identifier other than {list(reserved)}, a built-in function "
+                "or a constant"
+            )
+        if not math.isfinite(value):
+            raise ValueError(f"parameter '{name}' must be a finite number")
 
 
 class FunctionSeries(StrictModel):
@@ -143,13 +158,7 @@ class FunctionPlotParams(StrictModel):
 
     @model_validator(mode="after")
     def _checks(self) -> FunctionPlotParams:
-        for name, value in self.parameters.items():
-            if not PARAMETER_NAME.match(name) or name == "x" or name in ALLOWED_FUNCTIONS or name in ALLOWED_CONSTANTS:
-                raise ValueError(
-                    f"parameter name '{name}' must be an identifier other than 'x', a built-in function or a constant"
-                )
-            if not math.isfinite(value):
-                raise ValueError(f"parameter '{name}' must be a finite number")
+        check_parameters(self.parameters, ("x",))
         variables = ("x", *self.parameters)
         for series in self.series:
             validate_expression(series.expression, variables)
@@ -173,6 +182,75 @@ class FunctionPlotParams(StrictModel):
         if not math.isfinite(x):
             raise ValueError(f"marker expression {marker.x!r} is not finite for parameters {values}")
         return x
+
+
+class SurfacePlotParams(StrictModel):
+    """A surface z = f(x, y) over a box, drawn as a fine mesh in three dimensions.
+
+    The camera can orbit it (`orbit_camera`) and its `parameters` can be swept (`vary_parameter`); the box never
+    rescales. Flat objects in the same scene stay fixed in the frame while the surface turns.
+    """
+
+    x_label: str = Field(min_length=1)
+    y_label: str = Field(min_length=1)
+    z_label: str = Field(min_length=1)
+    x_range: tuple[float, float]
+    y_range: tuple[float, float]
+    z_range: tuple[float, float]
+    """Fixed vertical range; values outside it are clipped to the box and a warning is recorded."""
+    expression: str = Field(min_length=1)
+    """Arithmetic in x, y and `parameters`; the same whitelist as function_plot."""
+    parameters: dict[str, float] = {}
+    resolution: int = Field(default=40, ge=4, le=120)
+    """Mesh cells per axis."""
+    fill: Literal["by_sign", "by_height", "none"] = "by_sign"
+    """`by_sign`: positive cells in the style role, negative cells in the comparison ink; `by_height`: opacity rises with height."""
+    data_label: str | None = None
+    size_fraction: float = Field(default=0.6, gt=0, le=1)
+    """Footprint of the box as a fraction of the safe height."""
+
+    @model_validator(mode="after")
+    def _checks(self) -> SurfacePlotParams:
+        check_parameters(self.parameters, ("x", "y"))
+        validate_expression(self.expression, ("x", "y", *self.parameters))
+        for name, (low, high) in (("x_range", self.x_range), ("y_range", self.y_range), ("z_range", self.z_range)):
+            if low >= high:
+                raise ValueError(f"{name} must be [low, high] with low < high")
+        return self
+
+
+class FunctionImageParams(StrictModel):
+    """A scalar field f(x, y) sampled to an image: a grating, a kernel, a map. Two inks or grey."""
+
+    expression: str = Field(min_length=1)
+    parameters: dict[str, float] = {}
+    x_range: tuple[float, float]
+    y_range: tuple[float, float]
+    resolution: int = Field(default=64, ge=8, le=512)
+    """Pixels per axis."""
+    value_range: tuple[float, float] = (-1.0, 1.0)
+    """Values map onto the colour scale across this fixed range, so a sweep never rescales the image."""
+    colors: Literal["two_ink", "grey"] = "two_ink"
+    """`two_ink`: negative values in the comparison ink, positive in the style role, zero white; `grey`: dark to light."""
+    mask: Literal["none", "circle"] = "none"
+    label: str | None = None
+    data_label: str | None = None
+    anchor: Anchor = "center"
+    size_fraction: float = Field(default=0.4, gt=0, le=1)
+    """Height of the image as a fraction of the safe height."""
+
+    @model_validator(mode="after")
+    def _checks(self) -> FunctionImageParams:
+        check_parameters(self.parameters, ("x", "y"))
+        validate_expression(self.expression, ("x", "y", *self.parameters))
+        for name, (low, high) in (
+            ("x_range", self.x_range),
+            ("y_range", self.y_range),
+            ("value_range", self.value_range),
+        ):
+            if low >= high:
+                raise ValueError(f"{name} must be [low, high] with low < high")
+        return self
 
 
 class CustomParams(StrictModel):
@@ -322,6 +400,28 @@ REGISTRY: dict[str, ComponentDefinition] = {
         requires_equation=False,
         text_like=False,
         consumes=("palette.<style_role>", "palette.*", "typography.body", "geometry", "charts", "layout"),
+    ),
+    "surface_plot": ComponentDefinition(
+        kind="surface_plot",
+        params_model=SurfacePlotParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=("palette.<style_role>", "palette.comparison", "palette.*", "typography.body", "geometry", "three_d"),
+    ),
+    "function_image": ComponentDefinition(
+        kind="function_image",
+        params_model=FunctionImageParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=(
+            "palette.<style_role>",
+            "palette.comparison",
+            "palette.background",
+            "typography.annotation",
+            "geometry",
+        ),
     ),
     "equation_block": ComponentDefinition(
         kind="equation_block",

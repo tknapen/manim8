@@ -162,12 +162,13 @@ def test_tampered_and_unsafe_archives_are_refused(project_copy: Project, tmp_pat
 
 def test_family_bundle_carries_every_project(workspace: Path, tmp_path: Path) -> None:
     family = workspace / "families" / "computational_neuroscience"
-    for name in ("divisive_normalization", "prf_tuning", "orientation_tuning"):
+    for name in ("divisive_normalization", "prf_tuning", "orientation_tuning", "gabor_filter"):
         _prepare(Project(family / name))
     result = export_bundle(family, tmp_path / "family.scianim.zip")
     assert result.manifest.kind == "family"
     assert sorted(p.id for p in result.manifest.projects) == [
         "divisive_normalization",
+        "gabor_filter",
         "orientation_tuning",
         "prf_tuning",
     ]
@@ -175,7 +176,7 @@ def test_family_bundle_carries_every_project(workspace: Path, tmp_path: Path) ->
     other = tmp_path / "other"
     init_workspace(other)
     report = import_bundle(tmp_path / "family.scianim.zip", other, family_id="neuro_copy")
-    assert report.family_dir.name == "neuro_copy" and len(report.projects) == 3
+    assert report.family_dir.name == "neuro_copy" and len(report.projects) == 4
     for project_dir in report.projects:
         assert validate_project(Project(project_dir), require_family=True).ok
 

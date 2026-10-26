@@ -6,8 +6,9 @@ and the project below into a workspace, where environments, revisions and render
 ```text
 examples/families/computational_neuroscience/            # family template: family.yaml, pyproject.toml, uv.lock
 examples/families/computational_neuroscience/divisive_normalization/   # project template nested under its family
-examples/families/computational_neuroscience/prf_tuning/              # second project: a 12 s clip, the pRF's centre and size swept
-examples/families/computational_neuroscience/orientation_tuning/     # third project: a 20 s clip from the agent loop, kappa swept
+examples/families/computational_neuroscience/prf_tuning/              # second project: the pRF as a hill over the visual field, centre and size swept under an orbit
+examples/families/computational_neuroscience/orientation_tuning/     # third project: from the agent loop; a grating turns while a marker follows it, then kappa sharpens
+examples/families/computational_neuroscience/gabor_filter/          # fourth project: a Gabor filter as a mesh, orbited while theta, f and sigma change in turn
 ```
 
 The projects sit under their family on purpose: the nearest `family.yaml` above a project is authoritative, so a

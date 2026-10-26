@@ -10,18 +10,15 @@ import pytest
 manim = pytest.importorskip("manim")
 
 PALETTE = {
-    role: "#111111"
-    for role in (
-        "background",
-        "foreground",
-        "secondary_text",
-        "muted",
-        "neutral",
-        "primary_signal",
-        "emphasis",
-        "warning",
-        "comparison",
-    )
+    "background": "#FFFFFF",
+    "foreground": "#111111",
+    "secondary_text": "#555555",
+    "muted": "#999999",
+    "neutral": "#777777",
+    "primary_signal": "#1F5FBF",
+    "emphasis": "#C8102E",
+    "warning": "#D08000",
+    "comparison": "#8B1A1A",
 }
 TYPEFACE = {"font_family": "DejaVu Sans", "font_fallbacks": [], "size_px_at_1080p": 32, "weight": "regular"}
 
@@ -139,7 +136,7 @@ def test_sweep_applies_eased_values_pulse_and_readout() -> None:
 
     from scianim_bridge import components as C
     from scianim_bridge.components.base import pretty_symbol
-    from scianim_bridge.scene import ParameterSweep
+    from scianim_bridge.scene import TrackSegment
 
     with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
         config.frame_width = config.frame_height * 16 / 9
@@ -149,16 +146,113 @@ def test_sweep_applies_eased_values_pulse_and_readout() -> None:
             plot, "sigma", to=4.0, at_seconds=10, duration_seconds=5, action_id="widen", easing="linear"
         )
         sigma = pretty_symbol("sigma")
-        assert sweep.readout is not None and sweep.readout.text == f"{sigma} = 1.5"
+        assert sweep.readout is not None and sweep.readout.component.text == f"{sigma} = 1.5"
         assert scene.objects["widen"].kind == "value_readout"
         sweep.apply(0.5)
         assert plot.parameters["sigma"] == pytest.approx(2.75)
-        assert sweep.readout.text == f"{sigma} = 2.8"
-        segment = ParameterSweep(sweep, 0.5, 1.0)
+        assert sweep.readout.component.text == f"{sigma} = 2.8"
+        segment = TrackSegment(sweep, 0.5, 1.0)
         segment.interpolate_mobject(1.0)
-        assert plot.parameters["sigma"] == pytest.approx(4.0) and sweep.readout.text == f"{sigma} = 4.0"
+        assert plot.parameters["sigma"] == pytest.approx(4.0) and sweep.readout.component.text == f"{sigma} = 4.0"
         # Smooth easing starts and ends at the end values and is monotone in between.
         smooth = scene.begin_vary(plot, "x_0", to=-2.0, at_seconds=20, duration_seconds=2, action_id="shift")
         values = [smooth.value_at(f / 10) for f in range(11)]
         assert values[0] == pytest.approx(2.0) and values[-1] == pytest.approx(-2.0)
         assert all(a >= b for a, b in pairwise(values))
+
+
+def test_surface_image_orbit_and_reveal_tracks() -> None:
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        surface = C.surface_plot(
+            scene,
+            "surface",
+            params={
+                "x_label": "x",
+                "y_label": "y",
+                "z_label": "g",
+                "x_range": [-3, 3],
+                "y_range": [-3, 3],
+                "z_range": [0, 1],
+                "expression": "exp(-((x - x_0)^2 + y^2) / 2)",
+                "parameters": {"x_0": 0},
+                "resolution": 8,
+            },
+        )
+        assert surface.three_d and surface.kind == "surface_plot"
+        mesh = surface.group[1]
+        assert len(mesh.submobjects) == 64
+        top_before = max(float(face.get_center()[2]) for face in mesh.submobjects)
+        peak_before = max(mesh.submobjects, key=lambda face: float(face.get_center()[2])).get_center()
+        assert surface.set_parameters(x_0=2.0) == []
+        peak_after = max(mesh.submobjects, key=lambda face: float(face.get_center()[2])).get_center()
+        assert peak_after[0] > peak_before[0] + 0.3  # the hill moved along x
+        assert abs(max(float(face.get_center()[2]) for face in mesh.submobjects) - top_before) < 0.2
+        assert (
+            any(
+                "clipped" in w
+                for w in surface.set_parameters(x_0=0.0)
+                + C.surface_plot(
+                    scene,
+                    "tall",
+                    params={
+                        "x_label": "x",
+                        "y_label": "y",
+                        "z_label": "g",
+                        "x_range": [-1, 1],
+                        "y_range": [-1, 1],
+                        "z_range": [0, 0.5],
+                        "expression": "1.0 + 0 * x * y",
+                        "parameters": {},
+                        "resolution": 4,
+                    },
+                ).set_parameters()
+            )
+            or scene.render_warnings
+        )
+
+        image = C.function_image(
+            scene,
+            "grating",
+            params={
+                "expression": "cos(2 * pi * f * (x * cos(theta * pi / 180) + y * sin(theta * pi / 180)))",
+                "parameters": {"theta": 0, "f": 1},
+                "x_range": [-1, 1],
+                "y_range": [-1, 1],
+                "resolution": 16,
+                "colors": "grey",
+                "mask": "circle",
+            },
+        )
+        pixels = image.group[0].pixel_array
+        assert pixels.shape == (16, 16, 4) and pixels[0, 0, 3] == 0 and pixels[8, 8, 3] == 255
+        before = pixels.copy()
+        image.set_parameters(theta=90.0)
+        assert not (image.group[0].pixel_array == before).all()
+
+        scene.ensure_camera()
+        camera = scene.renderer.camera
+        orbit = scene.begin_orbit(
+            to_theta_degrees=40,
+            to_phi_degrees=None,
+            at_seconds=0,
+            duration_seconds=10,
+            action_id="orbit",
+            easing="linear",
+        )
+        orbit.apply(0.5)
+        assert math.degrees(camera.get_theta()) == pytest.approx(-5.0, abs=1e-6)
+        orbit.apply(1.0)
+        assert math.degrees(camera.get_theta()) == pytest.approx(40.0, abs=1e-6)
+
+        label = C.text_caption(scene, "note", params={"text": "note"})
+        reveal = scene.begin_reveal(label, duration_seconds=1.0)
+        assert label.visible and label.group in scene.mobjects
+        reveal.apply(1.0)
+        reveal.finish()
+        assert label.group.get_family()[1].get_fill_opacity() == pytest.approx(1.0)

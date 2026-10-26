@@ -3,7 +3,7 @@ id: prf_tuning
 title: "The Gaussian population receptive field"
 sources: []
 output:
-  duration_seconds: 12
+  duration_seconds: 16
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
@@ -17,29 +17,31 @@ style:
   overrides: {}
 equations:
   - id: gaussian_prf
-    typst: "g(x) = exp(-(x - x_0)^2 / (2 sigma^2))"
-    latex: "g(x) = \\exp\\left(-\\frac{(x - x_0)^2}{2\\sigma^2}\\right)"
+    typst: "g(x, y) = exp(-((x - x_0)^2 + (y - y_0)^2) / (2 sigma^2))"
+    latex: "g(x, y) = \\exp\\left(-\\frac{(x - x_0)^2 + (y - y_0)^2}{2\\sigma^2}\\right)"
     symbols:
-      g: {meaning: "pRF weight at visual field position x"}
-      x: {meaning: "visual field position", units: "deg"}
-      x_0: {meaning: "pRF centre (preferred position)", units: "deg"}
+      g: {meaning: "pRF weight at visual field position (x, y)"}
+      x: {meaning: "horizontal visual field position", units: "deg"}
+      y: {meaning: "vertical visual field position", units: "deg"}
+      x_0: {meaning: "horizontal centre (preferred position)", units: "deg"}
+      y_0: {meaning: "vertical centre (preferred position)", units: "deg"}
       sigma: {meaning: "pRF size (standard deviation)", units: "deg"}
 audience: graduate_neuroscience
 objective: >-
-  A brief clip: one Gaussian population receptive field beside its equation. Move the
-  centre, then grow the size, so that what each parameter does to the profile is seen
-  rather than inferred from two panels.
+  A brief clip: one Gaussian population receptive field over the visual field, as a surface
+  under a turning camera, beside its equation. Move the centre, then grow the size, so that
+  what each parameter does is seen rather than inferred from two panels.
 scientific_constraints:
   - id: equation_exact
     kind: hard
     equation: gaussian_prf
-    text: "Show the Gaussian pRF equation exactly as stored, with x_0 and sigma highlighted."
+    text: "Show the Gaussian pRF equation exactly as stored, with x_0, y_0 and sigma highlighted."
   - id: synthetic_label
     kind: hard
     text: "Label the plotted profiles as analytic curves computed from the equation, not as measurements."
   - id: fixed_axes
     kind: hard
-    text: "While the size varies, keep the centre, the position axis and the weight axis fixed."
+    text: "While the centre and the size vary, keep the field box and the weight axis fixed."
 timeline:
   - id: start
     at_seconds: 0
@@ -47,12 +49,12 @@ timeline:
     kind: hard
     instruction: "Show the profile and the equation together from the first frame."
   - id: centre
-    at_seconds: 2.5
+    at_seconds: 3
     tolerance_seconds: 1
     kind: preferred
-    instruction: "Move the centre first."
+    instruction: "Move the centre first, in both directions at once."
   - id: size
-    at_seconds: 6.5
+    at_seconds: 8.5
     tolerance_seconds: 1
     kind: preferred
     instruction: "Then grow the size."

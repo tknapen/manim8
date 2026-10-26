@@ -407,3 +407,41 @@ duration-derived average can differ by a millisecond's rounding and is not a fra
 **Why.** Examples teach the shape of the work more than any instruction does, and an agent asked for "an
 animation of X" will copy them. Keeping the long-form machinery (sections, subtitles, timing proposals) costs
 nothing; what changed is the default.
+
+## ADR-024: Surfaces, a camera that orbits, and tracks that run together
+
+**Status:** accepted, 26 October 2026
+
+**Context.** The first brief clips varied one curve at a time. A convincing example needs an object with
+real structure (a Gabor filter as a mesh in three dimensions), a camera that turns around it while its
+parameters change one after the other, and flat text that stays legible throughout.
+
+**Decision.** Two kinds join the registry. `surface_plot` draws z = f(x, y) over a fixed box as a fine mesh
+(`resolution` cells per axis) with cells filled by the sign of the value (the two inks) or fading with height,
+a despined floor frame with one vertical edge, outward ticks, and labels that keep their screen orientation
+while following their anchors in the world; its `parameters` sweep like a function plot's, and the box never
+rescales. `function_image` samples f(x, y) to pixels (a grating, a kernel) in two inks around white or in
+grey, optionally masked to a disc, over a fixed `value_range`. A second action kind, `orbit_camera`, moves the
+camera's azimuth and elevation to given angles over a window; it needs a surface in the scene, because flat
+objects are fixed in the frame and do not turn.
+
+Actions run concurrently. The validator refuses only two actions that drive the same parameter of the same
+object at once, or two orbits that overlap. Codegen turns a scene into breakpoints (track starts and ends,
+checkpoints, the start of the fade-out) and emits one `run_until(t, [tracks])` per segment, in which every
+active track advances together; a reveal is a track too, so objects can fade in while a sweep runs, and
+objects without a reveal time appear together at the scene start rather than one after another. A checkpoint
+at a breakpoint captures the state before anything that starts there. Each track exposes `apply(fraction)`
+over its own window, so split segments continue the same easing, and in Manim's fast-forward mode a segment
+evaluates once at its end. The bridge scene is a `ThreeDScene`; every flat component is fixed in the frame
+when it registers (and again after any `become`), surfaces are not, and the layout report projects a
+surface's points through the camera so its box is the one on screen. Readouts are keyed by the swept object
+and parameter, so a second action on the same parameter updates the first readout instead of adding one.
+Style tokens gain a `three_d` group: the camera's starting elevation and azimuth, the mesh line weight and
+the surface opacity.
+
+**Why.** One action at a time was a simplification that made the first sweep easy and the second example
+impossible. Breakpoints and tracks keep generated code a readable projection of the storyboard and keep every
+checkpoint a marker in the flow, while letting the camera, the surface and the readouts move together. The
+Cairo renderer draws a surface as thousands of small polygons, which is slow for long videos but exact and
+deterministic; the OpenGL renderer would be faster and is not adopted, because the whole pipeline (sections,
+frame-exact timing, checkpoint capture) is verified on Cairo.

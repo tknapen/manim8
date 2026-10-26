@@ -14,6 +14,7 @@ from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
 from scianim_core.common import is_asset_uri
 from scianim_core.components import (
+    PARAMETRIC_KINDS,
     CaptionWithCitationParams,
     ComparisonPlotParams,
     FunctionPlotParams,
@@ -178,16 +179,17 @@ def check_storyboard(
                         report.error(
                             f"object '{obj.id}': condition_roles['{condition}'] = '{role}' is not a palette role"
                         )
-            if obj.kind == "function_plot":
+            if obj.kind == "function_plot" and palette is not None:
                 params = obj.typed_params()
                 assert isinstance(params, FunctionPlotParams)
-                if palette is not None:
-                    for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
-                        if role is not None and role not in palette:
-                            report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
+                for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
+                    if role is not None and role not in palette:
+                        report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
+            if obj.kind in PARAMETRIC_KINDS:
+                declared = getattr(obj.typed_params(), "parameters", {})
                 equation = equations.get(obj.equation.id) if obj.equation is not None else None
                 if equation is not None:
-                    unnamed = sorted(set(params.parameters) - set(equation.symbols))
+                    unnamed = sorted(set(declared) - set(equation.symbols))
                     if unnamed:
                         report.warn(
                             f"object '{obj.id}': parameters {unnamed} are not symbols of equation '{equation.id}'; "
@@ -223,44 +225,27 @@ def check_storyboard(
 
 
 def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report) -> None:
-    """Warn when a reveal or an action would start late (an earlier reveal is still playing) or an action
-    would end inside the scene's fade-out.
-
-    Reveals take `motion.reveal_seconds` each and play one after another, so the clock can run past a
-    storyboard time; the renderer then warns in the manifest. Saying it here is cheaper.
-    """
+    """Warn about a checkpoint that falls while an object is still fading in, and about a track that the
+    scene's fade-out would cut short. Tracks run concurrently, so nothing starts late because of a reveal."""
     motion = style.tokens.motion
-    events: list[tuple[float, int, str, str]] = []
+    fade_start = scene.end_seconds - motion.transition_seconds
+    frame = 1.0 / fps
     for obj in scene.objects:
-        at = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
-        # Objects without a reveal time play one after another at the scene start by design.
-        events.append((at, 1, "reveal" if obj.reveal_at_seconds is not None else "start_reveal", obj.id))
-    for action in scene.actions:
-        events.append((action.at_seconds, 3, "action", action.id))
-        events.append((action.end_seconds, 0, "end", action.id))
-    events.sort(key=lambda e: (e[0], e[1]))
-    clock = scene.start_seconds
-    starts: dict[str, float] = {}
-    for at, _, kind, ident in events:
-        if kind in ("reveal", "start_reveal"):
-            if kind == "reveal" and clock > at + 1.0 / fps:
+        begins = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+        until = begins + motion.reveal_seconds
+        for snap in scene.snapshots:
+            if begins + frame < snap.at_seconds < until - frame:
                 report.warn(
-                    f"object '{ident}' is due at {at:g}s but the reveals before it finish at {clock:.2f}s; "
-                    f"it will appear late (each reveal takes {motion.reveal_seconds:g}s)"
+                    f"snapshot '{snap.id}' at {snap.at_seconds:g}s falls while '{obj.id}' is still fading in "
+                    f"(until {until:.2f}s); move the snapshot or the reveal"
                 )
-            clock = max(clock, at) + motion.reveal_seconds
-        elif kind == "action":
-            starts[ident] = max(clock, at)
-        else:
-            clock = max(clock, at)
-    for action in scene.actions:
-        if starts[action.id] > action.at_seconds + 1.0 / fps:
+        if obj.reveal_at_seconds is not None and until > fade_start + 1e-9:
             report.warn(
-                f"action '{action.id}' is due at {action.at_seconds:g}s but the reveals before it finish at "
-                f"{starts[action.id]:.2f}s; it will start late (move it, or reveal fewer objects first)"
+                f"object '{obj.id}' is revealed at {begins:g}s and would still be fading in when scene "
+                f"'{scene.id}' starts fading out at {fade_start:.2f}s"
             )
-        fade_start = scene.end_seconds - motion.transition_seconds
-        if action.end_seconds > fade_start + 1e-9:
+    for action in scene.actions:
+        if action.kind != "orbit_camera" and action.end_seconds > fade_start + 1e-9:  # a camera may keep turning
             report.warn(
                 f"action '{action.id}' ends at {action.end_seconds:g}s, inside the fade-out of scene "
                 f"'{scene.id}' that begins at {fade_start:.2f}s"

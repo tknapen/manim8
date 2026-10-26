@@ -40,8 +40,8 @@ scenes:
     purpose: "Divide by a normalization pool, then raise the pool and watch the response compress."
     narration:
       text: >-
-        Dividing by a normalization pool P compresses it: as the pool grows, the same drive
-        yields a smaller response.
+        Dividing by a pool P compresses the response as the pool grows; a larger sigma
+        softens the division as the pool recedes.
     objects:
       - id: response_curve
         kind: function_plot
@@ -61,7 +61,7 @@ scenes:
       - id: normalization_equation
         kind: equation_block
         style_role: foreground
-        equation: {id: schematic_equation, highlight: [P]}
+        equation: {id: schematic_equation, highlight: [P, sigma]}
         params: {anchor: top_right, scale: 0.9}
         reveal_at_seconds: 7
     actions:
@@ -73,10 +73,28 @@ scenes:
         at_seconds: 8.5
         duration_seconds: 4
         emphasize: [normalization_equation]
+      - id: stabilize
+        kind: vary_parameter
+        target: response_curve
+        parameter: sigma
+        to: 3
+        at_seconds: 13
+        duration_seconds: 3.5
+        emphasize: [normalization_equation]
+      - id: lower_pool
+        kind: vary_parameter
+        target: response_curve
+        parameter: P
+        to: 1
+        at_seconds: 13
+        duration_seconds: 3.5
     snapshots:
       - id: pool_introduced
         at_seconds: 8
-        description: "The schematic response curve for P = 1 with the equation beside it, P highlighted."
+        description: "The schematic response curve for P = 1 with the equation beside it, P and sigma highlighted."
       - id: pool_raised
-        at_seconds: 14
-        description: "After the sweep the curve is compressed to a fifth of its slope, the readout under the equation reads P = 4.0, and the axes are unchanged."
+        at_seconds: 13
+        description: "After the first sweep the curve is compressed to a fifth of its slope and the readout under the equation reads P = 4.0; the axes are unchanged."
+      - id: rebalanced
+        at_seconds: 17.2
+        description: "After sigma rose to 3 while the pool fell back to 1, the slope is a quarter: the readouts read P = 1.0 and σ = 3.0."

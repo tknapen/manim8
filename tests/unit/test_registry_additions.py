@@ -135,14 +135,20 @@ def test_codegen_orders_timed_reveals_and_checkpoints(project_copy: Project) -> 
     order = [
         line.strip()
         for line in scene.splitlines()
-        if line.strip().startswith(("self.reveal(", "self.wait_until(", "checkpoint("))
+        if line.strip().startswith(("reveal_", "self.run_until(", "self.wait_until(", "checkpoint("))
     ]
     assert order == [
-        "self.reveal(drive_caption)",
+        "reveal_drive_caption = self.begin_reveal(drive_caption)",
+        "self.run_until(0.85, [reveal_drive_caption])",
+        "self.wait_until(0.85)",
         "self.wait_until(2)",
-        "self.reveal(drive_note)",
+        "reveal_drive_note = self.begin_reveal(drive_note)",
+        "self.run_until(2.85, [reveal_drive_note])",
+        "self.wait_until(2.85)",
         "self.wait_until(3)",
-        "self.reveal(drive_curve)",
+        "reveal_drive_curve = self.begin_reveal(drive_curve)",
+        "self.run_until(3.85, [reveal_drive_curve])",
+        "self.wait_until(3.85)",
         "self.wait_until(4)",
         'checkpoint(self, "excitation_visible", expected_time=4)',
         "self.wait_until(5.35)",

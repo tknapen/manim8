@@ -118,12 +118,33 @@ scenes:
         description: The curve with the von Mises label and the highlighted preferred orientation.
   - id: model
     start_seconds: 12
-    end_seconds: 20
-    purpose: The model curve, and what its concentration does.
+    end_seconds: 24
+    purpose: The stimulus turns while a marker follows it on the model curve; then the concentration rises.
     narration:
-      text: The von Mises model reproduces the shape; raising kappa sharpens the peak at the preferred 
-        orientation.
+      text: As the grating turns, the model's response follows the marker over the curve; raising kappa 
+        sharpens the peak.
     objects:
+      - id: grating
+        kind: function_image
+        style_role: primary_signal
+        params:
+          expression: cos(2 * pi * f * (x * cos(theta * pi / 180) + y * sin(theta * pi / 180)))
+          parameters:
+            theta: 0
+            f: 2
+          x_range:
+            - -1
+            - 1
+          y_range:
+            - -1
+            - 1
+          resolution: 64
+          colors: grey
+          mask: circle
+          label: stimulus
+          data_label: synthetic grating
+          anchor: center_left
+          size_fraction: 0.42
       - id: model_curve
         kind: function_plot
         style_role: primary_signal
@@ -138,12 +159,13 @@ scenes:
           y_range:
             - 0
             - 40
-          anchor: center_left
-          width_fraction: 0.55
+          anchor: center_right
+          width_fraction: 0.5
           parameters:
             r_max: 30
             kappa: 2
             theta_0: 90
+            theta: 0
           series:
             - label: von Mises model
               expression: r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))
@@ -151,6 +173,9 @@ scenes:
             - x: theta_0
               label: θ₀
               style_role: secondary_text
+            - x: theta
+              label: stimulus
+              style_role: emphasis
           data_label: analytic curve from the equation
       - id: kappa_label
         kind: equation_label
@@ -159,26 +184,51 @@ scenes:
           id: von_mises
           highlight:
             - kappa
+            - theta
         params:
-          text: concentration kappa
-          anchor: top_right
+          text: von Mises model
+          anchor: top_left
         reveal_at_seconds: 13
     actions:
+      - id: rotate_stimulus
+        kind: vary_parameter
+        target: grating
+        parameter: theta
+        to: 180
+        at_seconds: 14
+        duration_seconds: 6
+        emphasize:
+          - kappa_label
+      - id: track_stimulus
+        kind: vary_parameter
+        target: model_curve
+        parameter: theta
+        to: 180
+        at_seconds: 14
+        duration_seconds: 6
+        show_value: false
       - id: sharpen
         kind: vary_parameter
         target: model_curve
         parameter: kappa
         to: 8
-        at_seconds: 14.5
-        duration_seconds: 4
+        at_seconds: 20.3
+        duration_seconds: 3
         emphasize:
           - kappa_label
     snapshots:
+      - id: stimulus_mid
+        at_seconds: 17
+        description: 'Halfway through the turn: the grating near 90 deg and the stimulus marker near the peak of
+          the curve; the readout shows theta between 0 and 180.'
+      - id: stimulus_end
+        at_seconds: 20.2
+        description: The grating at 180 deg and the marker at the right edge of the curve.
       - id: half_sharpened
-        at_seconds: 16.5
-        description: 'Inside the sweep: the curve is narrower than at kappa = 2 and the readout shows kappa between
+        at_seconds: 21.8
+        description: 'Inside the sharpening: the curve narrower than at kappa = 2 and the readout shows kappa between
           2 and 8.'
       - id: model_complete
-        at_seconds: 19
-        description: The sharpened model curve (kappa = 8) with the preferred-orientation marker, the kappa 
-          label and its readout.
+        at_seconds: 23.3
+        description: The sharpened model curve (kappa = 8) with both markers, the grating at 180 deg, the 
+          label with its readouts.

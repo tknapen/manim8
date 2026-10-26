@@ -147,6 +147,19 @@ class Motion(StrictModel):
     narration_words_per_minute: float = Field(default=150, gt=0)
 
 
+class ThreeD(StrictModel):
+    """Surfaces and the orbiting camera. Flat objects stay fixed in the frame; only 3D kinds turn."""
+
+    camera_phi_degrees: float = Field(default=62, ge=0, le=90)
+    """Elevation of the camera above the floor plane at the start of every scene."""
+    camera_theta_degrees: float = Field(default=-50)
+    """Azimuth of the camera at the start of every scene; `orbit_camera` actions change it."""
+    mesh_stroke_px_at_1080p: float = Field(default=0.8, gt=0)
+    """Line weight of a surface mesh."""
+    surface_opacity: float = Field(default=0.5, ge=0, le=1)
+    """Fill opacity of surface cells, so the mesh behind stays visible."""
+
+
 class Accessibility(StrictModel):
     do_not_rely_on_color_alone: bool = True
     warn_on_low_contrast: bool = True
@@ -163,6 +176,7 @@ class StyleTokens(StrictModel):
     charts: Charts
     motion: Motion
     accessibility: Accessibility
+    three_d: ThreeD = ThreeD()
 
     def missing_palette_roles(self) -> list[str]:
         return sorted(REQUIRED_PALETTE_ROLES - set(self.palette))
@@ -189,6 +203,7 @@ PartialGeometry = make_partial(Geometry)
 PartialCharts = make_partial(Charts)
 PartialMotion = make_partial(Motion)
 PartialAccessibility = make_partial(Accessibility)
+PartialThreeD = make_partial(ThreeD)
 
 TOKEN_SECTIONS: tuple[str, ...] = (
     "palette",
@@ -198,6 +213,7 @@ TOKEN_SECTIONS: tuple[str, ...] = (
     "charts",
     "motion",
     "accessibility",
+    "three_d",
 )
 
 
@@ -216,6 +232,7 @@ class StyleSheet(StrictModel):
     charts: PartialCharts | None = None  # type: ignore[valid-type]
     motion: PartialMotion | None = None  # type: ignore[valid-type]
     accessibility: PartialAccessibility | None = None  # type: ignore[valid-type]
+    three_d: PartialThreeD | None = None  # type: ignore[valid-type]
 
     def tokens_dict(self) -> dict[str, Any]:
         """Nested dict of the tokens this sheet sets (None values removed)."""

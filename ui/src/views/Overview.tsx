@@ -205,8 +205,7 @@ export default function Overview({ id }: { id: string }) {
                     <div key={a.id}>
                       <code>{a.id}</code>{" "}
                       <span className="meta">
-                        {a.kind}: {a.target}.{a.parameter} → {a.to}, {a.at_seconds}–{a.end_seconds} s
-                        {a.emphasize.length ? `, emphasizing ${a.emphasize.join(", ")}` : ""}
+                        {a.kind}: {a.summary}, {a.at_seconds}–{a.end_seconds} s
                       </span>
                     </div>
                   ))}

@@ -129,6 +129,26 @@ One action plays at a time; `scianim validate` says when a sweep would start lat
 playing, or would end during the scene's fade-out. The style's `motion` tokens set the easing and the size
 and length of the pulse.
 
+## Surfaces, the camera, and things moving together
+
+A `surface_plot` draws z = f(x, y) over a fixed box as a fine mesh; an `orbit_camera` action turns the camera
+around it; a `function_image` samples a field to pixels (a grating under a disc, say). Actions run at the
+same time when they drive different things, so the camera can keep turning while the filter's orientation,
+frequency and size change in turn, or two parameters can move at once:
+
+```yaml
+actions:
+  - {id: orbit, kind: orbit_camera, to_theta_degrees: 310, at_seconds: 0, duration_seconds: 24, easing: linear}
+  - {id: rotate, kind: vary_parameter, target: gabor_surface, parameter: theta, to: 90, at_seconds: 3, duration_seconds: 5, emphasize: [gabor_label]}
+  - {id: frequency, kind: vary_parameter, target: gabor_surface, parameter: f, to: 1.6, at_seconds: 9.5, duration_seconds: 5, emphasize: [gabor_label]}
+```
+
+Text, equations and readouts stay fixed on the page while the surface turns; a surface's axis labels follow
+their anchors but keep facing you. Only two actions that drive the same parameter of the same object, or two
+orbits, may not overlap. The `three_d` style tokens set the camera's starting angles, the mesh weight and the
+surface opacity. Surfaces render through Cairo as thousands of small cells: snapshots are quick, a draft video
+of a 48-cell mesh takes a few minutes.
+
 ## Revisions, forks and comparison
 
 ```bash
