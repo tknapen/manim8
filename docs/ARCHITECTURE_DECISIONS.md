@@ -65,3 +65,25 @@ Short records of decisions that shape public contracts. Add a record when a cont
 **Decision.** Each scene may carry `narration.text` with optional `<mark name="..."/>` marks. Scene durations are proposed from it at `motion.narration_words_per_minute`; subtitles are emitted through Manim subcaptions. Voiceover (manim-voiceover bookmarks) is a later addition that maps marks to bookmarks.
 
 **Why.** Timing in an explainer follows what is said. Adding the field later would orphan existing storyboards.
+
+## ADR-008: Family environments list `scianim-core` explicitly
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** A family's `pyproject.toml` depends on both `scianim-bridge` and `scianim-core`, with path sources for
+each during development.
+
+**Why.** uv applies a project's `tool.uv.sources` only to packages the project itself depends on. With `scianim-core`
+reachable only transitively through the bridge, resolution looked for it on PyPI and failed. Listing it directly is
+the smallest fix and remains correct once both packages are published.
+
+## ADR-009: Rendering prerequisites are headers, not a TeX distribution
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** The documented system prerequisites for a family are the Cairo and Pango development headers (pycairo
+and manimpango compile against them on Linux), a font named by the style, and nothing else. `doctor` verifies PyAV,
+Typst, manimpango and pycairo inside the family environment.
+
+**Why.** Verified on a clean Ubuntu 24.04 container: with `libcairo2-dev` and `libpango1.0-dev` present, the family
+lock installs manim 0.22.0 from PyPI and the example renders without LaTeX or a system ffmpeg.

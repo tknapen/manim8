@@ -1,0 +1,509 @@
+{
+  "$defs": {
+    "BBox": {
+      "additionalProperties": false,
+      "description": "Normalized frame coordinates, origin top-left. Values may leave [0, 1] when off-frame.",
+      "properties": {
+        "height": {
+          "minimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "width": {
+          "minimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "BBox",
+      "type": "object"
+    },
+    "CheckpointRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_index": {
+          "minimum": 0,
+          "title": "Animation Index",
+          "type": "integer"
+        },
+        "expected_time_seconds": {
+          "minimum": 0,
+          "title": "Expected Time Seconds",
+          "type": "number"
+        },
+        "fidelity": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "approximate"
+          ],
+          "title": "Fidelity",
+          "type": "string"
+        },
+        "fidelity_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fidelity Note"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "manim_checkpoint",
+            "sampled_video_frame",
+            "storyboard_schematic"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LayoutItem"
+          },
+          "title": "Layout",
+          "type": "array"
+        },
+        "png": {
+          "title": "Png",
+          "type": "string"
+        },
+        "renderer_time_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renderer Time Seconds"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LayoutWarning"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "scene_id",
+        "kind",
+        "png",
+        "width_px",
+        "height_px",
+        "sha256",
+        "animation_index",
+        "expected_time_seconds"
+      ],
+      "title": "CheckpointRecord",
+      "type": "object"
+    },
+    "LayoutItem": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "text_height_px": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Height Px"
+        }
+      },
+      "required": [
+        "object_id",
+        "kind",
+        "bbox"
+      ],
+      "title": "LayoutItem",
+      "type": "object"
+    },
+    "LayoutWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "outside_safe_zone",
+            "text_too_small",
+            "overlap"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "object_ids": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Object Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "object_ids",
+        "detail"
+      ],
+      "title": "LayoutWarning",
+      "type": "object"
+    },
+    "SectionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "video": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "SectionRecord",
+      "type": "object"
+    },
+    "ToolVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "av": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Av"
+        },
+        "manim": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manim"
+        },
+        "platform": {
+          "title": "Platform",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "scianim_bridge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scianim Bridge"
+        },
+        "scianim_core": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scianim Core"
+        },
+        "typst": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typst"
+        }
+      },
+      "required": [
+        "python",
+        "platform"
+      ],
+      "title": "ToolVersions",
+      "type": "object"
+    },
+    "VideoRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codec"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "fps": {
+          "title": "Fps",
+          "type": "number"
+        },
+        "frame_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Count"
+        },
+        "height_px": {
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width_px": {
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "width_px",
+        "height_px",
+        "fps",
+        "duration_seconds",
+        "sha256"
+      ],
+      "title": "VideoRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "checkpoints": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CheckpointRecord"
+      },
+      "title": "Checkpoints",
+      "type": "array"
+    },
+    "elapsed_seconds": {
+      "minimum": 0,
+      "title": "Elapsed Seconds",
+      "type": "number"
+    },
+    "errors": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "job_id": {
+      "title": "Job Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SectionRecord"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "canceled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "subtitles": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subtitles"
+    },
+    "tool_versions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolVersions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "videos": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/VideoRecord"
+      },
+      "title": "Videos",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "job_id",
+    "status",
+    "elapsed_seconds"
+  ],
+  "title": "WorkerResult",
+  "type": "object"
+}

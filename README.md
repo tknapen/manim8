@@ -26,6 +26,39 @@ The repository started as a documentation-first handoff and is being implemented
 - Family environments are pinned with `uv.lock` and declare their system requirements; `.venv` directories are never committed or shared.
 - Shareable bundles contain manifests, sources (when permitted), specs, code and lockfiles rather than machine-specific environments.
 
+## Developer setup and reproduction
+
+Requirements: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and for rendering the Cairo and Pango
+development headers (`libcairo2-dev libpango1.0-dev` on Debian or Ubuntu; Homebrew `cairo pango` on macOS) plus the
+DejaVu Sans font or any font named in the style's fallbacks. No LaTeX and no system ffmpeg are needed: equations
+go through Typst and video through PyAV, both pinned inside the family lockfile.
+
+```bash
+uv sync --group dev                                   # control plane (never installs Manim)
+uv run scianim doctor                                 # prerequisites
+uv run scianim validate examples/divisive_normalization
+uv run scianim style resolve examples/divisive_normalization
+uv run scianim family env sync examples/families/computational_neuroscience   # Manim + bridge, isolated
+uv run scianim doctor --project examples/divisive_normalization
+uv run scianim codegen examples/divisive_normalization                        # scene module from the storyboard
+uv run scianim snapshot examples/divisive_normalization --all                 # four named checkpoints + manifest.json
+uv run pytest tests/unit -q                                                   # contracts, cascade, checks, isolation
+uv run pytest tests/integration -q -m integration                             # real renders; skipped without the family env
+uv run --project examples/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
+```
+
+Outputs land in `examples/divisive_normalization/renders/working/<job>/`: one PNG per checkpoint, `manifest.json`
+with layout reports and input hashes, and `review_sheet.html`. The worker log is under `.scianim/jobs/<job>/`.
+
+## What exists today
+
+Milestones 0 to 2 of the implementation plan are implemented and tested on the example: typed contracts and
+JSON Schemas, file and project validation, the style cascade with provenance and hash, `uv` family environments,
+the component registry with five kinds, deterministic code generation, in-flow checkpoints with layout reports,
+content-addressed caching, and a static review sheet. Not yet built: revisions (every job renders the working copy
+under the `working` revision id), the web UI, video rendering and sections, source ingestion, agent operations,
+bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
+
 ## Example status
 
 The YAML and CSV files in `examples/` are **illustrative fixtures**. The dataset is synthetic. The personal stylesheet is provisional: it demonstrates token structure, not a finalized design language. References to papers or figures must be added from actual user-provided assets.

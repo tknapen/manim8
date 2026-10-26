@@ -1,0 +1,507 @@
+{
+  "$defs": {
+    "Constraint": {
+      "additionalProperties": false,
+      "properties": {
+        "equation": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equation"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "default": "hard",
+          "enum": [
+            "hard",
+            "preferred"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Constraint",
+      "type": "object"
+    },
+    "Direction": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Avoid",
+          "type": "array"
+        },
+        "prefer": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Prefer",
+          "type": "array"
+        },
+        "tone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tone"
+        }
+      },
+      "title": "Direction",
+      "type": "object"
+    },
+    "Equation": {
+      "additionalProperties": false,
+      "description": "A typed equation. The renderer typesets the stored string exactly.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "latex": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolDef"
+          },
+          "default": {},
+          "title": "Symbols",
+          "type": "object"
+        },
+        "typst": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typst"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Equation",
+      "type": "object"
+    },
+    "Milestone": {
+      "additionalProperties": false,
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "instruction": {
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "kind": {
+          "default": "preferred",
+          "enum": [
+            "hard",
+            "preferred"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "tolerance_seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tolerance Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "at_seconds",
+        "instruction"
+      ],
+      "title": "Milestone",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "description": "Exact delivery specification. Width:height must agree with `aspect_ratio`.",
+      "properties": {
+        "aspect_ratio": {
+          "pattern": "^\\d+:\\d+$",
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "audio": {
+          "const": "none",
+          "default": "none",
+          "title": "Audio",
+          "type": "string"
+        },
+        "container": {
+          "default": "mp4",
+          "enum": [
+            "mp4",
+            "mov",
+            "webm",
+            "gif"
+          ],
+          "title": "Container",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "fps": {
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "video_codec": {
+          "default": "h264",
+          "enum": [
+            "h264",
+            "h265",
+            "vp9",
+            "prores",
+            "none"
+          ],
+          "title": "Video Codec",
+          "type": "string"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "duration_seconds",
+        "width_px",
+        "height_px",
+        "aspect_ratio",
+        "fps"
+      ],
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "locators": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Locators",
+          "type": "array"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "illustrative_data",
+            "empirical_data",
+            "composition_reference",
+            "style_reference",
+            "scientific_reference",
+            "target_keyframe",
+            "explanatory_text"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "type": {
+          "enum": [
+            "csv",
+            "pdf",
+            "image",
+            "markdown",
+            "text",
+            "project"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "role"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "StyleSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "overrides": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Overrides",
+          "type": "object"
+        },
+        "version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "StyleSelection",
+      "type": "object"
+    },
+    "SymbolDef": {
+      "additionalProperties": false,
+      "properties": {
+        "meaning": {
+          "minLength": 1,
+          "title": "Meaning",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        }
+      },
+      "required": [
+        "meaning"
+      ],
+      "title": "SymbolDef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "audience": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Audience"
+    },
+    "direction": {
+      "$ref": "#/$defs/Direction",
+      "default": {
+        "avoid": [],
+        "prefer": [],
+        "tone": null
+      }
+    },
+    "equations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Equation"
+      },
+      "title": "Equations",
+      "type": "array"
+    },
+    "extensions": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "default": {},
+      "title": "Extensions",
+      "type": "object"
+    },
+    "family": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Family",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "objective": {
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "output": {
+      "$ref": "#/$defs/OutputSpec"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scientific_constraints": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Constraint"
+      },
+      "title": "Scientific Constraints",
+      "type": "array"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "style": {
+      "$ref": "#/$defs/StyleSelection"
+    },
+    "timeline": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Milestone"
+      },
+      "title": "Timeline",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "family",
+    "output",
+    "style",
+    "objective"
+  ],
+  "title": "AnimationSpec",
+  "type": "object"
+}

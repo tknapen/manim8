@@ -1,0 +1,1372 @@
+{
+  "$defs": {
+    "Accessibility": {
+      "additionalProperties": false,
+      "properties": {
+        "do_not_rely_on_color_alone": {
+          "default": true,
+          "title": "Do Not Rely On Color Alone",
+          "type": "boolean"
+        },
+        "minimum_contrast_body": {
+          "default": 4.5,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Contrast Body",
+          "type": "number"
+        },
+        "warn_on_low_contrast": {
+          "default": true,
+          "title": "Warn On Low Contrast",
+          "type": "boolean"
+        }
+      },
+      "title": "Accessibility",
+      "type": "object"
+    },
+    "BBox": {
+      "additionalProperties": false,
+      "description": "Normalized frame coordinates, origin top-left. Values may leave [0, 1] when off-frame.",
+      "properties": {
+        "height": {
+          "minimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "width": {
+          "minimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "BBox",
+      "type": "object"
+    },
+    "Charts": {
+      "additionalProperties": false,
+      "properties": {
+        "grid_visible": {
+          "default": false,
+          "title": "Grid Visible",
+          "type": "boolean"
+        },
+        "legend_position": {
+          "default": "upper_right",
+          "enum": [
+            "upper_right",
+            "upper_left",
+            "lower_right",
+            "lower_left"
+          ],
+          "title": "Legend Position",
+          "type": "string"
+        },
+        "show_units_when_provided": {
+          "default": true,
+          "title": "Show Units When Provided",
+          "type": "boolean"
+        },
+        "use_shared_scales_for_comparison": {
+          "default": true,
+          "title": "Use Shared Scales For Comparison",
+          "type": "boolean"
+        }
+      },
+      "title": "Charts",
+      "type": "object"
+    },
+    "CheckpointRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_index": {
+          "minimum": 0,
+          "title": "Animation Index",
+          "type": "integer"
+        },
+        "expected_time_seconds": {
+          "minimum": 0,
+          "title": "Expected Time Seconds",
+          "type": "number"
+        },
+        "fidelity": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "approximate"
+          ],
+          "title": "Fidelity",
+          "type": "string"
+        },
+        "fidelity_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fidelity Note"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "manim_checkpoint",
+            "sampled_video_frame",
+            "storyboard_schematic"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LayoutItem"
+          },
+          "title": "Layout",
+          "type": "array"
+        },
+        "png": {
+          "title": "Png",
+          "type": "string"
+        },
+        "renderer_time_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renderer Time Seconds"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LayoutWarning"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "scene_id",
+        "kind",
+        "png",
+        "width_px",
+        "height_px",
+        "sha256",
+        "animation_index",
+        "expected_time_seconds"
+      ],
+      "title": "CheckpointRecord",
+      "type": "object"
+    },
+    "Equation": {
+      "additionalProperties": false,
+      "description": "A typed equation. The renderer typesets the stored string exactly.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "latex": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolDef"
+          },
+          "default": {},
+          "title": "Symbols",
+          "type": "object"
+        },
+        "typst": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typst"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Equation",
+      "type": "object"
+    },
+    "EquationStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "default": "typst",
+          "enum": [
+            "typst",
+            "latex"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "size_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Size Px At 1080P",
+          "type": "number"
+        }
+      },
+      "required": [
+        "size_px_at_1080p"
+      ],
+      "title": "EquationStyle",
+      "type": "object"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Annotation Stroke Px At 1080P",
+          "type": "number"
+        },
+        "axis_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Axis Stroke Px At 1080P",
+          "type": "number"
+        },
+        "curve_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Curve Stroke Px At 1080P",
+          "type": "number"
+        },
+        "marker_radius_px_at_1080p": {
+          "default": 6.0,
+          "exclusiveMinimum": 0,
+          "title": "Marker Radius Px At 1080P",
+          "type": "number"
+        }
+      },
+      "required": [
+        "axis_stroke_px_at_1080p",
+        "curve_stroke_px_at_1080p",
+        "annotation_stroke_px_at_1080p"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "InputHashes": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_spec": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Animation Spec",
+          "type": "string"
+        },
+        "custom_code": {
+          "additionalProperties": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "default": {},
+          "title": "Custom Code",
+          "type": "object"
+        },
+        "data_files": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "title": "Data Files",
+          "type": "object"
+        },
+        "lockfile": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lockfile"
+        },
+        "resolved_style": {
+          "title": "Resolved Style",
+          "type": "string"
+        },
+        "scene_code": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Scene Code",
+          "type": "string"
+        },
+        "storyboard": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Storyboard",
+          "type": "string"
+        }
+      },
+      "required": [
+        "animation_spec",
+        "storyboard",
+        "scene_code",
+        "resolved_style"
+      ],
+      "title": "InputHashes",
+      "type": "object"
+    },
+    "Layout": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_grid_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Baseline Grid Px At 1080P",
+          "type": "number"
+        },
+        "panel_gap_px_at_1080p": {
+          "minimum": 0,
+          "title": "Panel Gap Px At 1080P",
+          "type": "number"
+        },
+        "preferred_alignment": {
+          "default": "left",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "title": "Preferred Alignment",
+          "type": "string"
+        },
+        "safe_margin_fraction": {
+          "exclusiveMaximum": 0.5,
+          "minimum": 0,
+          "title": "Safe Margin Fraction",
+          "type": "number"
+        }
+      },
+      "required": [
+        "safe_margin_fraction",
+        "baseline_grid_px_at_1080p",
+        "panel_gap_px_at_1080p"
+      ],
+      "title": "Layout",
+      "type": "object"
+    },
+    "LayoutItem": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "$ref": "#/$defs/BBox"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "object_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "text_height_px": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Height Px"
+        }
+      },
+      "required": [
+        "object_id",
+        "kind",
+        "bbox"
+      ],
+      "title": "LayoutItem",
+      "type": "object"
+    },
+    "LayoutWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "outside_safe_zone",
+            "text_too_small",
+            "overlap"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "object_ids": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Object Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "object_ids",
+        "detail"
+      ],
+      "title": "LayoutWarning",
+      "type": "object"
+    },
+    "ManimSettings": {
+      "additionalProperties": false,
+      "description": "The subset of Manim configuration the worker applies. All of it enters the cache key.",
+      "properties": {
+        "background_color": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "title": "Background Color",
+          "type": "string"
+        },
+        "disable_caching": {
+          "default": false,
+          "title": "Disable Caching",
+          "type": "boolean"
+        },
+        "equation_engine": {
+          "default": "typst",
+          "enum": [
+            "typst",
+            "latex"
+          ],
+          "title": "Equation Engine",
+          "type": "string"
+        },
+        "frame_rate": {
+          "exclusiveMinimum": 0,
+          "title": "Frame Rate",
+          "type": "number"
+        },
+        "media_dir": {
+          "title": "Media Dir",
+          "type": "string"
+        },
+        "pixel_format": {
+          "default": "yuv420p",
+          "title": "Pixel Format",
+          "type": "string"
+        },
+        "pixel_height": {
+          "exclusiveMinimum": 0,
+          "title": "Pixel Height",
+          "type": "integer"
+        },
+        "pixel_width": {
+          "exclusiveMinimum": 0,
+          "title": "Pixel Width",
+          "type": "integer"
+        },
+        "renderer": {
+          "default": "cairo",
+          "enum": [
+            "cairo",
+            "opengl"
+          ],
+          "title": "Renderer",
+          "type": "string"
+        },
+        "save_sections": {
+          "default": false,
+          "title": "Save Sections",
+          "type": "boolean"
+        },
+        "seed": {
+          "default": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "video_codec": {
+          "default": "libx264",
+          "title": "Video Codec",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pixel_width",
+        "pixel_height",
+        "frame_rate",
+        "background_color",
+        "media_dir"
+      ],
+      "title": "ManimSettings",
+      "type": "object"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid_decorative_motion": {
+          "default": true,
+          "title": "Avoid Decorative Motion",
+          "type": "boolean"
+        },
+        "easing": {
+          "default": "smooth",
+          "enum": [
+            "linear",
+            "ease_in_out_sine",
+            "smooth",
+            "ease_out_cubic"
+          ],
+          "title": "Easing",
+          "type": "string"
+        },
+        "narration_words_per_minute": {
+          "default": 150,
+          "exclusiveMinimum": 0,
+          "title": "Narration Words Per Minute",
+          "type": "number"
+        },
+        "reveal_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Reveal Seconds",
+          "type": "number"
+        },
+        "transition_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Transition Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "transition_seconds",
+        "reveal_seconds"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "description": "Exact delivery specification. Width:height must agree with `aspect_ratio`.",
+      "properties": {
+        "aspect_ratio": {
+          "pattern": "^\\d+:\\d+$",
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "audio": {
+          "const": "none",
+          "default": "none",
+          "title": "Audio",
+          "type": "string"
+        },
+        "container": {
+          "default": "mp4",
+          "enum": [
+            "mp4",
+            "mov",
+            "webm",
+            "gif"
+          ],
+          "title": "Container",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "fps": {
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "video_codec": {
+          "default": "h264",
+          "enum": [
+            "h264",
+            "h265",
+            "vp9",
+            "prores",
+            "none"
+          ],
+          "title": "Video Codec",
+          "type": "string"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "duration_seconds",
+        "width_px",
+        "height_px",
+        "aspect_ratio",
+        "fps"
+      ],
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "RenderJob": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Cache Key",
+          "type": "string"
+        },
+        "data_files": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "type": "string"
+            }
+          },
+          "title": "Data Files",
+          "type": "object"
+        },
+        "equations": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "$ref": "#/$defs/Equation"
+            }
+          },
+          "title": "Equations",
+          "type": "object"
+        },
+        "family_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Family Id",
+          "type": "string"
+        },
+        "job_id": {
+          "minLength": 1,
+          "title": "Job Id",
+          "type": "string"
+        },
+        "manim": {
+          "$ref": "#/$defs/ManimSettings"
+        },
+        "operation": {
+          "enum": [
+            "render_snapshots",
+            "render_video",
+            "probe"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/$defs/OutputSpec"
+        },
+        "output_dir": {
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "quality_profile": {
+          "enum": [
+            "storyboard",
+            "snapshot",
+            "draft",
+            "final"
+          ],
+          "title": "Quality Profile",
+          "type": "string"
+        },
+        "resolved_style": {
+          "$ref": "#/$defs/ResolvedStyle"
+        },
+        "revision_id": {
+          "minLength": 1,
+          "title": "Revision Id",
+          "type": "string"
+        },
+        "scene_class": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Scene Class",
+          "type": "string"
+        },
+        "scene_module": {
+          "title": "Scene Module",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "snapshot_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Snapshot Ids",
+          "type": "array"
+        },
+        "snapshots": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "$ref": "#/$defs/SnapshotTarget"
+            }
+          },
+          "title": "Snapshots",
+          "type": "object"
+        }
+      },
+      "required": [
+        "job_id",
+        "project_id",
+        "revision_id",
+        "family_id",
+        "operation",
+        "quality_profile",
+        "scene_module",
+        "scene_class",
+        "output",
+        "resolved_style",
+        "manim",
+        "output_dir",
+        "cache_key"
+      ],
+      "title": "RenderJob",
+      "type": "object"
+    },
+    "ResolvedStyle": {
+      "additionalProperties": false,
+      "description": "What the renderer receives: all tokens, where each came from, and a content hash.",
+      "properties": {
+        "hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Hash",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "provenance": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Provenance",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "theme": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Theme",
+          "type": "string"
+        },
+        "theme_version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Theme Version",
+          "type": "string"
+        },
+        "tokens": {
+          "$ref": "#/$defs/StyleTokens"
+        }
+      },
+      "required": [
+        "theme",
+        "theme_version",
+        "layers",
+        "tokens",
+        "provenance",
+        "hash"
+      ],
+      "title": "ResolvedStyle",
+      "type": "object"
+    },
+    "SectionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Metadata",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "video": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "SectionRecord",
+      "type": "object"
+    },
+    "SnapshotTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "expected_time_seconds": {
+          "minimum": 0,
+          "title": "Expected Time Seconds",
+          "type": "number"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_id",
+        "expected_time_seconds",
+        "description"
+      ],
+      "title": "SnapshotTarget",
+      "type": "object"
+    },
+    "StyleTokens": {
+      "additionalProperties": false,
+      "description": "Fully resolved tokens. Every section is required; unknown keys are errors.",
+      "properties": {
+        "accessibility": {
+          "$ref": "#/$defs/Accessibility"
+        },
+        "charts": {
+          "$ref": "#/$defs/Charts"
+        },
+        "geometry": {
+          "$ref": "#/$defs/Geometry"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "palette": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            }
+          },
+          "title": "Palette",
+          "type": "object"
+        },
+        "typography": {
+          "$ref": "#/$defs/Typography"
+        }
+      },
+      "required": [
+        "palette",
+        "typography",
+        "layout",
+        "geometry",
+        "charts",
+        "motion",
+        "accessibility"
+      ],
+      "title": "StyleTokens",
+      "type": "object"
+    },
+    "SymbolDef": {
+      "additionalProperties": false,
+      "properties": {
+        "meaning": {
+          "minLength": 1,
+          "title": "Meaning",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Units"
+        }
+      },
+      "required": [
+        "meaning"
+      ],
+      "title": "SymbolDef",
+      "type": "object"
+    },
+    "ToolVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "av": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Av"
+        },
+        "manim": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manim"
+        },
+        "platform": {
+          "title": "Platform",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        },
+        "scianim_bridge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scianim Bridge"
+        },
+        "scianim_core": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scianim Core"
+        },
+        "typst": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typst"
+        }
+      },
+      "required": [
+        "python",
+        "platform"
+      ],
+      "title": "ToolVersions",
+      "type": "object"
+    },
+    "Typeface": {
+      "additionalProperties": false,
+      "properties": {
+        "font_fallbacks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Font Fallbacks",
+          "type": "array"
+        },
+        "font_family": {
+          "minLength": 1,
+          "title": "Font Family",
+          "type": "string"
+        },
+        "size_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Size Px At 1080P",
+          "type": "number"
+        },
+        "weight": {
+          "default": "regular",
+          "enum": [
+            "light",
+            "regular",
+            "medium",
+            "semibold",
+            "bold"
+          ],
+          "title": "Weight",
+          "type": "string"
+        }
+      },
+      "required": [
+        "font_family",
+        "size_px_at_1080p"
+      ],
+      "title": "Typeface",
+      "type": "object"
+    },
+    "Typography": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/Typeface"
+        },
+        "equation": {
+          "$ref": "#/$defs/EquationStyle"
+        },
+        "minimum_body_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Minimum Body Px At 1080P",
+          "type": "number"
+        },
+        "title": {
+          "$ref": "#/$defs/Typeface"
+        }
+      },
+      "required": [
+        "title",
+        "body",
+        "equation",
+        "minimum_body_px_at_1080p"
+      ],
+      "title": "Typography",
+      "type": "object"
+    },
+    "VideoRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codec"
+        },
+        "duration_seconds": {
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "fps": {
+          "title": "Fps",
+          "type": "number"
+        },
+        "frame_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Count"
+        },
+        "height_px": {
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width_px": {
+          "title": "Width Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "width_px",
+        "height_px",
+        "fps",
+        "duration_seconds",
+        "sha256"
+      ],
+      "title": "VideoRecord",
+      "type": "object"
+    },
+    "WorkerResult": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CheckpointRecord"
+          },
+          "title": "Checkpoints",
+          "type": "array"
+        },
+        "elapsed_seconds": {
+          "minimum": 0,
+          "title": "Elapsed Seconds",
+          "type": "number"
+        },
+        "errors": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sections": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SectionRecord"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subtitles": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitles"
+        },
+        "tool_versions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ToolVersions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "videos": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VideoRecord"
+          },
+          "title": "Videos",
+          "type": "array"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "job_id",
+        "status",
+        "elapsed_seconds"
+      ],
+      "title": "WorkerResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`manifest.json`: one per job, written by the control plane after the worker returns.",
+  "properties": {
+    "cache_hit": {
+      "default": false,
+      "title": "Cache Hit",
+      "type": "boolean"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "inputs": {
+      "$ref": "#/$defs/InputHashes"
+    },
+    "job": {
+      "$ref": "#/$defs/RenderJob"
+    },
+    "result": {
+      "$ref": "#/$defs/WorkerResult"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "created_at",
+    "job",
+    "result",
+    "inputs"
+  ],
+  "title": "ArtifactManifest",
+  "type": "object"
+}

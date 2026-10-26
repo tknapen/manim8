@@ -1,0 +1,63 @@
+[project]
+name = "scianim"
+version = "0.1.0a0"
+description = "SciAnim Studio control plane: validation, style resolution, families, jobs and CLI."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+  "scianim-core",
+  "pydantic>=2.10,<3",
+  "typer>=0.15",
+  "ruamel.yaml>=0.18",
+  "rich>=13",
+  "jinja2>=3.1",
+]
+
+[project.scripts]
+scianim = "scianim.cli:app"
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115", "uvicorn>=0.30"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.8", "mypy>=1.13"]
+
+[tool.uv.workspace]
+members = ["packages/scianim_core"]
+
+[tool.uv.sources]
+scianim-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scianim"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "packages/scianim_core/src", "packages/scianim_bridge/src", "tests"]
+extend-exclude = ["examples/**/code", "examples/**/.venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# E501: `ruff format` governs code lines; the remaining long lines are user-facing messages.
+ignore = ["RUF012", "B008", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "E501"]
+"src/scianim/review/sheet.py" = ["E501"]
+"packages/scianim_bridge/src/scianim_bridge/components/base.py" = ["RUF001"]  # Greek glyph table
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires a synced family environment"]
+addopts = "-ra"
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true

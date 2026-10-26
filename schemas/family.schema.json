@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "EnvironmentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        },
+        "install_policy": {
+          "const": "explicit",
+          "default": "explicit",
+          "title": "Install Policy",
+          "type": "string"
+        },
+        "lockfile": {
+          "default": "uv.lock",
+          "title": "Lockfile",
+          "type": "string"
+        },
+        "manager": {
+          "default": "uv",
+          "enum": [
+            "uv",
+            "docker",
+            "apptainer"
+          ],
+          "title": "Manager",
+          "type": "string"
+        },
+        "project_root": {
+          "default": ".",
+          "title": "Project Root",
+          "type": "string"
+        }
+      },
+      "title": "EnvironmentSpec",
+      "type": "object"
+    },
+    "FamilyStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "overrides": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Overrides",
+          "type": "object"
+        },
+        "version": {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "FamilyStyle",
+      "type": "object"
+    },
+    "SystemRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "binary",
+            "library",
+            "font",
+            "image",
+            "python_module"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Version"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "SystemRequirement",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "components": {
+      "default": [],
+      "items": {
+        "enum": [
+          "text_caption",
+          "scientific_plot",
+          "equation_block",
+          "equation_label",
+          "comparison_plot",
+          "custom"
+        ],
+        "type": "string"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "environment": {
+      "$ref": "#/$defs/EnvironmentSpec",
+      "default": {
+        "image": null,
+        "install_policy": "explicit",
+        "lockfile": "uv.lock",
+        "manager": "uv",
+        "project_root": "."
+      }
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "schema_extensions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Schema Extensions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "shared_assets": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Shared Assets",
+      "type": "array"
+    },
+    "style": {
+      "$ref": "#/$defs/FamilyStyle"
+    },
+    "system_requirements": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SystemRequirement"
+      },
+      "title": "System Requirements",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "style"
+  ],
+  "title": "FamilyManifest",
+  "type": "object"
+}

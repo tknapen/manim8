@@ -1,0 +1,363 @@
+{
+  "$defs": {
+    "Accessibility": {
+      "additionalProperties": false,
+      "properties": {
+        "do_not_rely_on_color_alone": {
+          "default": true,
+          "title": "Do Not Rely On Color Alone",
+          "type": "boolean"
+        },
+        "minimum_contrast_body": {
+          "default": 4.5,
+          "exclusiveMinimum": 0,
+          "title": "Minimum Contrast Body",
+          "type": "number"
+        },
+        "warn_on_low_contrast": {
+          "default": true,
+          "title": "Warn On Low Contrast",
+          "type": "boolean"
+        }
+      },
+      "title": "Accessibility",
+      "type": "object"
+    },
+    "Charts": {
+      "additionalProperties": false,
+      "properties": {
+        "grid_visible": {
+          "default": false,
+          "title": "Grid Visible",
+          "type": "boolean"
+        },
+        "legend_position": {
+          "default": "upper_right",
+          "enum": [
+            "upper_right",
+            "upper_left",
+            "lower_right",
+            "lower_left"
+          ],
+          "title": "Legend Position",
+          "type": "string"
+        },
+        "show_units_when_provided": {
+          "default": true,
+          "title": "Show Units When Provided",
+          "type": "boolean"
+        },
+        "use_shared_scales_for_comparison": {
+          "default": true,
+          "title": "Use Shared Scales For Comparison",
+          "type": "boolean"
+        }
+      },
+      "title": "Charts",
+      "type": "object"
+    },
+    "EquationStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "default": "typst",
+          "enum": [
+            "typst",
+            "latex"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "size_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Size Px At 1080P",
+          "type": "number"
+        }
+      },
+      "required": [
+        "size_px_at_1080p"
+      ],
+      "title": "EquationStyle",
+      "type": "object"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Annotation Stroke Px At 1080P",
+          "type": "number"
+        },
+        "axis_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Axis Stroke Px At 1080P",
+          "type": "number"
+        },
+        "curve_stroke_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Curve Stroke Px At 1080P",
+          "type": "number"
+        },
+        "marker_radius_px_at_1080p": {
+          "default": 6.0,
+          "exclusiveMinimum": 0,
+          "title": "Marker Radius Px At 1080P",
+          "type": "number"
+        }
+      },
+      "required": [
+        "axis_stroke_px_at_1080p",
+        "curve_stroke_px_at_1080p",
+        "annotation_stroke_px_at_1080p"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "Layout": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_grid_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Baseline Grid Px At 1080P",
+          "type": "number"
+        },
+        "panel_gap_px_at_1080p": {
+          "minimum": 0,
+          "title": "Panel Gap Px At 1080P",
+          "type": "number"
+        },
+        "preferred_alignment": {
+          "default": "left",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "title": "Preferred Alignment",
+          "type": "string"
+        },
+        "safe_margin_fraction": {
+          "exclusiveMaximum": 0.5,
+          "minimum": 0,
+          "title": "Safe Margin Fraction",
+          "type": "number"
+        }
+      },
+      "required": [
+        "safe_margin_fraction",
+        "baseline_grid_px_at_1080p",
+        "panel_gap_px_at_1080p"
+      ],
+      "title": "Layout",
+      "type": "object"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid_decorative_motion": {
+          "default": true,
+          "title": "Avoid Decorative Motion",
+          "type": "boolean"
+        },
+        "easing": {
+          "default": "smooth",
+          "enum": [
+            "linear",
+            "ease_in_out_sine",
+            "smooth",
+            "ease_out_cubic"
+          ],
+          "title": "Easing",
+          "type": "string"
+        },
+        "narration_words_per_minute": {
+          "default": 150,
+          "exclusiveMinimum": 0,
+          "title": "Narration Words Per Minute",
+          "type": "number"
+        },
+        "reveal_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Reveal Seconds",
+          "type": "number"
+        },
+        "transition_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Transition Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "transition_seconds",
+        "reveal_seconds"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "StyleTokens": {
+      "additionalProperties": false,
+      "description": "Fully resolved tokens. Every section is required; unknown keys are errors.",
+      "properties": {
+        "accessibility": {
+          "$ref": "#/$defs/Accessibility"
+        },
+        "charts": {
+          "$ref": "#/$defs/Charts"
+        },
+        "geometry": {
+          "$ref": "#/$defs/Geometry"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "palette": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            }
+          },
+          "title": "Palette",
+          "type": "object"
+        },
+        "typography": {
+          "$ref": "#/$defs/Typography"
+        }
+      },
+      "required": [
+        "palette",
+        "typography",
+        "layout",
+        "geometry",
+        "charts",
+        "motion",
+        "accessibility"
+      ],
+      "title": "StyleTokens",
+      "type": "object"
+    },
+    "Typeface": {
+      "additionalProperties": false,
+      "properties": {
+        "font_fallbacks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Font Fallbacks",
+          "type": "array"
+        },
+        "font_family": {
+          "minLength": 1,
+          "title": "Font Family",
+          "type": "string"
+        },
+        "size_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Size Px At 1080P",
+          "type": "number"
+        },
+        "weight": {
+          "default": "regular",
+          "enum": [
+            "light",
+            "regular",
+            "medium",
+            "semibold",
+            "bold"
+          ],
+          "title": "Weight",
+          "type": "string"
+        }
+      },
+      "required": [
+        "font_family",
+        "size_px_at_1080p"
+      ],
+      "title": "Typeface",
+      "type": "object"
+    },
+    "Typography": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/Typeface"
+        },
+        "equation": {
+          "$ref": "#/$defs/EquationStyle"
+        },
+        "minimum_body_px_at_1080p": {
+          "exclusiveMinimum": 0,
+          "title": "Minimum Body Px At 1080P",
+          "type": "number"
+        },
+        "title": {
+          "$ref": "#/$defs/Typeface"
+        }
+      },
+      "required": [
+        "title",
+        "body",
+        "equation",
+        "minimum_body_px_at_1080p"
+      ],
+      "title": "Typography",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What the renderer receives: all tokens, where each came from, and a content hash.",
+  "properties": {
+    "hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Hash",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "theme": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Theme",
+      "type": "string"
+    },
+    "theme_version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Theme Version",
+      "type": "string"
+    },
+    "tokens": {
+      "$ref": "#/$defs/StyleTokens"
+    }
+  },
+  "required": [
+    "theme",
+    "theme_version",
+    "layers",
+    "tokens",
+    "provenance",
+    "hash"
+  ],
+  "title": "ResolvedStyle",
+  "type": "object"
+}

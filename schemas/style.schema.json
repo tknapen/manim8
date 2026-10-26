@@ -1,0 +1,576 @@
+{
+  "$defs": {
+    "PartialAccessibility": {
+      "additionalProperties": false,
+      "properties": {
+        "do_not_rely_on_color_alone": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Do Not Rely On Color Alone"
+        },
+        "minimum_contrast_body": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Contrast Body"
+        },
+        "warn_on_low_contrast": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Warn On Low Contrast"
+        }
+      },
+      "title": "PartialAccessibility",
+      "type": "object"
+    },
+    "PartialCharts": {
+      "additionalProperties": false,
+      "properties": {
+        "grid_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Visible"
+        },
+        "legend_position": {
+          "anyOf": [
+            {
+              "enum": [
+                "upper_right",
+                "upper_left",
+                "lower_right",
+                "lower_left"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Legend Position"
+        },
+        "show_units_when_provided": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Show Units When Provided"
+        },
+        "use_shared_scales_for_comparison": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Use Shared Scales For Comparison"
+        }
+      },
+      "title": "PartialCharts",
+      "type": "object"
+    },
+    "PartialEquationStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "anyOf": [
+            {
+              "enum": [
+                "typst",
+                "latex"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engine"
+        },
+        "size_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size Px At 1080P"
+        }
+      },
+      "title": "PartialEquationStyle",
+      "type": "object"
+    },
+    "PartialGeometry": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_stroke_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotation Stroke Px At 1080P"
+        },
+        "axis_stroke_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Stroke Px At 1080P"
+        },
+        "curve_stroke_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Curve Stroke Px At 1080P"
+        },
+        "marker_radius_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Radius Px At 1080P"
+        }
+      },
+      "title": "PartialGeometry",
+      "type": "object"
+    },
+    "PartialLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_grid_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Grid Px At 1080P"
+        },
+        "panel_gap_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Panel Gap Px At 1080P"
+        },
+        "preferred_alignment": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "center",
+                "right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Alignment"
+        },
+        "safe_margin_fraction": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safe Margin Fraction"
+        }
+      },
+      "title": "PartialLayout",
+      "type": "object"
+    },
+    "PartialMotion": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid_decorative_motion": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avoid Decorative Motion"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "narration_words_per_minute": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narration Words Per Minute"
+        },
+        "reveal_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reveal Seconds"
+        },
+        "transition_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transition Seconds"
+        }
+      },
+      "title": "PartialMotion",
+      "type": "object"
+    },
+    "PartialTypeface": {
+      "additionalProperties": false,
+      "properties": {
+        "font_fallbacks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Fallbacks"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "size_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size Px At 1080P"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "light",
+                "regular",
+                "medium",
+                "semibold",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weight"
+        }
+      },
+      "title": "PartialTypeface",
+      "type": "object"
+    },
+    "PartialTypography": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "equation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialEquationStyle"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "minimum_body_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Body Px At 1080P"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartialTypeface"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "PartialTypography",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A `style.yaml` file. Sections may be partial when the sheet inherits from another.",
+  "properties": {
+    "accessibility": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialAccessibility"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "charts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialCharts"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "geometry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialGeometry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "inherits": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Inherits"
+    },
+    "layout": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialLayout"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "motion": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialMotion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "name": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Name",
+      "type": "string"
+    },
+    "palette": {
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]{0,63}$": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        }
+      },
+      "title": "Palette",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "typography": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PartialTypography"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "name",
+    "version"
+  ],
+  "title": "StyleSheet",
+  "type": "object"
+}

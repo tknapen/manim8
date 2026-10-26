@@ -1,0 +1,25 @@
+# Render environment for the computational_neuroscience family.
+# This is an environment definition, not a package: `uv sync` here creates
+# .venv with Manim and the SciAnim render bridge. The control plane (`scianim`)
+# is deliberately absent. uv.lock is committed; .venv is not.
+[project]
+name = "family-computational-neuroscience"
+version = "0.1.0"
+description = "Pinned render environment for the computational_neuroscience family."
+requires-python = ">=3.12"
+# scianim-core is listed explicitly so that uv applies its path source (it is also a
+# transitive dependency of scianim-bridge).
+dependencies = ["scianim-bridge", "scianim-core"]
+
+[dependency-groups]
+# Test-only: lets `uv run --project <family> pytest packages/scianim_bridge/tests` run bridge tests.
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+# Development: editable path dependencies on this repository's packages.
+# For portable export, the bundle validator replaces these with published versions.
+scianim-bridge = { path = "../../../packages/scianim_bridge", editable = true }
+scianim-core = { path = "../../../packages/scianim_core", editable = true }

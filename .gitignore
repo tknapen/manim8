@@ -226,3 +226,8 @@ __marimo__/
 workspace/**/.scianim/
 workspace/**/.venv/
 workspace/**/renders/
+# SciAnim Studio workspace
+.venv/
+examples/**/.venv/
+examples/**/.scianim/
+examples/**/renders/

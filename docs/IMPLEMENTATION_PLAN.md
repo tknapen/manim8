@@ -11,19 +11,28 @@
 5. Keep Manim and specialized scientific packages in isolated family environments. Families depend on `scianim-bridge`, never on `scianim`.
 6. Record technical decisions that materially change public contracts in `ARCHITECTURE_DECISIONS.md`.
 
+## Status (26 October 2026)
+
+Milestones 0, 1 and 2 are implemented and pass their acceptance commands on the example project (see the README's
+developer section for the exact commands). Known gaps inside those milestones: `environment.manager` values other
+than `uv` are rejected rather than implemented; nested topical groups and `group.yaml` are not read yet; the
+`custom` kind is wired but has no example or test; the job log is per job rather than append-only across jobs;
+revisions do not exist yet, so every job renders the working copy under revision id `working` and is identified by
+its input hashes. Milestone 2.5 onward has not started.
+
 ## Milestone 0 — repository and contracts
 
 **Build tasks**
 
-- [ ] Bootstrap a `uv` workspace with three distributions: `scianim-core` (`packages/scianim_core`, Pydantic only), `scianim` (control plane, `src/scianim`) and `scianim-bridge` (`packages/scianim_bridge`, Manim side). Python 3.12+, Ruff, pytest, type checking, simple CI.
-- [ ] Pydantic models in `scianim-core` for `animation.yaml` (including `equations`), `storyboard.yaml` (including `narration`, object `params`, `data` bindings with `encoding` and `transforms`, `equation` references), `style.yaml` (including `typography.equation.engine` and `motion.narration_words_per_minute`) and `family.yaml` (including `system_requirements`), all with `schema_version`.
-- [ ] Component registry in `scianim-core`: `kind` → parameter model, consumed roles, data and equation requirements, version. Object `params` validate against the registry; `kind: custom` requires a `builder` reference and never code.
-- [ ] Contracts for the worker protocol: render job payload, checkpoint record with layout report and fidelity, artifact `manifest.json`.
-- [ ] Emit JSON Schemas into `schemas/`; check generated schemas are reproducible.
-- [ ] Reject unknown core fields, invalid aspect ratios, negative durations, missing hard milestones, path escapes, invalid color tokens, unknown component kinds, invalid `params`, unknown data sources and equation IDs.
-- [ ] `scianim validate <file-or-project>` with actionable errors and nonzero status on failure; project mode runs the cross-file checks.
-- [ ] `scianim doctor`: `uv`, Python version, writable workspace, fonts; per family: PyAV and the equation engine (`typst` package, or `latex` plus `dvisvgm`) inside the family environment, and the declared `system_requirements`.
-- [ ] Load and validate the included examples.
+- [x] Bootstrap a `uv` workspace with three distributions: `scianim-core` (`packages/scianim_core`, Pydantic only), `scianim` (control plane, `src/scianim`) and `scianim-bridge` (`packages/scianim_bridge`, Manim side). Python 3.12+, Ruff, pytest, type checking, simple CI.
+- [x] Pydantic models in `scianim-core` for `animation.yaml` (including `equations`), `storyboard.yaml` (including `narration`, object `params`, `data` bindings with `encoding` and `transforms`, `equation` references), `style.yaml` (including `typography.equation.engine` and `motion.narration_words_per_minute`) and `family.yaml` (including `system_requirements`), all with `schema_version`.
+- [x] Component registry in `scianim-core`: `kind` → parameter model, consumed roles, data and equation requirements, version. Object `params` validate against the registry; `kind: custom` requires a `builder` reference and never code.
+- [x] Contracts for the worker protocol: render job payload, checkpoint record with layout report and fidelity, artifact `manifest.json`.
+- [x] Emit JSON Schemas into `schemas/`; check generated schemas are reproducible.
+- [x] Reject unknown core fields, invalid aspect ratios, negative durations, missing hard milestones, path escapes, invalid color tokens, unknown component kinds, invalid `params`, unknown data sources and equation IDs.
+- [x] `scianim validate <file-or-project>` with actionable errors and nonzero status on failure; project mode runs the cross-file checks.
+- [x] `scianim doctor`: `uv`, Python version, writable workspace, fonts; per family: PyAV and the equation engine (`typst` package, or `latex` plus `dvisvgm`) inside the family environment, and the declared `system_requirements`.
+- [x] Load and validate the included examples.
 
 **Acceptance**
 
@@ -43,12 +52,12 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 
 **Build tasks**
 
-- [ ] Token cascade: default → theme version chain → family → group → project (allowlisted) → scene (allowlisted). Deep merge; unknown token paths rejected; no hardcoded fallback for missing tokens.
-- [ ] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
-- [ ] Family discovery: declared family root, `uv.lock`, nested topical groups, explicit child families.
-- [ ] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.
-- [ ] Worker launch via subprocess from the family `.venv`: structured job file in, JSON result out; capture stdout, stderr, exit status and elapsed time.
-- [ ] Test that the control-plane process never imports `manim` or `scianim_bridge`, and that installing a specialized dependency into a family does not alter control-plane dependencies.
+- [x] Token cascade: default → theme version chain → family → group → project (allowlisted) → scene (allowlisted). Deep merge; unknown token paths rejected; no hardcoded fallback for missing tokens.
+- [x] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
+- [x] Family discovery: declared family root, `uv.lock`, nested topical groups, explicit child families.
+- [x] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.
+- [x] Worker launch via subprocess from the family `.venv`: structured job file in, JSON result out; capture stdout, stderr, exit status and elapsed time.
+- [x] Test that the control-plane process never imports `manim` or `scianim_bridge`, and that installing a specialized dependency into a family does not alter control-plane dependencies.
 
 **Acceptance:** Two families with different pinned dependencies can be resolved, synchronized and inspected separately. The parent process never imports Manim.
 
@@ -56,17 +65,17 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 
 **Build tasks**
 
-- [ ] `scianim-bridge`: `SnapshotScene` base with object registration; `checkpoint(scene, id, expected_time)` helper that in snapshot mode redraws, captures via `renderer.get_frame()`, writes a PNG and a record, and in video mode records the frame index.
-- [ ] Snapshot mode runs the scene fast-forwarded (Manim `format=png` semantics) so every checkpoint comes from one pass.
-- [ ] Fidelity check: detect time-based updaters at each checkpoint and mark `fidelity: approximate`.
-- [ ] Layout report per checkpoint: normalized bounding boxes per registered object, text and rendered height; warnings `outside_safe_zone`, `text_too_small`, `overlap`.
-- [ ] Registered components implemented in the bridge from style tokens only: `scientific_plot`, `equation_block` (Typst by default), `comparison_plot`, `equation_label`, `text_caption`.
-- [ ] `scianim codegen <project>`: deterministic scene module from a storyboard of registered kinds; one `next_section` per scene; reveals in order; `checkpoint()` at each snapshot's requested time; `custom` objects call named builders.
-- [ ] Static parity check: storyboard snapshot IDs equal the `checkpoint()` literals in the scene module.
-- [ ] Content-addressed cache key: resolved style hash, scene code, data files, snapshot definitions, registry version, bridge and Manim versions, lock hash, renderer configuration.
-- [ ] `scianim snapshot <project> --all` and `--id`; `manifest.json` per job with inputs, tool versions and checkpoint records; append-only job log.
-- [ ] `scianim review-sheet <project>`: static HTML contact sheet of checkpoints with storyboard text, narration and layout warnings.
-- [ ] A style token change invalidates the correct cached stills.
+- [x] `scianim-bridge`: `SnapshotScene` base with object registration; `checkpoint(scene, id, expected_time)` helper that in snapshot mode redraws, captures via `renderer.get_frame()`, writes a PNG and a record, and in video mode records the frame index.
+- [x] Snapshot mode runs the scene fast-forwarded (Manim `format=png` semantics) so every checkpoint comes from one pass.
+- [x] Fidelity check: detect time-based updaters at each checkpoint and mark `fidelity: approximate`.
+- [x] Layout report per checkpoint: normalized bounding boxes per registered object, text and rendered height; warnings `outside_safe_zone`, `text_too_small`, `overlap`.
+- [x] Registered components implemented in the bridge from style tokens only: `scientific_plot`, `equation_block` (Typst by default), `comparison_plot`, `equation_label`, `text_caption`.
+- [x] `scianim codegen <project>`: deterministic scene module from a storyboard of registered kinds; one `next_section` per scene; reveals in order; `checkpoint()` at each snapshot's requested time; `custom` objects call named builders.
+- [x] Static parity check: storyboard snapshot IDs equal the `checkpoint()` literals in the scene module.
+- [x] Content-addressed cache key: resolved style hash, scene code, data files, snapshot definitions, registry version, bridge and Manim versions, lock hash, renderer configuration.
+- [x] `scianim snapshot <project> --all` and `--id`; `manifest.json` per job with inputs, tool versions and checkpoint records; append-only job log.
+- [x] `scianim review-sheet <project>`: static HTML contact sheet of checkpoints with storyboard text, narration and layout warnings.
+- [x] A style token change invalidates the correct cached stills.
 
 **Acceptance:** Two PNGs produced by Manim (not mockups) from the example YAML through `codegen` and `snapshot`, plus `manifest.json` with layout reports. Changing `palette.primary_signal` yields an observable change in the corresponding rendering and a new cache key.
 
