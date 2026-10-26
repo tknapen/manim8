@@ -107,7 +107,32 @@ def _style_chain(project: Project, name: str, version: str) -> list[tuple[str, P
 
 
 def _absolute_path_hits(text: str, roots: list[str]) -> list[str]:
-    return [root for root in roots if root and root in text]
+    """Roots that occur as genuine absolute paths (not as the tail of a relative `../../home/...` path)."""
+    hits = []
+    for root in roots:
+        if root and re.search(r"(?<![\w./-])" + re.escape(root) + r"(?=/|$|[\s\"'])", text, re.MULTILINE):
+            hits.append(root)
+    return hits
+
+
+def portable_pyproject(text: str) -> str:
+    """The family pyproject without development path sources; `bundle import` writes fresh ones."""
+    lines = text.splitlines(keepends=True)
+    out: list[str] = []
+    in_sources = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_sources = stripped == "[tool.uv.sources]"
+            out.append(line)
+            if in_sources:
+                out.append("# Path sources are set by `scianim bundle import` for the importing checkout.\n")
+            continue
+        if in_sources and "path =" in stripped and not stripped.startswith("#"):
+            out.append("# " + line.lstrip())
+            continue
+        out.append(line)
+    return "".join(out)
 
 
 def export_bundle(target: Path, archive: Path, options: ExportOptions | None = None) -> ExportResult:
@@ -284,7 +309,11 @@ def export_bundle(target: Path, archive: Path, options: ExportOptions | None = N
     )
     pyproject = family_ctx.env_root / "pyproject.toml"
     if pyproject.exists():
-        add_file("environments/pyproject.toml", pyproject)
+        members.append(
+            _Member(
+                "environments/pyproject.toml", portable_pyproject(pyproject.read_text(encoding="utf-8")).encode("utf-8")
+            )
+        )
         env.pyproject = True
         env.packages_relative = os.path.relpath(packages_root(), family_ctx.env_root).replace(os.sep, "/")
     if family_ctx.lockfile.exists():
@@ -397,4 +426,4 @@ def _readme(manifest: BundleManifest) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["ExportOptions", "ExportResult", "export_bundle"]
+__all__ = ["ExportOptions", "ExportResult", "export_bundle", "portable_pyproject"]

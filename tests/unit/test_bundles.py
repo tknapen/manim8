@@ -11,6 +11,7 @@ from PIL import Image
 
 from scianim.bundles import BundleError, ExportOptions, export_bundle, import_bundle, inspect_bundle
 from scianim.bundles.archive import safe_member_name
+from scianim.bundles.export import _absolute_path_hits, portable_pyproject
 from scianim.codegen.generate import write_scene_module
 from scianim.config.loader import SpecError
 from scianim.planning.checks import validate_project
@@ -177,3 +178,28 @@ def test_family_bundle_carries_every_project(workspace: Path, tmp_path: Path) ->
     assert report.family_dir.name == "neuro_copy" and len(report.projects) == 3
     for project_dir in report.projects:
         assert validate_project(Project(project_dir), require_family=True).ok
+
+
+def test_path_detector_and_portable_pyproject() -> None:
+    # A relative path that happens to pass through a home directory is not an absolute path.
+    assert _absolute_path_hits('path = "../../../../home/runner/work/x/packages"', ["/home/runner"]) == []
+    assert _absolute_path_hits("see /home/runner/work/x for details", ["/home/runner"]) == ["/home/runner"]
+    assert _absolute_path_hits('root: "/home/runner"', ["/home/runner"]) == ["/home/runner"]
+    assert _absolute_path_hits("/home/runners/other", ["/home/runner"]) == []
+    text = (
+        '[project]\nname = "x"\n\n[tool.uv.sources]\nscianim-bridge = { path = "../../packages/scianim_bridge", editable = true }\n'
+        'scianim-core = { path = "../../packages/scianim_core", editable = true }\n\n[tool.other]\nk = 1\n'
+    )
+    portable = portable_pyproject(text)
+    assert "path =" not in "\n".join(line for line in portable.splitlines() if not line.startswith("#"))
+    assert "[tool.other]\nk = 1" in portable and "bundle import" in portable
+
+
+def test_exported_pyproject_has_no_path_sources(project_copy: Project, tmp_path: Path) -> None:
+    _prepare(project_copy)
+    archive = tmp_path / "dn.scianim.zip"
+    export_bundle(project_copy.root, archive)
+    with zipfile.ZipFile(archive) as zf:
+        text = zf.read(f"{BUNDLE_ROOT}/environments/pyproject.toml").decode()
+    active = [line for line in text.splitlines() if not line.strip().startswith("#")]
+    assert not any("path =" in line for line in active)
