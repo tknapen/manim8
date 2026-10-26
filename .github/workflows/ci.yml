@@ -67,6 +67,11 @@ jobs:
         working-directory: ui
       - name: Browser acceptance against the served UI
         run: |
-          uv run scianim serve --workspace workspace --port 8765 > serve.log 2>&1 &
+          setsid uv run scianim serve --workspace workspace --port 8765 > serve.log 2>&1 &
+          SERVER=$!
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/api/projects > /dev/null && break; sleep 1; done
-          node tests/ui/e2e.mjs || { cat serve.log; exit 1; }
+          status=0
+          node tests/ui/e2e.mjs || { status=1; cat serve.log; }
+          kill -- -"$SERVER" 2>/dev/null || kill "$SERVER" 2>/dev/null || true
+          wait "$SERVER" 2>/dev/null || true
+          exit "$status"

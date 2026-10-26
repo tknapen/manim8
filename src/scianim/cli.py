@@ -21,9 +21,12 @@ from scianim.families.resolve import load_family_context, locate_family, probe_e
 from scianim.feedback.store import build_record, list_feedback, resolve_target, write_feedback
 from scianim.index import Index
 from scianim.planning.checks import Report, validate_project
+from scianim.planning.dependencies import compare_with_revision
+from scianim.planning.timing import propose_timing, write_proposed_storyboard
 from scianim.project import Project, find_project
 from scianim.render.jobs import (
     build_snapshot_job,
+    build_video_job,
     cached_manifest,
     run_job,
     sources_from_report,
@@ -32,7 +35,7 @@ from scianim.render.jobs import (
 )
 from scianim.render.manifests import manifest_for_ref
 from scianim.review.sheet import write_sheet
-from scianim.revisions.store import create_revision, list_revisions, load_revision
+from scianim.revisions.store import create_revision, latest_revision, list_revisions, load_revision
 from scianim.styles.resolve import list_styles
 from scianim.workspace import (
     DEFAULT_STYLE_REF,
@@ -545,6 +548,189 @@ def snapshot(
         for line in manifest.result.errors:
             err.print(f"[red]{line}[/red]")
         raise typer.Exit(1)
+
+
+def _print_video(manifest: ArtifactManifest) -> None:
+    for video in manifest.result.videos:
+        out.print(
+            f"video: {video.path} | {video.width_px}x{video.height_px} | {video.fps:g} fps | "
+            f"{video.frame_count} frames | {video.duration_seconds:.3f}s | {video.codec}"
+        )
+    if manifest.result.subtitles:
+        out.print(f"subtitles: {manifest.result.subtitles}")
+    if manifest.result.sections:
+        table = Table(show_header=True, header_style="bold")
+        for column in ("section", "frames", "seconds", "video"):
+            table.add_column(column)
+        for section in manifest.result.sections:
+            table.add_row(
+                section.name,
+                str(section.metadata.get("frames", "?")),
+                f"{section.metadata.get('duration_seconds', 0):.3f}",
+                section.video or "-",
+            )
+        out.print(table)
+    timing = manifest.result.timing
+    if timing is not None:
+        verdict = (
+            "[green]matches the storyboard[/green]"
+            if timing.within_tolerance
+            else "[red]differs from the storyboard[/red]"
+        )
+        out.print(
+            f"timing: {verdict}; {timing.actual_total_frames} of {timing.expected_total_frames} frames at {timing.fps:g} fps"
+        )
+        for problem in timing.problems():
+            out.print(f"  [red]{problem}[/red]")
+        for note in timing.notes:
+            out.print(f"  [dim]{note}[/dim]")
+    samples = [c for c in manifest.result.checkpoints if c.kind == "sampled_video_frame"]
+    if samples:
+        out.print(f"sampled frames: {', '.join(f'{c.snapshot_id}@{c.renderer_time_seconds:.3f}s' for c in samples)}")
+
+
+@app.command()
+def render(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    profile: Annotated[str, typer.Option(help="draft (reduced resolution) or final (exact output).")] = "draft",
+    revision: Annotated[
+        str | None, typer.Option(help="Render an immutable revision (e.g. rev_0002) instead of the working copy.")
+    ] = None,
+    sample: Annotated[list[str] | None, typer.Option(help="Extra frame to extract as id=seconds (repeatable).")] = None,
+    no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
+    timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 3600,
+) -> None:
+    """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames."""
+    if profile not in ("draft", "final"):
+        fail("profile must be draft or final")
+    proj, report = _prepare(project, require_family=True)
+    if report.family is None:
+        print_report(report, str(project))
+        fail("the project's family could not be resolved; see above")
+    if revision is None and not report.ok:
+        print_report(report, str(project))
+        fail("project does not validate; see above")
+    family = report.family
+    tool_versions = tool_versions_for(family)
+    if not tool_versions:
+        fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
+    samples: dict[str, float] = {}
+    for item in sample or []:
+        name, _, value = item.partition("=")
+        try:
+            samples[name] = float(value)
+        except ValueError:
+            fail(f"--sample expects id=seconds, got '{item}'")
+    try:
+        sources = (
+            sources_from_revision(proj, load_revision(proj, revision), report)
+            if revision
+            else sources_from_report(proj, report)
+        )
+        job, paths, hashes = build_video_job(proj, sources, family, profile, samples, tool_versions)  # type: ignore[arg-type]
+    except SpecError as exc:
+        fail(str(exc))
+    if not no_cache:
+        hit = cached_manifest(proj, job.cache_key)
+        if hit is not None:
+            out.print(f"[green]cache hit[/green] {job.cache_key[:23]}... -> {hit.job.output_dir}/manifest.json")
+            _print_video(hit)
+            return
+    out.print(
+        f"rendering {profile} video of {sources.revision_id} in family '{family.manifest.id}' "
+        f"({job.manim.pixel_width}x{job.manim.pixel_height} at {job.manim.frame_rate:g} fps, "
+        f"{job.output.duration_seconds:g}s, cache {job.cache_key[:23]}...)"
+    )
+    try:
+        manifest = run_job(proj, family, job, paths, hashes, timeout=timeout)
+    except SpecError as exc:
+        fail(str(exc))
+    sheet = write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")
+    _print_video(manifest)
+    status = manifest.result.status
+    out.print(
+        f"status: [{'green' if status == 'succeeded' else 'red'}]{status}[/] in {manifest.result.elapsed_seconds:.1f}s"
+    )
+    out.print(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}")
+    for line in manifest.result.warnings:
+        out.print(f"  [yellow]warning[/yellow] {line}")
+    if status != "succeeded":
+        for line in manifest.result.errors:
+            err.print(f"[red]{line}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def timing(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    out: Annotated[
+        Path | None, typer.Option(help="Write a storyboard with the proposed boundaries here (never in place).")
+    ] = None,
+    words_per_minute: Annotated[float | None, typer.Option(help="Override the style's narration rate.")] = None,
+) -> None:
+    """Propose scene durations from narration and report conflicts with milestones, snapshots and reveals."""
+    proj, report = _prepare(project, require_family=False)
+    if report.animation is None or report.storyboard is None:
+        print_report(report, str(project))
+        fail("the project needs a valid animation.yaml and storyboard.yaml")
+    wpm = words_per_minute or (report.style.tokens.motion.narration_words_per_minute if report.style else 150.0)
+    proposal = propose_timing(report.animation, report.storyboard, wpm)
+    table = Table(show_header=True, header_style="bold")
+    for column in ("scene", "now", "narration", "proposed", "conflicts"):
+        table.add_column(column)
+    for scene in proposal.scenes:
+        table.add_row(
+            scene.scene_id,
+            f"{scene.current_start:g}-{scene.current_end:g}s ({scene.current_duration:g}s)",
+            "-" if scene.narration_seconds is None else f"{scene.narration_seconds:.1f}s",
+            f"{scene.proposed_start:g}-{scene.proposed_end:g}s ({scene.proposed_duration:g}s)",
+            "; ".join(scene.conflicts) or "-",
+        )
+    out_console = out_console_for()
+    out_console.print(
+        f"narration at {wpm:g} words/min, padding x{proposal.padding_factor:g}, output {proposal.output_duration:g}s"
+    )
+    out_console.print(table)
+    for conflict in proposal.conflicts:
+        out_console.print(f"  [red]conflict[/red] {conflict}")
+    if out is not None:
+        target = write_proposed_storyboard(proj.storyboard_path, proposal, out)
+        out_console.print(f"wrote proposed storyboard to {target}")
+    if not proposal.ok:
+        raise typer.Exit(1)
+
+
+def out_console_for() -> Console:
+    return out
+
+
+@app.command()
+def stale(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    since: Annotated[str | None, typer.Option(help="Revision to compare with (default: the latest).")] = None,
+) -> None:
+    """Which scenes the working copy changed relative to a revision (timing, narration, objects, data, equations, style)."""
+    proj, report = _prepare(project, require_family=False)
+    if not report.ok:
+        print_report(report, str(project))
+        fail("project does not validate; see above")
+    try:
+        revision = load_revision(proj, since) if since else None
+        if revision is None:
+            latest = latest_revision(proj)
+            revision = load_revision(proj, latest.id) if latest else None
+    except SpecError as exc:
+        fail(str(exc))
+    dependency = compare_with_revision(proj, report, revision)
+    label = revision.record.id if revision else "no revision"
+    out.print(f"working copy against {label}:")
+    for scene in dependency.scenes:
+        mark = "[yellow]stale[/yellow]" if scene.stale else "[green]unchanged[/green]"
+        out.print(f"  {scene.scene_id}: {mark}" + (f" ({'; '.join(scene.reasons)})" if scene.reasons else ""))
+    for scene_id in dependency.removed_scenes:
+        out.print(f"  {scene_id}: [red]removed[/red]")
+    for note in dependency.notes:
+        out.print(f"  [dim]{note}[/dim]")
 
 
 @revision_app.command("create")

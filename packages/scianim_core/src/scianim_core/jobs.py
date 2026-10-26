@@ -12,6 +12,7 @@ from pydantic import Field
 from scianim_core.animation import Equation, OutputSpec
 from scianim_core.common import HexColor, RelPath, SchemaVersion, Sha256, Slug, StrictModel
 from scianim_core.style import EquationEngine, ResolvedStyle
+from scianim_core.timing import TimingReport
 
 Operation = Literal["render_snapshots", "render_video", "probe"]
 QualityProfile = Literal["storyboard", "snapshot", "draft", "final"]
@@ -43,6 +44,14 @@ class SnapshotTarget(StrictModel):
     description: str
 
 
+class SceneTarget(StrictModel):
+    """A storyboard scene's interval, so a video job can verify its section against the storyboard."""
+
+    scene_id: Slug
+    start_seconds: float = Field(ge=0)
+    end_seconds: float = Field(gt=0)
+
+
 class RenderJob(StrictModel):
     schema_version: SchemaVersion = "1.0"
     job_id: str = Field(min_length=1)
@@ -56,6 +65,10 @@ class RenderJob(StrictModel):
     snapshot_ids: list[Slug] = []
     """Subset to capture; empty means every checkpoint the scene reaches."""
     snapshots: dict[Slug, SnapshotTarget] = {}
+    scenes: list[SceneTarget] = []
+    """Scene intervals in storyboard order (video jobs)."""
+    samples: dict[Slug, float] = {}
+    """Extra video frames to extract, by id and time in seconds (video jobs)."""
     output: OutputSpec
     resolved_style: ResolvedStyle
     data_files: dict[Slug, RelPath] = {}
@@ -152,6 +165,8 @@ class WorkerResult(StrictModel):
     videos: list[VideoRecord] = []
     sections: list[SectionRecord] = []
     subtitles: RelPath | None = None
+    timing: TimingReport | None = None
+    """Per-scene and total frame counts of a video against the storyboard."""
     tool_versions: ToolVersions | None = None
     elapsed_seconds: float = Field(ge=0)
     errors: list[str] = []

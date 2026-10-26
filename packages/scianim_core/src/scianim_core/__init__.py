@@ -26,13 +26,17 @@ from scianim_core.jobs import (
     LayoutWarning,
     ManimSettings,
     RenderJob,
+    SceneTarget,
+    SectionRecord,
     SnapshotTarget,
     ToolVersions,
+    VideoRecord,
     WorkerResult,
 )
 from scianim_core.revisions import RevisionHashes, RevisionRecord
 from scianim_core.storyboard import Narration, Scene, SceneObject, Snapshot, Storyboard
 from scianim_core.style import ResolvedStyle, StyleSheet, StyleTokens, split_style_ref
+from scianim_core.timing import SceneTiming, TimingReport, frames_for, verify_timing
 from scianim_core.workspace import WorkspaceManifest
 
 __version__ = "0.1.0a0"
@@ -66,6 +70,9 @@ __all__ = [
     "RevisionRecord",
     "Scene",
     "SceneObject",
+    "SceneTarget",
+    "SceneTiming",
+    "SectionRecord",
     "Slug",
     "Snapshot",
     "SnapshotTarget",
@@ -76,10 +83,14 @@ __all__ = [
     "StyleSheet",
     "StyleTokens",
     "SystemRequirement",
+    "TimingReport",
     "ToolVersions",
+    "VideoRecord",
     "WorkerResult",
     "WorkspaceManifest",
     "__version__",
+    "frames_for",
     "split_style_ref",
     "validate_params",
+    "verify_timing",
 ]

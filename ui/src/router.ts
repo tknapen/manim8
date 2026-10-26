@@ -35,4 +35,5 @@ export const routes = {
   review: (id: string, jobId: string) => `/p/${id}/review/${jobId}`,
   compare: (id: string) => `/p/${id}/compare`,
   jobs: (id: string) => `/p/${id}/jobs`,
+  video: (id: string, jobId?: string) => (jobId ? `/p/${id}/video/${jobId}` : `/p/${id}/video`),
 };

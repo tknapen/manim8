@@ -36,10 +36,16 @@ export default function Overview({ id }: { id: string }) {
     return () => window.clearInterval(timer);
   }, [active, load]);
 
-  async function render() {
+  async function render(operation: "render_snapshots" | "render_video" = "render_snapshots", videoProfile?: string) {
     setSubmitting(true);
     try {
-      await api.submitJob(id, { revision_id: revision, snapshot_ids: [], profile, no_cache: noCache });
+      await api.submitJob(id, {
+        revision_id: revision,
+        snapshot_ids: [],
+        profile: operation === "render_video" ? (videoProfile ?? "draft") : profile,
+        no_cache: noCache,
+        operation,
+      });
       load();
     } catch (e) {
       setError((e as Error).message);
@@ -239,16 +245,27 @@ export default function Overview({ id }: { id: string }) {
         <label>
           <input type="checkbox" checked={noCache} onChange={(e) => setNoCache(e.target.checked)} /> ignore cache
         </label>
-        <button className="primary" onClick={render} disabled={submitting || !detail.environment_ok} data-testid="render-all">
+        <button className="primary" onClick={() => render()} disabled={submitting || !detail.environment_ok} data-testid="render-all">
           Render all snapshots
+        </button>
+        <button onClick={() => render("render_video", "draft")} disabled={submitting || !detail.environment_ok} data-testid="render-draft">
+          Render draft video
+        </button>
+        <button onClick={() => render("render_video", "final")} disabled={submitting || !detail.environment_ok} data-testid="render-final">
+          Render final video
         </button>
         {latest ? (
           <a href={`#${routes.review(id, latest)}`} data-testid="open-latest">
-            open the latest render of {revision}
+            open the latest snapshots of {revision}
           </a>
         ) : (
-          <span className="meta">no succeeded render of {revision} yet</span>
+          <span className="meta">no succeeded snapshot render of {revision} yet</span>
         )}
+        {detail.latest_video[revision] ? (
+          <a href={`#${routes.video(id, detail.latest_video[revision])}`} data-testid="open-latest-video">
+            open the latest video of {revision}
+          </a>
+        ) : null}
       </div>
 
       <h2>Revisions</h2>
@@ -302,6 +319,7 @@ export default function Overview({ id }: { id: string }) {
             <tr>
               <th>job</th>
               <th>revision</th>
+              <th>kind</th>
               <th>status</th>
               <th>checkpoints</th>
               <th>elapsed</th>
@@ -314,7 +332,7 @@ export default function Overview({ id }: { id: string }) {
               <tr key={job.job_id} data-testid={`job-${job.job_id}`}>
                 <td>
                   {job.status === "succeeded" ? (
-                    <a href={`#${routes.review(id, job.job_id)}`}>
+                    <a href={`#${job.operation === "render_video" ? routes.video(id, job.job_id) : routes.review(id, job.job_id)}`}>
                       <code>{job.job_id}</code>
                     </a>
                   ) : (
@@ -322,6 +340,7 @@ export default function Overview({ id }: { id: string }) {
                   )}
                 </td>
                 <td>{job.revision_id}</td>
+                <td>{job.operation === "render_video" ? `${job.profile} video` : "snapshots"}</td>
                 <td>
                   <StatusChip status={job.status} />
                   {job.cache_hit ? <span className="meta"> cache hit</span> : null}

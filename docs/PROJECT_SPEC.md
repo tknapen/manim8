@@ -907,8 +907,10 @@ scianim schemas export schemas/
 scianim plan path/to/project             # Create/refresh storyboard proposal
 scianim snapshot path/to/project --all   # Named checkpoint stills
 scianim snapshot path/to/project --id equation_complete
-scianim render path/to/project --profile draft
-scianim render path/to/project --profile final
+scianim render path/to/project --profile draft     # 2/3 resolution, sections, SRT, sampled checkpoint frames
+scianim render path/to/project --profile final     # exact dimensions and fps; fails when timing misses by > 1 frame
+scianim timing path/to/project [--out proposed.yaml]  # Durations from narration; conflicts with milestones
+scianim stale path/to/project [--since rev_0002]   # Scenes a change touches since a revision
 scianim revision create path/to/project -m "..."   # Write-once revisions/rev_NNNN
 scianim revision list path/to/project
 scianim snapshot path/to/project --revision rev_0002

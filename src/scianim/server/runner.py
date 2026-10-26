@@ -22,6 +22,7 @@ from scianim.render.jobs import (
     WORKING_REVISION,
     LaunchedJob,
     build_snapshot_job,
+    build_video_job,
     cached_manifest,
     complete_job,
     launch_job,
@@ -44,6 +45,8 @@ class JobRequest:
     snapshot_ids: list[str] = field(default_factory=list)
     profile: str = "snapshot"
     no_cache: bool = False
+    operation: str = "render_snapshots"
+    samples: dict[str, float] = field(default_factory=dict)
 
 
 class JobRunner:
@@ -51,6 +54,7 @@ class JobRunner:
         self.index = index
         self._queue: queue.Queue[str] = queue.Queue()
         self._states: dict[str, JobStatus] = {}
+        self._requests: dict[str, JobRequest] = {}
         self._projects: dict[str, Project] = {}
         self._launched: dict[str, LaunchedJob] = {}
         self._cancel: set[str] = set()
@@ -64,6 +68,7 @@ class JobRunner:
             job_id=new_job_id(),
             project_id=request.project_id,
             revision_id=request.revision_id,
+            operation=request.operation,
             profile=request.profile,
             snapshot_ids=list(request.snapshot_ids),
             no_cache=request.no_cache,
@@ -73,6 +78,7 @@ class JobRunner:
         )
         with self._lock:
             self._states[status.job_id] = status
+            self._requests[status.job_id] = request
             self._projects[status.job_id] = project
         write_status(project, status)
         self.index.refresh_project(request.project_id)
@@ -134,7 +140,7 @@ class JobRunner:
     def _run(self, job_id: str) -> None:
         with self._lock:
             project = self._projects[job_id]
-            request = self._states[job_id]
+            request = self._requests[job_id]
         self._set(job_id, status="preparing", started_at=now_iso())
         report = validate_project(project, require_family=True)
         if report.family is None:
@@ -153,15 +159,26 @@ class JobRunner:
             if request.revision_id != WORKING_REVISION
             else sources_from_report(project, report)
         )
-        job, paths, hashes = build_snapshot_job(
-            project,
-            sources,
-            family,
-            list(request.snapshot_ids),
-            request.profile,  # type: ignore[arg-type]
-            tool_versions,
-            job_id=job_id,
-        )
+        if request.operation == "render_video":
+            job, paths, hashes = build_video_job(
+                project,
+                sources,
+                family,
+                request.profile,  # type: ignore[arg-type]
+                dict(request.samples),
+                tool_versions,
+                job_id=job_id,
+            )
+        else:
+            job, paths, hashes = build_snapshot_job(
+                project,
+                sources,
+                family,
+                list(request.snapshot_ids),
+                request.profile,  # type: ignore[arg-type]
+                tool_versions,
+                job_id=job_id,
+            )
         if not request.no_cache:
             hit = cached_manifest(project, job.cache_key)
             if hit is not None:

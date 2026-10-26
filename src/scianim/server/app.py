@@ -45,11 +45,13 @@ PROFILES = ("storyboard", "snapshot", "draft", "final")
 class JobCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    operation: Literal["render_snapshots"] = "render_snapshots"
+    operation: Literal["render_snapshots", "render_video"] = "render_snapshots"
     revision_id: str = Field(default="working", pattern=REVISION_REF_PATTERN.pattern)
     snapshot_ids: list[str] = []
     profile: Literal["storyboard", "snapshot", "draft", "final"] = "snapshot"
     no_cache: bool = False
+    samples: dict[str, float] = {}
+    """Extra video frames to extract, id -> seconds (video jobs)."""
 
 
 class FeedbackCreate(BaseModel):
@@ -118,6 +120,26 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                 )
                 data["pixel_width"] = manifest.job.manim.pixel_width
                 data["pixel_height"] = manifest.job.manim.pixel_height
+                data["videos"] = [
+                    {**v.model_dump(mode="json"), "url": artifact_url(project_id, v.path)}
+                    for v in manifest.result.videos
+                ]
+                data["sections"] = [
+                    {**sec.model_dump(mode="json"), "url": artifact_url(project_id, sec.video) if sec.video else None}
+                    for sec in manifest.result.sections
+                ]
+                data["subtitles_url"] = (
+                    artifact_url(project_id, manifest.result.subtitles) if manifest.result.subtitles else None
+                )
+                data["timing"] = (
+                    {
+                        **manifest.result.timing.model_dump(mode="json"),
+                        "within_tolerance": manifest.result.timing.within_tolerance,
+                        "problems": manifest.result.timing.problems(),
+                    }
+                    if manifest.result.timing
+                    else None
+                )
         return data
 
     def project_detail(indexed: IndexedProject, project: Project) -> dict[str, Any]:
@@ -193,8 +215,11 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                 "layers": report.style.layers,
             }
         for manifest in list_manifests(project):
-            if manifest.result.status == "succeeded":
+            if manifest.result.status == "succeeded" and manifest.job.operation == "render_snapshots":
                 detail["latest_render"][manifest.job.revision_id] = manifest.job.job_id
+            if manifest.result.status == "succeeded" and manifest.job.operation == "render_video":
+                detail.setdefault("latest_video", {})[manifest.job.revision_id] = manifest.job.job_id
+        detail.setdefault("latest_video", {})
         return detail
 
     def comparison_json(project_id: str, ref_a: str, ref_b: str, project: Project) -> dict[str, Any]:
@@ -298,12 +323,22 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
     @app.post("/api/projects/{project_id}/jobs", status_code=202)
     def post_job(project_id: str, body: JobCreate) -> dict[str, Any]:
         _, project = project_or_404(project_id)
-        for snapshot_id in body.snapshot_ids:
+        for snapshot_id in [*body.snapshot_ids, *body.samples]:
             if not SLUG.match(snapshot_id):
                 raise HTTPException(422, f"invalid snapshot id '{snapshot_id}'")
+        if body.operation == "render_video" and body.profile not in ("draft", "final"):
+            raise HTTPException(422, "a video job needs profile draft or final")
         status = runner.submit(
             project,
-            JobRequest(project_id, body.revision_id, list(body.snapshot_ids), body.profile, body.no_cache),
+            JobRequest(
+                project_id,
+                body.revision_id,
+                list(body.snapshot_ids),
+                body.profile,
+                body.no_cache,
+                body.operation,
+                dict(body.samples),
+            ),
         )
         return status.model_dump(mode="json")
 

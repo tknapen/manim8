@@ -23,6 +23,7 @@ header {{ margin-bottom: 20px; }} h1 {{ font-size: 1.4rem; margin: 0 0 4px; }} .
 table {{ border-collapse: collapse; width: 100%; font-size: .8rem; margin-top: 8px; }} td, th {{ text-align: left; padding: 2px 4px; border-top: 1px solid var(--line); }}
 </style></head><body>
 <header><h1>{title}</h1><div class="meta">{meta}</div></header>
+{video}
 <section class="grid">{cards}</section>
 </body></html>
 """
@@ -80,7 +81,38 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
         f"job {html.escape(job.job_id)} | revision {html.escape(job.revision_id)} | style {html.escape(job.resolved_style.theme)}@{job.resolved_style.theme_version} "
         f"· {len(manifest.result.checkpoints)} checkpoints | cache {html.escape(job.cache_key[:19])}... | created {html.escape(manifest.created_at)}"
     )
-    return TEMPLATE.format(title=f"Review sheet: {html.escape(job.project_id)}", meta=meta, cards="\n".join(cards))
+    video = ""
+    for record in manifest.result.videos:
+        rows = "".join(
+            f"<tr><td>{html.escape(s.name)}</td><td>{s.metadata.get('frames', '?')}</td>"
+            f"<td>{float(s.metadata.get('duration_seconds', 0)):.3f}</td></tr>"
+            for s in manifest.result.sections
+        )
+        timing = manifest.result.timing
+        verdict = ""
+        if timing is not None:
+            verdict = (
+                f'<p class="{"meta" if timing.within_tolerance else "warn"}">timing: {timing.actual_total_frames} of '
+                f"{timing.expected_total_frames} frames; "
+                f"{'matches the storyboard' if timing.within_tolerance else '; '.join(html.escape(p) for p in timing.problems())}</p>"
+            )
+        subtitles = (
+            f'<p class="meta"><a href="{html.escape(Path(manifest.result.subtitles).name)}">subtitles (SRT)</a></p>'
+            if manifest.result.subtitles
+            else ""
+        )
+        video += (
+            f'<section class="card" style="margin-bottom:20px"><video controls preload="metadata" src="{html.escape(Path(record.path).name)}" '
+            f'width="{record.width_px}" height="{record.height_px}" style="width:100%;height:auto"></video>'
+            f'<div class="body"><h2>{html.escape(job.quality_profile)} video <span class="kind">{record.width_px}x{record.height_px} · '
+            f"{record.fps:g} fps · {record.frame_count} frames · {record.duration_seconds:.2f}s · {html.escape(record.codec or '')}</span></h2>"
+            f"{verdict}{subtitles}"
+            + (f"<table><tr><th>section</th><th>frames</th><th>seconds</th></tr>{rows}</table>" if rows else "")
+            + "</div></section>"
+        )
+    return TEMPLATE.format(
+        title=f"Review sheet: {html.escape(job.project_id)}", meta=meta, video=video, cards="\n".join(cards)
+    )
 
 
 def write_sheet(manifest: ArtifactManifest, storyboard: Storyboard, target: Path) -> Path:

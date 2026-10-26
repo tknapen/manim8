@@ -20,8 +20,9 @@ versioned styles, the nearest-family rule with groups, workspaces with read-only
 rather than implemented; the `custom` kind is validated but has no rendered example; the job log is per job
 rather than append-only across jobs; approvals, feedback files and the SQLite index are Milestone 3. Milestone 2.5
 (the agent dry run) is complete and documented in [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md). Milestone 3
-(the local review UI: API, SQLite index, feedback files, comparison, React front end) is complete (ADR-018);
-Milestone 4 onward has not started.
+(the local review UI: API, SQLite index, feedback files, comparison, React front end) is complete (ADR-018).
+Milestone 4 (frame-exact timing, draft and final video with sections, subtitles, probes and sampled frames) is
+complete except for section splicing (ADR-019); Milestone 5 onward has not started.
 
 ## Milestone 0 — repository and contracts
 
@@ -125,15 +126,20 @@ Milestone 4; project creation from the browser, which waits for Milestone 5.
 
 **Build tasks**
 
-- [ ] Validate scene intervals, milestones and overlap policy; propose durations from narration at `narration_words_per_minute` and report conflicts with hard milestones.
-- [ ] Draft and final renders with `--save_sections`; store the section index; verify per-scene and total durations against the storyboard.
-- [ ] Subtitles: emit Manim subcaptions from `narration` so an SRT accompanies drafts and finals.
-- [ ] Verify width, height, fps and duration/frame count via media probe.
-- [ ] Sampled video frames at requested times, for comments and for checkpoints marked `approximate`.
-- [ ] Scene-level incremental rendering: `skip_animations=True` on unchanged sections, concatenate cached section videos; keep Manim's per-`play()` cache enabled through a stable `media_dir`.
-- [ ] Save stderr and logs on failure; a failed job can never mark a revision approved.
+- [x] Validate scene intervals, milestones and overlap policy; propose durations from narration at `narration_words_per_minute` and report conflicts with hard milestones (`scianim timing`, never in place).
+- [x] Draft and final renders with `--save_sections`; store the section index; verify per-scene and total durations against the storyboard (`scianim render`, `TimingReport` in the manifest, ADR-019).
+- [x] Subtitles: emit Manim subcaptions from `narration` so an SRT accompanies drafts and finals.
+- [x] Verify width, height, fps and duration/frame count via media probe (PyAV in the worker; frame counts by decoding).
+- [x] Sampled video frames at requested times, for comments and for checkpoints marked `approximate` (`sampled_video_frame` records at every checkpoint's actual time plus `--sample id=seconds`).
+- [ ] Scene-level incremental rendering: `skip_animations=True` on unchanged sections, concatenate cached section videos; keep Manim's per-`play()` cache enabled through a stable `media_dir`. *Partly:* the per-play cache is on under `.scianim/media/<revision>` and `scianim stale` reports the scenes a change touches; section splicing is deferred (ADR-019).
+- [x] Save stderr and logs on failure; a failed job can never mark a revision approved (feedback refuses non-succeeded renders).
 
 **Acceptance:** The example produces a 720p draft and a 1920×1080, 30 fps, 60-second final output (within documented frame tolerance), with section index, SRT and inspectable manifests.
+
+**Result:** `tests/integration/test_video.py` renders the example as a 1280×720 draft and a 1920×1080, 30 fps
+final through the CLI and the API; both carry four section videos, an SRT, sampled frames at every checkpoint
+and a timing report with exactly 1800 frames. The review UI gained a Video view (player with subtitles, timing
+table, sampled frames, timestamped comments).
 
 ## Milestone 5 — agent-assisted proposals and source ingestion
 

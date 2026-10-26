@@ -50,6 +50,9 @@ uv run scianim clean $P                                # media cache and superse
 uv run scianim feedback add $P --snapshot equation_complete --object normalization_equation --text "..."
 uv run scianim compare $P rev_0001 working             # pixel and layout differences, diff PNGs
 uv run scianim serve --workspace workspace             # review UI and API on http://127.0.0.1:8765/
+uv run scianim render $P --profile draft               # 1280x720 video, sections, SRT, sampled frames, timing report
+uv run scianim render $P --profile final               # 1920x1080 at the spec's fps, exactly duration*fps frames
+uv run scianim timing $P                               # scene durations proposed from narration, with conflicts
 uv run pytest tests/unit -q                            # contracts, cascade, checks, isolation, workspaces, revisions
 uv run pytest tests/integration -q -m integration      # real renders in a temporary workspace; skipped without uv
 uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
@@ -68,8 +71,11 @@ deterministic code generation, in-flow checkpoints with layout reports, content-
 revisions, shared assets, and a static review sheet. Milestone 3 adds the local review server (`scianim serve`):
 a FastAPI API over the same files, a rebuildable SQLite index, typed feedback records in `feedback/*.yaml` with
 object resolution from the layout report, render comparison, non-blocking render jobs with logs and cancel, and a
-React front end built into the package (source in `ui/`). Not yet built: video rendering and sections, source
-ingestion, agent operations, bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
+React front end built into the package (source in `ui/`). Milestone 4 adds frame-exact video rendering
+(`scianim render`): draft and final movies with per-scene section videos, subtitles from the narration, PyAV
+probing, sampled frames at every checkpoint and a timing report against the storyboard, plus `scianim timing`
+and `scianim stale`. Not yet built: source ingestion, agent operations, bundles. See
+`docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status
 

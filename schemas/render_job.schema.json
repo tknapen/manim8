@@ -524,6 +524,34 @@
       "title": "ResolvedStyle",
       "type": "object"
     },
+    "SceneTarget": {
+      "additionalProperties": false,
+      "description": "A storyboard scene's interval, so a video job can verify its section against the storyboard.",
+      "properties": {
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene_id",
+        "start_seconds",
+        "end_seconds"
+      ],
+      "title": "SceneTarget",
+      "type": "object"
+    },
     "SnapshotTarget": {
       "additionalProperties": false,
       "properties": {
@@ -786,6 +814,16 @@
       "title": "Revision Id",
       "type": "string"
     },
+    "samples": {
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]{0,63}$": {
+          "type": "number"
+        }
+      },
+      "title": "Samples",
+      "type": "object"
+    },
     "scene_class": {
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
       "title": "Scene Class",
@@ -794,6 +832,14 @@
     "scene_module": {
       "title": "Scene Module",
       "type": "string"
+    },
+    "scenes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SceneTarget"
+      },
+      "title": "Scenes",
+      "type": "array"
     },
     "schema_version": {
       "const": "1.0",

@@ -228,6 +228,63 @@
       "title": "LayoutWarning",
       "type": "object"
     },
+    "SceneTiming": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Frames"
+        },
+        "delta_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Frames"
+        },
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "expected_frames": {
+          "minimum": 0,
+          "title": "Expected Frames",
+          "type": "integer"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene_id",
+        "start_seconds",
+        "end_seconds",
+        "expected_frames"
+      ],
+      "title": "SceneTiming",
+      "type": "object"
+    },
     "SectionRecord": {
       "additionalProperties": false,
       "properties": {
@@ -263,6 +320,73 @@
         "type"
       ],
       "title": "SectionRecord",
+      "type": "object"
+    },
+    "TimingReport": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_duration_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Duration Seconds"
+        },
+        "actual_total_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Total Frames"
+        },
+        "expected_total_frames": {
+          "minimum": 0,
+          "title": "Expected Total Frames",
+          "type": "integer"
+        },
+        "fps": {
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "notes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "scenes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SceneTiming"
+          },
+          "title": "Scenes",
+          "type": "array"
+        },
+        "tolerance_frames": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Tolerance Frames",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fps",
+        "expected_total_frames"
+      ],
+      "title": "TimingReport",
       "type": "object"
     },
     "ToolVersions": {
@@ -470,6 +594,17 @@
       ],
       "default": null,
       "title": "Subtitles"
+    },
+    "timing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TimingReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "tool_versions": {
       "anyOf": [

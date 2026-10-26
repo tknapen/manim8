@@ -53,7 +53,13 @@ export default function Jobs({ id }: { id: string }) {
 
   async function retry(job: Job) {
     try {
-      await api.submitJob(id, { revision_id: job.revision_id, snapshot_ids: job.snapshot_ids, profile: job.profile, no_cache: true });
+      await api.submitJob(id, {
+        revision_id: job.revision_id,
+        snapshot_ids: job.snapshot_ids,
+        profile: job.profile,
+        no_cache: true,
+        operation: job.operation,
+      });
       load();
     } catch (e) {
       setError((e as Error).message);
@@ -73,7 +79,7 @@ export default function Jobs({ id }: { id: string }) {
           <tr>
             <th>job</th>
             <th>revision</th>
-            <th>profile</th>
+            <th>kind</th>
             <th>status</th>
             <th>checkpoints</th>
             <th>elapsed</th>
@@ -91,13 +97,19 @@ export default function Jobs({ id }: { id: string }) {
                 </a>
               </td>
               <td>{job.revision_id}</td>
-              <td>{job.profile}</td>
+              <td>{job.operation === "render_video" ? `${job.profile} video` : `${job.profile} snapshots`}</td>
               <td>
                 <StatusChip status={job.status} />
                 {job.cache_hit ? <span className="meta"> cache hit</span> : null}
                 {job.error ? <div className="meta">{job.error.slice(0, 200)}</div> : null}
               </td>
-              <td>{job.status === "succeeded" && job.checkpoint_count ? <a href={`#${routes.review(id, job.job_id)}`}>{job.checkpoint_count}</a> : job.checkpoint_count}</td>
+              <td>
+                {job.status === "succeeded" && job.checkpoint_count ? (
+                  <a href={`#${job.operation === "render_video" ? routes.video(id, job.job_id) : routes.review(id, job.job_id)}`}>{job.checkpoint_count}</a>
+                ) : (
+                  job.checkpoint_count
+                )}
+              </td>
               <td>{seconds(job.elapsed_seconds)}</td>
               <td>{formatTime(job.created_at)}</td>
               <td>{job.submitted_by}</td>

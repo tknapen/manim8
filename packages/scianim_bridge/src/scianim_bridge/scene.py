@@ -10,6 +10,7 @@ from manim import FadeOut, Scene, config
 
 from scianim_bridge import context as _context
 from scianim_bridge.tokens import Tokens
+from scianim_core.timing import frames_for
 
 if TYPE_CHECKING:
     from scianim_bridge.components.base import Component
@@ -57,6 +58,32 @@ class SnapshotScene(Scene):
     def frame_seconds(self) -> float:
         return 1.0 / float(config.frame_rate)
 
+    def frames(self, seconds: float) -> int:
+        return frames_for(seconds, float(config.frame_rate))
+
+    def play_frames(self, frames: int, *animations: Any, **kwargs: Any) -> None:
+        """Play (or wait) for exactly `frames` frames and pin the clock to the frame grid.
+
+        Manim's time progression `np.arange(0, run_time, 1/fps)` rounds a run time up to the next
+        frame; asking for half a frame less yields exactly `frames` frames. The clock is then set
+        explicitly, so it stays exact whether the play was rendered, skipped or served from Manim's
+        cache, and every storyboard time maps to one frame index (spec section 8.4).
+        """
+        if frames < 1:
+            return
+        fps = float(config.frame_rate)
+        before = self.clock
+        if animations:
+            # Animated plays render `len(np.arange(0, run_time, 1/fps))` frames: half a frame less rounds up.
+            self.play(*animations, run_time=(frames - 0.5) / fps, **kwargs)
+        else:
+            # A static wait repeats one frame `int(run_time * fps)` times: half a frame more truncates down.
+            # A wait with updaters renders frame by frame like an animation.
+            static = not self.updaters and not any(m.get_updaters() for mob in self.mobjects for m in mob.get_family())
+            run_time = (frames + 0.5) / fps if static else (frames - 0.5) / fps
+            self.wait(run_time, frozen_frame=static)
+        self.renderer.time = before + frames / fps
+
     # --- storyboard structure -----------------------------------------------------------------
     def begin_scene(self, scene_id: str, start_seconds: float | None = None) -> None:
         self.scene_id = scene_id
@@ -75,13 +102,14 @@ class SnapshotScene(Scene):
 
     def reveal(self, component: Component, run_time: float | None = None) -> None:
         duration = run_time if run_time is not None else self.tokens.t.motion.reveal_seconds
-        self.play(component.reveal_animation(), run_time=duration)
+        self.play_frames(max(1, self.frames(duration)), component.reveal_animation())
         component.visible = True
 
     def wait_until(self, seconds: float) -> None:
         delta = seconds - self.clock
-        if delta >= self.frame_seconds:
-            self.wait(delta)
+        frames = self.frames(delta)
+        if frames >= 1:
+            self.play_frames(frames)
         elif delta < -self.frame_seconds:
             self.timing_warnings.append(
                 f"clock is {self.clock:.3f}s, already past the requested {seconds:g}s in scene '{self.scene_id}'"
@@ -91,8 +119,8 @@ class SnapshotScene(Scene):
         visible = [c for c in self.scene_objects if c.visible]
         if visible and not keep:
             transition = self.tokens.t.motion.transition_seconds
-            run_time = max(min(transition, end_seconds - self.clock), self.frame_seconds)
-            self.play(*[FadeOut(c.group) for c in visible], run_time=run_time)
+            frames = max(1, min(self.frames(transition), self.frames(end_seconds - self.clock)))
+            self.play_frames(frames, *[FadeOut(c.group) for c in visible])
             for component in visible:
                 component.visible = False
         self.wait_until(end_seconds)

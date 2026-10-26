@@ -843,6 +843,16 @@
           "title": "Revision Id",
           "type": "string"
         },
+        "samples": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "type": "number"
+            }
+          },
+          "title": "Samples",
+          "type": "object"
+        },
         "scene_class": {
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "title": "Scene Class",
@@ -851,6 +861,14 @@
         "scene_module": {
           "title": "Scene Module",
           "type": "string"
+        },
+        "scenes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SceneTarget"
+          },
+          "title": "Scenes",
+          "type": "array"
         },
         "schema_version": {
           "const": "1.0",
@@ -948,6 +966,91 @@
         "hash"
       ],
       "title": "ResolvedStyle",
+      "type": "object"
+    },
+    "SceneTarget": {
+      "additionalProperties": false,
+      "description": "A storyboard scene's interval, so a video job can verify its section against the storyboard.",
+      "properties": {
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene_id",
+        "start_seconds",
+        "end_seconds"
+      ],
+      "title": "SceneTarget",
+      "type": "object"
+    },
+    "SceneTiming": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Frames"
+        },
+        "delta_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delta Frames"
+        },
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "End Seconds",
+          "type": "number"
+        },
+        "expected_frames": {
+          "minimum": 0,
+          "title": "Expected Frames",
+          "type": "integer"
+        },
+        "scene_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene_id",
+        "start_seconds",
+        "end_seconds",
+        "expected_frames"
+      ],
+      "title": "SceneTiming",
       "type": "object"
     },
     "SectionRecord": {
@@ -1083,6 +1186,73 @@
         "meaning"
       ],
       "title": "SymbolDef",
+      "type": "object"
+    },
+    "TimingReport": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_duration_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Duration Seconds"
+        },
+        "actual_total_frames": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Total Frames"
+        },
+        "expected_total_frames": {
+          "minimum": 0,
+          "title": "Expected Total Frames",
+          "type": "integer"
+        },
+        "fps": {
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "number"
+        },
+        "notes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "scenes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SceneTiming"
+          },
+          "title": "Scenes",
+          "type": "array"
+        },
+        "tolerance_frames": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Tolerance Frames",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fps",
+        "expected_total_frames"
+      ],
+      "title": "TimingReport",
       "type": "object"
     },
     "ToolVersions": {
@@ -1374,6 +1544,17 @@
           ],
           "default": null,
           "title": "Subtitles"
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimingReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "tool_versions": {
           "anyOf": [

@@ -94,6 +94,11 @@ def resolve_target(
         raise SpecError(
             project.renders_dir, f"job {manifest.job.job_id} rendered {manifest.job.revision_id}, not {revision_id}"
         )
+    if manifest.result.status != "succeeded":
+        raise SpecError(
+            project.renders_dir,
+            f"job {manifest.job.job_id} {manifest.result.status}; feedback needs a succeeded render",
+        )
     checkpoint = next((c for c in manifest.result.checkpoints if c.snapshot_id == snapshot_id), None)
     if checkpoint is None:
         known = [c.snapshot_id for c in manifest.result.checkpoints]

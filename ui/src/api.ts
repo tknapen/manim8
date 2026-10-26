@@ -59,6 +59,47 @@ export type Checkpoint = {
 
 export type JobLifecycle = "queued" | "preparing" | "running" | "succeeded" | "failed" | "canceled";
 
+export type VideoRecord = {
+  path: string;
+  width_px: number;
+  height_px: number;
+  fps: number;
+  duration_seconds: number;
+  frame_count: number | null;
+  codec: string | null;
+  sha256: string;
+  url: string;
+};
+
+export type SectionRecord = {
+  name: string;
+  type: string;
+  video: string | null;
+  metadata: Record<string, unknown>;
+  url: string | null;
+};
+
+export type SceneTiming = {
+  scene_id: string;
+  start_seconds: number;
+  end_seconds: number;
+  expected_frames: number;
+  actual_frames: number | null;
+  delta_frames: number | null;
+};
+
+export type TimingReport = {
+  fps: number;
+  tolerance_frames: number;
+  expected_total_frames: number;
+  actual_total_frames: number | null;
+  actual_duration_seconds: number | null;
+  scenes: SceneTiming[];
+  notes: string[];
+  within_tolerance: boolean;
+  problems: string[];
+};
+
 export type Job = {
   job_id: string;
   revision_id: string;
@@ -81,6 +122,10 @@ export type Job = {
   worker_warnings?: string[];
   pixel_width?: number;
   pixel_height?: number;
+  videos?: VideoRecord[];
+  sections?: SectionRecord[];
+  subtitles_url?: string | null;
+  timing?: TimingReport | null;
 };
 
 export type Revision = {
@@ -131,6 +176,7 @@ export type ProjectDetail = {
   jobs: Job[];
   counts: { revisions: number; jobs: number; feedback: number };
   latest_render: Record<string, string>;
+  latest_video: Record<string, string>;
   problems: string[];
 };
 
@@ -154,6 +200,7 @@ export type Feedback = {
   severity: Severity;
   status: ReviewStatus | null;
   image_sha256: string | null;
+  time_seconds: number | null;
 };
 
 export type FeedbackCreate = {
@@ -168,6 +215,7 @@ export type FeedbackCreate = {
   region?: BBox;
   job_id?: string;
   author?: string;
+  time_seconds?: number;
 };
 
 export type ObjectChange = {
@@ -226,8 +274,10 @@ export const api = {
   jobs: (id: string) => request<Job[]>(`/api/projects/${id}/jobs`),
   job: (id: string, jobId: string) => request<Job>(`/api/projects/${id}/jobs/${jobId}`),
   jobLog: (id: string, jobId: string) => request<string>(`/api/projects/${id}/jobs/${jobId}/log`),
-  submitJob: (id: string, body: { revision_id: string; snapshot_ids: string[]; profile: string; no_cache: boolean }) =>
-    request<{ job_id: string; status: JobLifecycle }>(`/api/projects/${id}/jobs`, { method: "POST", body: JSON.stringify(body) }),
+  submitJob: (
+    id: string,
+    body: { revision_id: string; snapshot_ids: string[]; profile: string; no_cache: boolean; operation?: string; samples?: Record<string, number> },
+  ) => request<{ job_id: string; status: JobLifecycle }>(`/api/projects/${id}/jobs`, { method: "POST", body: JSON.stringify(body) }),
   cancelJob: (id: string, jobId: string) => request<{ status: JobLifecycle }>(`/api/projects/${id}/jobs/${jobId}/cancel`, { method: "POST" }),
   feedback: (id: string, params: Record<string, string | undefined>) => {
     const query = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => Boolean(e[1])));

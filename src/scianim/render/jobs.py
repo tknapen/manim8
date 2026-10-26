@@ -27,6 +27,7 @@ from scianim_core import (
     ManimSettings,
     RenderJob,
     ResolvedStyle,
+    SceneTarget,
     SnapshotTarget,
     Storyboard,
     WorkerResult,
@@ -125,7 +126,12 @@ def _even(value: float) -> int:
     return pixels if pixels % 2 == 0 else pixels + 1
 
 
-def manim_settings(spec: AnimationSpec, style: ResolvedStyle, profile: QualityProfile, media_dir: str) -> ManimSettings:
+VIDEO_CODECS = {"h264": "libx264", "vp9": "libvpx-vp9", "av1": "libaom-av1"}
+
+
+def manim_settings(
+    spec: AnimationSpec, style: ResolvedStyle, profile: QualityProfile, media_dir: str, video: bool = False
+) -> ManimSettings:
     scale = QUALITY_SCALE[profile]
     return ManimSettings(
         renderer="cairo",
@@ -135,6 +141,8 @@ def manim_settings(spec: AnimationSpec, style: ResolvedStyle, profile: QualityPr
         background_color=style.tokens.palette["background"],
         media_dir=media_dir,
         equation_engine=style.tokens.typography.equation.engine,
+        video_codec=VIDEO_CODECS.get(spec.output.video_codec, spec.output.video_codec),
+        save_sections=video,
     )
 
 
@@ -267,6 +275,66 @@ def build_snapshot_job(
     return job, paths, hashes
 
 
+def build_video_job(
+    project: Project,
+    sources: JobSources,
+    family: FamilyContext,
+    profile: QualityProfile = "draft",
+    samples: dict[str, float] | None = None,
+    tool_versions: dict[str, object] | None = None,
+    job_id: str | None = None,
+) -> tuple[RenderJob, JobPaths, InputHashes]:
+    """A draft or final video of the whole storyboard with sections, subtitles and sampled checkpoints."""
+    if profile not in ("draft", "final"):
+        raise SpecError(sources.storyboard_path, f"video profile must be draft or final, not '{profile}'")
+    spec, storyboard, style = sources.animation, sources.storyboard, sources.style
+    job_id = job_id or new_job_id()
+    paths = job_paths(project, job_id, sources.revision_id)
+    media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
+    manim = manim_settings(spec, style, profile, media_dir, video=True)
+    hashes = input_hashes(project, sources, family)
+    targets = {
+        snap.id: SnapshotTarget(scene_id=scene.id, expected_time_seconds=snap.at_seconds, description=snap.description)
+        for scene in storyboard.scenes
+        for snap in scene.snapshots
+    }
+    scenes = [
+        SceneTarget(scene_id=s.id, start_seconds=s.start_seconds, end_seconds=s.end_seconds) for s in storyboard.scenes
+    ]
+    extra = dict(samples or {})
+    for sample_id, seconds in extra.items():
+        if sample_id in targets:
+            raise SpecError(sources.storyboard_path, f"sample id '{sample_id}' collides with a storyboard snapshot")
+        if seconds > spec.output.duration_seconds:
+            raise SpecError(
+                sources.storyboard_path,
+                f"sample '{sample_id}' at {seconds:g}s lies beyond the {spec.output.duration_seconds:g}s output",
+            )
+    key = cache_key(hashes, manim, [*targets, *extra], f"render_video:{profile}", tool_versions or {})
+    job = RenderJob(
+        job_id=job_id,
+        project_id=spec.id,
+        revision_id=sources.revision_id,
+        family_id=family.manifest.id,
+        operation="render_video",
+        quality_profile=profile,
+        scene_module=sources.scene_module.resolve().relative_to(project.root.resolve()).as_posix(),
+        scene_class=scene_class_name(spec.id),
+        snapshot_ids=[],
+        snapshots=targets,
+        scenes=scenes,
+        samples=extra,
+        output=spec.output,
+        resolved_style=style,
+        data_files=materialize_data_files(project, sources),
+        equations=spec.equation_by_id(),
+        manim=manim,
+        output_dir=paths.output_dir.relative_to(project.root).as_posix(),
+        cache_key=key,
+    )
+    return job, paths, hashes
+
+
 def cached_manifest(project: Project, key: str) -> ArtifactManifest | None:
     pointer = project.scianim_dir / "cache" / f"{key.split(':', 1)[1]}.json"
     if not pointer.exists():
@@ -278,6 +346,9 @@ def cached_manifest(project: Project, key: str) -> ArtifactManifest | None:
         return None
     for record in manifest.result.checkpoints:
         if not (project.root / record.png).exists():
+            return None
+    for video in manifest.result.videos:
+        if not (project.root / video.path).exists():
             return None
     return manifest
 
@@ -422,6 +493,7 @@ __all__ = [
     "JobSources",
     "LaunchedJob",
     "build_snapshot_job",
+    "build_video_job",
     "cache_key",
     "cached_manifest",
     "complete_job",

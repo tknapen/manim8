@@ -7,6 +7,7 @@ import Compare from "./views/Compare";
 import Jobs from "./views/Jobs";
 import Overview from "./views/Overview";
 import Review from "./views/Review";
+import Video from "./views/Video";
 
 export default function App() {
   const route = useRoute();
@@ -104,6 +105,7 @@ function ProjectShell({ id, route }: { id: string; route: Route }) {
   const tabs: [string, string, string][] = [
     ["overview", "Overview", routes.project(id)],
     ["review", "Review", jobId ? routes.review(id, jobId) : `${routes.project(id)}/review`],
+    ["video", "Video", jobId && view === "video" ? routes.video(id, jobId) : routes.video(id)],
     ["compare", "Compare", routes.compare(id)],
     ["jobs", "Jobs", routes.jobs(id)],
   ];
@@ -118,9 +120,10 @@ function ProjectShell({ id, route }: { id: string; route: Route }) {
       </nav>
       {view === "overview" && <Overview id={id} />}
       {view === "review" && <Review id={id} jobId={jobId} snapshotId={route.query.get("snapshot") ?? undefined} />}
+      {view === "video" && <Video id={id} jobId={jobId} />}
       {view === "compare" && <Compare id={id} a={route.query.get("a") ?? undefined} b={route.query.get("b") ?? undefined} />}
       {view === "jobs" && <Jobs id={id} />}
-      {!["overview", "review", "compare", "jobs"].includes(view) && (
+      {!["overview", "review", "video", "compare", "jobs"].includes(view) && (
         <Empty>
           Unknown view. <a onClick={() => navigate(routes.project(id))}>Back to the overview.</a>
         </Empty>

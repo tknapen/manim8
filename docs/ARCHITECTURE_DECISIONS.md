@@ -237,3 +237,44 @@ differs from the source.
 **Why.** Files keep the agent and the browser on equal footing (spec section 9.2) and keep bundles
 self-contained; the index exists only for listing speed. Binding approvals to image hashes is the concrete form
 of "never approve a mutable path" (section 9.3) that the system can verify.
+
+## ADR-019: Frame-exact timing, per-scene sections and sampled frames for video
+
+**Status:** accepted, 26 October 2026 (Milestone 4)
+
+**Decision.** Every play and wait in generated code lasts a whole number of frames. The bridge's
+`play_frames(n, ...)` asks Manim for half a frame less than `n` for animated plays (Manim's time
+progression `np.arange(0, run_time, 1/fps)` rounds up) and half a frame more for static waits (Manim's
+frozen-frame path truncates), pins the path with `frozen_frame`, and then sets the renderer clock to exactly
+`n / fps`. Storyboard times therefore map to frame indices by nearest-frame rounding (`frames_for`), scene
+boundaries land within half a frame of the storyboard, and a storyboard of `duration` seconds renders to
+`round(duration * fps)` frames. A video job (`scianim render --profile draft|final`) runs the same scene code
+with `--save_sections`; the worker copies the movie, the per-scene section videos and Manim's section index,
+and the SRT written from `narrate()` subcaptions into the job directory, probes every file with PyAV (frame
+counts come from decoding, not from container metadata), and records a `TimingReport` that compares each
+section and the total with the storyboard at a documented tolerance of one frame. A final render that misses
+the tolerance fails; a draft only warns. Draft renders scale the output to two thirds (1280 by 720 for a
+1080p spec); final renders use the exact dimensions and fps, and the worker rejects a movie whose probed size
+or rate differs from the job.
+
+The worker also decodes the movie once and saves the first frame at or after the moment each storyboard
+checkpoint was actually reached (`sampled_video_frame`, fidelity exact, no layout report), plus any extra
+`--sample id=seconds`. These are the confirmation the spec asks for when fast-forward marks a checkpoint
+approximate.
+
+`scianim timing` proposes scene durations from narration at the style's speaking rate (padded by 1.25, at
+least 3 s, snapped to frames) and reports conflicts with hard milestones, snapshots and timed reveals; it never
+edits the storyboard in place (`--out` writes a proposal). `scianim stale` lists the scenes whose timing,
+narration, objects, snapshots, data, equations, custom code or style changed since a revision.
+
+**Deferred.** Splicing cached section videos into a new movie (`skip_animations=True` on unchanged sections)
+is not implemented. Manim's own per-play cache under the revision's stable `media_dir` already skips
+unchanged plays, so a re-render after a one-scene change re-encodes only that scene's plays; the stale-scene
+report says which scenes to review. Splicing would need a PyAV remux of section files and a way to keep
+subtitles and sections consistent; it is worth doing when renders become long enough for the per-play cache
+not to suffice.
+
+**Why.** A reviewer must be able to trust that 00:24 in the storyboard is 00:24 in the video. Manim's two
+rounding paths differ by one frame per play, which accumulated to nine frames over a 60 s example before this
+change; requesting half-frame offsets is the smallest intervention that makes both paths exact without
+patching Manim.

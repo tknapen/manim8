@@ -76,6 +76,10 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
     errors: list[str] = []
     warnings: list[str] = []
     status = "failed"
+    videos: list = []
+    sections: list = []
+    subtitles = None
+    timing = None
     try:
         from manim import ManimColor, tempconfig
 
@@ -113,18 +117,44 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
             from scianim_bridge.tokens import FONT_WARNINGS
 
             warnings.extend(FONT_WARNINGS)
-            wanted = set(job.snapshot_ids) if job.snapshot_ids else set(job.snapshots)
-            unreached = sorted(wanted - ctx.captured)
-            if unreached:
-                errors.append(f"checkpoint(s) never reached in {job.scene_class}.construct: {unreached}")
+            if ctx.mode == "video":
+                from scianim_bridge.video import collect_video_outputs
+
+                outputs = collect_video_outputs(scene, ctx)
+                videos, sections, subtitles, timing = (
+                    outputs.videos,
+                    outputs.sections,
+                    outputs.subtitles,
+                    outputs.timing,
+                )
+                ctx.records.extend(outputs.samples)
+                warnings.extend(outputs.warnings)
+                errors.extend(outputs.errors)
+                if timing is not None and not timing.within_tolerance:
+                    problems = "; ".join(timing.problems())
+                    if job.quality_profile == "final":
+                        errors.append(f"timing does not match the storyboard: {problems}")
+                    else:
+                        warnings.append(f"timing differs from the storyboard: {problems}")
+                if not errors:
+                    status = "succeeded"
             else:
-                status = "succeeded"
+                wanted = set(job.snapshot_ids) if job.snapshot_ids else set(job.snapshots)
+                unreached = sorted(wanted - ctx.captured)
+                if unreached:
+                    errors.append(f"checkpoint(s) never reached in {job.scene_class}.construct: {unreached}")
+                else:
+                    status = "succeeded"
     except Exception:
         errors.append(traceback.format_exc())
     result = WorkerResult(
         job_id=job.job_id,
         status=status,
         checkpoints=list(ctx.records),
+        videos=videos,
+        sections=sections,
+        subtitles=subtitles,
+        timing=timing,
         tool_versions=tool_versions(),
         elapsed_seconds=time.monotonic() - start,
         errors=errors,
@@ -135,6 +165,7 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
         "done",
         status=status,
         checkpoints=len(result.checkpoints),
+        videos=len(result.videos),
         elapsed=round(result.elapsed_seconds, 2),
     )
     return result
