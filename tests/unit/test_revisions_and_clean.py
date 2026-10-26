@@ -39,7 +39,7 @@ def test_create_list_and_render_from_revision(project_copy: Project) -> None:
         create_revision(project_copy, report, "again")
     create_revision(project_copy, report, "forced", allow_empty=True)
     storyboard = project_copy.storyboard_path
-    storyboard.write_text(storyboard.read_text().replace("at_seconds: 9\n", "at_seconds: 10\n"))
+    storyboard.write_text(storyboard.read_text().replace("at_seconds: 4\n", "at_seconds: 5\n"))
     report = prepared(project_copy)
     third = create_revision(project_copy, report, "move the first checkpoint")
     assert [r.id for r in list_revisions(project_copy)] == ["rev_0001", "rev_0002", "rev_0003"]
@@ -47,7 +47,7 @@ def test_create_list_and_render_from_revision(project_copy: Project) -> None:
     sources = sources_from_revision(project_copy, load_revision(project_copy, "rev_0001"), report)
     assert sources.revision_id == "rev_0001"
     assert sources.scene_module == rev_dir / "code" / "scene_divisive_normalization.py"
-    assert sources.storyboard.scenes[0].snapshots[0].at_seconds == 9  # the frozen copy, not the working one
+    assert sources.storyboard.scenes[0].snapshots[0].at_seconds == 4  # the frozen copy, not the working one
     with pytest.raises(SpecError, match="no revision 'rev_0042'"):
         load_revision(project_copy, "rev_0042")
 

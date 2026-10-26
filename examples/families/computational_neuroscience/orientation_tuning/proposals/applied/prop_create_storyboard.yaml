@@ -5,10 +5,10 @@ proposal:
   kind: create_storyboard
   created_at: '2026-10-26T18:05:00+00:00'
   author: agent:test-loop
-  summary: 'Four scenes: cited title, circuit schematic with a population, the measured-looking curve with the model
-    label, the model curve sharpening as kappa rises beside the receptive field.'
-  rationale: One idea per scene as the brief directs; every curve carries a synthetic label; the equation is 
-    shown exactly.
+  summary: 'A twenty-second clip in three scenes: the circuit with its population, the cited synthetic curve with
+    the model label, and the model curve sharpening as kappa rises.'
+  rationale: 'One idea per scene as the brief directs and nothing static for its own sake: no title card, the equation
+    beside the curve, and kappa varies while the viewer watches; every curve carries a synthetic label.'
   based_on_revision: working
   in_response_to: []
   uncertainties: []
@@ -24,40 +24,12 @@ proposal:
         project_id: orientation_tuning
         based_on_animation_revision: working
         scenes:
-          - id: introduction
-            start_seconds: 0
-            end_seconds: 8
-            purpose: Name the phenomenon and cite the data.
-            narration:
-              text: Neurons in primary visual cortex prefer one orientation. The curves here are synthetic, 
-                built to illustrate the idea.
-            objects:
-              - id: title
-                kind: text_caption
-                style_role: foreground
-                params:
-                  text: Orientation tuning in V1
-                  role: title
-              - id: data_note
-                kind: caption_with_citation
-                style_role: secondary_text
-                params:
-                  text: Illustrative tuning curves
-                  source: tuning
-                  locator: columns orientation_deg and response_hz
-                  below: title
-                reveal_at_seconds: 2
-            snapshots:
-              - id: intro_cited
-                at_seconds: 5
-                description: Title with the cited data note beneath it.
           - id: circuit
-            start_seconds: 8
-            end_seconds: 18
+            start_seconds: 0
+            end_seconds: 6
             purpose: 'Where the signal comes from: a schematic circuit and a population of units.'
             narration:
-              text: A stimulus drives a population in V1, which is read out downstream and held in check by 
-                inhibition.
+              text: A stimulus drives a population in V1, read out downstream and checked by inhibition.
             objects:
               - id: circuit_graph
                 kind: network_graph
@@ -107,19 +79,18 @@ proposal:
                     - 0.05
                   label: V1 population
                   data_label: illustrative activity, not recorded
-                reveal_at_seconds: 12
+                reveal_at_seconds: 1.5
             snapshots:
               - id: circuit_shown
-                at_seconds: 15
+                at_seconds: 4
                 description: The three-node circuit with the inhibitory edge dashed, and the population row 
                   beside it.
-          - id: tuning_curve
-            start_seconds: 18
-            end_seconds: 28
-            purpose: 'The tuning curve: response against orientation.'
+          - id: data
+            start_seconds: 6
+            end_seconds: 12
+            purpose: 'The tuning curve: response against orientation, with the model named beside it.'
             narration:
-              text: Plotting the response against orientation gives a bell-shaped tuning curve with a 
-                preferred orientation near ninety degrees.
+              text: Response against orientation is a bell-shaped tuning curve peaking near ninety degrees.
             objects:
               - id: control_curve
                 kind: scientific_plot
@@ -138,7 +109,17 @@ proposal:
                   x_label: orientation (deg)
                   y_label: response (Hz)
                   data_label: synthetic control condition
-                  width_fraction: 0.6
+                  anchor: center_left
+                  width_fraction: 0.55
+              - id: data_note
+                kind: caption_with_citation
+                style_role: secondary_text
+                params:
+                  text: Synthetic tuning curves
+                  source: tuning
+                  locator: columns orientation_deg and response_hz
+                  anchor: top_left
+                reveal_at_seconds: 7.5
               - id: model_label
                 kind: equation_label
                 style_role: emphasis
@@ -148,22 +129,23 @@ proposal:
                     - theta_0
                 params:
                   text: von Mises model
-                  anchor: top_right
-                reveal_at_seconds: 23
+                  anchor: bottom_right
+                reveal_at_seconds: 9
             snapshots:
-              - id: curve_visible
-                at_seconds: 21
-                description: The synthetic control tuning curve with labelled axes; no model label yet.
+              - id: curve_cited
+                at_seconds: 8.5
+                description: The synthetic control tuning curve with labelled axes and the cited data note 
+                  above it; no model label yet.
               - id: model_labelled
-                at_seconds: 26
+                at_seconds: 10.5
                 description: The curve with the von Mises label and the highlighted preferred orientation.
           - id: model
-            start_seconds: 28
-            end_seconds: 40
-            purpose: The model curve, what its concentration does, and the recording site's receptive field.
+            start_seconds: 12
+            end_seconds: 20
+            purpose: The model curve, and what its concentration does.
             narration:
-              text: 'The von Mises function reproduces the shape: a peak at the preferred orientation, sharper for
-                larger kappa.'
+              text: The von Mises model reproduces the shape; raising kappa sharpens the peak at the preferred
+                orientation.
             objects:
               - id: model_curve
                 kind: function_plot
@@ -193,20 +175,6 @@ proposal:
                       label: θ₀
                       style_role: secondary_text
                   data_label: analytic curve from the equation
-              - id: receptive_field
-                kind: receptive_field_glyph
-                style_role: primary_signal
-                params:
-                  center:
-                    - 2
-                    - -1
-                  sigma: 1.5
-                  field_extent: 5
-                  label: receptive field
-                  anchor: center_right
-                  size_fraction: 0.34
-                  data_label: schematic, not mapped
-                reveal_at_seconds: 29.5
               - id: kappa_label
                 kind: equation_label
                 style_role: emphasis
@@ -217,88 +185,83 @@ proposal:
                 params:
                   text: concentration kappa
                   anchor: top_right
-                reveal_at_seconds: 31
+                reveal_at_seconds: 13
             actions:
               - id: sharpen
                 kind: vary_parameter
                 target: model_curve
                 parameter: kappa
                 to: 8
-                at_seconds: 33
+                at_seconds: 14.5
                 duration_seconds: 4
                 emphasize:
                   - kappa_label
             snapshots:
+              - id: half_sharpened
+                at_seconds: 16.5
+                description: 'Inside the sweep: the curve is narrower than at kappa = 2 and the readout shows kappa
+                  between 2 and 8.'
               - id: model_complete
-                at_seconds: 38
+                at_seconds: 19
                 description: The sharpened model curve (kappa = 8) with the preferred-orientation marker, the 
-                  kappa label with its readout, and the receptive-field glyph to the right.
+                  kappa label and its readout.
   touches_science: false
-applied_at: '2026-10-26T18:36:24+00:00'
+applied_at: '2026-10-26T19:06:10+00:00'
 applied_to_revision: working
 diffs:
-  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,212 @@\n+schema_version: '1.0'\n+project_id:
-    orientation_tuning\n+based_on_animation_revision: working\n+scenes:\n+  - id: introduction\n+    start_seconds:
-    0\n+    end_seconds: 8\n+    purpose: Name the phenomenon and cite the data.\n+    narration:\n+      text:
-    Neurons in primary visual cortex prefer one orientation. The curves here are synthetic, built to \n+       \
-    \ illustrate the idea.\n+    objects:\n+      - id: title\n+        kind: text_caption\n+        style_role:
-    foreground\n+        params:\n+          text: Orientation tuning in V1\n+          role: title\n+      - id:
-    data_note\n+        kind: caption_with_citation\n+        style_role: secondary_text\n+        params:\n+  \
-    \        text: Illustrative tuning curves\n+          source: tuning\n+          locator: columns orientation_deg
-    and response_hz\n+          below: title\n+        reveal_at_seconds: 2\n+    snapshots:\n+      - id: intro_cited\n\
-    +        at_seconds: 5\n+        description: Title with the cited data note beneath it.\n+  - id: circuit\n\
-    +    start_seconds: 8\n+    end_seconds: 18\n+    purpose: 'Where the signal comes from: a schematic circuit
-    and a population of units.'\n+    narration:\n+      text: A stimulus drives a population in V1, which is read
-    out downstream and held in check by \n+        inhibition.\n+    objects:\n+      - id: circuit_graph\n+   \
-    \     kind: network_graph\n+        style_role: primary_signal\n+        params:\n+          layout: grid\n\
-    +          columns: 3\n+          anchor: center_left\n+          size_fraction: 0.45\n+          nodes:\n+\
-    \            - id: stimulus\n+              label: stimulus\n+            - id: v1\n+              label: V1\n\
-    +            - id: readout\n+              label: readout\n+            - id: inhibition\n+              label:
-    inhibition\n+              style_role: emphasis\n+          edges:\n+            - source: stimulus\n+     \
-    \         target: v1\n+              weight: 1.0\n+            - source: v1\n+              target: readout\n\
-    +              weight: 1.0\n+            - source: inhibition\n+              target: v1\n+              weight:
-    -0.6\n+              style_role: emphasis\n+      - id: population\n+        kind: schematic_population\n+ \
-    \       style_role: primary_signal\n+        params:\n+          count: 8\n+          arrangement: row\n+  \
-    \        anchor: center_right\n+          width_fraction: 0.4\n+          activity:\n+            - 0.1\n+ \
-    \           - 0.3\n+            - 0.7\n+            - 1.0\n+            - 0.8\n+            - 0.4\n+       \
-    \     - 0.2\n+            - 0.05\n+          label: V1 population\n+          data_label: illustrative activity,
-    not recorded\n+        reveal_at_seconds: 12\n+    snapshots:\n+      - id: circuit_shown\n+        at_seconds:
-    15\n+        description: The three-node circuit with the inhibitory edge dashed, and the population row beside
-    it.\n+  - id: tuning_curve\n+    start_seconds: 18\n+    end_seconds: 28\n+    purpose: 'The tuning curve: response
-    against orientation.'\n+    narration:\n+      text: Plotting the response against orientation gives a bell-shaped
-    tuning curve with a preferred \n+        orientation near ninety degrees.\n+    objects:\n+      - id: control_curve\n\
-    +        kind: scientific_plot\n+        style_role: primary_signal\n+        data:\n+          source: tuning\n\
-    +          encoding:\n+            x: orientation_deg\n+            y: response_hz\n+            group: condition\n\
-    +          transforms:\n+            - op: filter\n+              column: condition\n+              equals:
-    control\n+        params:\n+          x_label: orientation (deg)\n+          y_label: response (Hz)\n+     \
-    \     data_label: synthetic control condition\n+          width_fraction: 0.6\n+      - id: model_label\n+ \
-    \       kind: equation_label\n+        style_role: emphasis\n+        equation:\n+          id: von_mises\n\
-    +          highlight:\n+            - theta_0\n+        params:\n+          text: von Mises model\n+       \
-    \   anchor: top_right\n+        reveal_at_seconds: 23\n+    snapshots:\n+      - id: curve_visible\n+      \
-    \  at_seconds: 21\n+        description: The synthetic control tuning curve with labelled axes; no model label
-    yet.\n+      - id: model_labelled\n+        at_seconds: 26\n+        description: The curve with the von Mises
-    label and the highlighted preferred orientation.\n+  - id: model\n+    start_seconds: 28\n+    end_seconds:
-    40\n+    purpose: The model curve, what its concentration does, and the recording site's receptive field.\n\
-    +    narration:\n+      text: 'The von Mises function reproduces the shape: a peak at the preferred orientation,
-    sharper for larger\n+        kappa.'\n+    objects:\n+      - id: model_curve\n+        kind: function_plot\n\
-    +        style_role: primary_signal\n+        equation:\n+          id: von_mises\n+        params:\n+     \
-    \     x_label: orientation (deg)\n+          y_label: r (Hz)\n+          x_range:\n+            - 0\n+     \
-    \       - 180\n+          y_range:\n+            - 0\n+            - 40\n+          anchor: center_left\n+ \
-    \         width_fraction: 0.55\n+          parameters:\n+            r_max: 30\n+            kappa: 2\n+   \
-    \         theta_0: 90\n+          series:\n+            - label: von Mises model\n+              expression:
+  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,184 @@\n+schema_version: '1.0'\n+project_id:
+    orientation_tuning\n+based_on_animation_revision: working\n+scenes:\n+  - id: circuit\n+    start_seconds: 0\n\
+    +    end_seconds: 6\n+    purpose: 'Where the signal comes from: a schematic circuit and a population of units.'\n\
+    +    narration:\n+      text: A stimulus drives a population in V1, read out downstream and checked by inhibition.\n\
+    +    objects:\n+      - id: circuit_graph\n+        kind: network_graph\n+        style_role: primary_signal\n\
+    +        params:\n+          layout: grid\n+          columns: 3\n+          anchor: center_left\n+        \
+    \  size_fraction: 0.45\n+          nodes:\n+            - id: stimulus\n+              label: stimulus\n+  \
+    \          - id: v1\n+              label: V1\n+            - id: readout\n+              label: readout\n+\
+    \            - id: inhibition\n+              label: inhibition\n+              style_role: emphasis\n+    \
+    \      edges:\n+            - source: stimulus\n+              target: v1\n+              weight: 1.0\n+   \
+    \         - source: v1\n+              target: readout\n+              weight: 1.0\n+            - source: inhibition\n\
+    +              target: v1\n+              weight: -0.6\n+              style_role: emphasis\n+      - id: population\n\
+    +        kind: schematic_population\n+        style_role: primary_signal\n+        params:\n+          count:
+    8\n+          arrangement: row\n+          anchor: center_right\n+          width_fraction: 0.4\n+         \
+    \ activity:\n+            - 0.1\n+            - 0.3\n+            - 0.7\n+            - 1.0\n+            -
+    0.8\n+            - 0.4\n+            - 0.2\n+            - 0.05\n+          label: V1 population\n+       \
+    \   data_label: illustrative activity, not recorded\n+        reveal_at_seconds: 1.5\n+    snapshots:\n+   \
+    \   - id: circuit_shown\n+        at_seconds: 4\n+        description: The three-node circuit with the inhibitory
+    edge dashed, and the population row beside it.\n+  - id: data\n+    start_seconds: 6\n+    end_seconds: 12\n\
+    +    purpose: 'The tuning curve: response against orientation, with the model named beside it.'\n+    narration:\n\
+    +      text: Response against orientation is a bell-shaped tuning curve peaking near ninety degrees.\n+    objects:\n\
+    +      - id: control_curve\n+        kind: scientific_plot\n+        style_role: primary_signal\n+        data:\n\
+    +          source: tuning\n+          encoding:\n+            x: orientation_deg\n+            y: response_hz\n\
+    +            group: condition\n+          transforms:\n+            - op: filter\n+              column: condition\n\
+    +              equals: control\n+        params:\n+          x_label: orientation (deg)\n+          y_label:
+    response (Hz)\n+          data_label: synthetic control condition\n+          anchor: center_left\n+       \
+    \   width_fraction: 0.55\n+      - id: data_note\n+        kind: caption_with_citation\n+        style_role:
+    secondary_text\n+        params:\n+          text: Synthetic tuning curves\n+          source: tuning\n+   \
+    \       locator: columns orientation_deg and response_hz\n+          anchor: top_left\n+        reveal_at_seconds:
+    7.5\n+      - id: model_label\n+        kind: equation_label\n+        style_role: emphasis\n+        equation:\n\
+    +          id: von_mises\n+          highlight:\n+            - theta_0\n+        params:\n+          text:
+    von Mises model\n+          anchor: bottom_right\n+        reveal_at_seconds: 9\n+    snapshots:\n+      - id:
+    curve_cited\n+        at_seconds: 8.5\n+        description: The synthetic control tuning curve with labelled
+    axes and the cited data note above it; \n+          no model label yet.\n+      - id: model_labelled\n+    \
+    \    at_seconds: 10.5\n+        description: The curve with the von Mises label and the highlighted preferred
+    orientation.\n+  - id: model\n+    start_seconds: 12\n+    end_seconds: 20\n+    purpose: The model curve, and
+    what its concentration does.\n+    narration:\n+      text: The von Mises model reproduces the shape; raising
+    kappa sharpens the peak at the preferred \n+        orientation.\n+    objects:\n+      - id: model_curve\n\
+    +        kind: function_plot\n+        style_role: primary_signal\n+        equation:\n+          id: von_mises\n\
+    +        params:\n+          x_label: orientation (deg)\n+          y_label: r (Hz)\n+          x_range:\n+\
+    \            - 0\n+            - 180\n+          y_range:\n+            - 0\n+            - 40\n+          anchor:
+    center_left\n+          width_fraction: 0.55\n+          parameters:\n+            r_max: 30\n+            kappa:
+    2\n+            theta_0: 90\n+          series:\n+            - label: von Mises model\n+              expression:
     r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))\n+          markers:\n+            - x: theta_0\n+\
     \              label: θ₀\n+              style_role: secondary_text\n+          data_label: analytic curve from
-    the equation\n+      - id: receptive_field\n+        kind: receptive_field_glyph\n+        style_role: primary_signal\n\
-    +        params:\n+          center:\n+            - 2\n+            - -1\n+          sigma: 1.5\n+        \
-    \  field_extent: 5\n+          label: receptive field\n+          anchor: center_right\n+          size_fraction:
-    0.34\n+          data_label: schematic, not mapped\n+        reveal_at_seconds: 29.5\n+      - id: kappa_label\n\
-    +        kind: equation_label\n+        style_role: emphasis\n+        equation:\n+          id: von_mises\n\
-    +          highlight:\n+            - kappa\n+        params:\n+          text: concentration kappa\n+     \
-    \     anchor: top_right\n+        reveal_at_seconds: 31\n+    actions:\n+      - id: sharpen\n+        kind:
-    vary_parameter\n+        target: model_curve\n+        parameter: kappa\n+        to: 8\n+        at_seconds:
-    33\n+        duration_seconds: 4\n+        emphasize:\n+          - kappa_label\n+    snapshots:\n+      - id:
-    model_complete\n+        at_seconds: 38\n+        description: The sharpened model curve (kappa = 8) with the
-    preferred-orientation marker, the kappa \n+          label with its readout, and the receptive-field glyph to
-    the right."
+    the equation\n+      - id: kappa_label\n+        kind: equation_label\n+        style_role: emphasis\n+    \
+    \    equation:\n+          id: von_mises\n+          highlight:\n+            - kappa\n+        params:\n+ \
+    \         text: concentration kappa\n+          anchor: top_right\n+        reveal_at_seconds: 13\n+    actions:\n\
+    +      - id: sharpen\n+        kind: vary_parameter\n+        target: model_curve\n+        parameter: kappa\n\
+    +        to: 8\n+        at_seconds: 14.5\n+        duration_seconds: 4\n+        emphasize:\n+          - kappa_label\n\
+    +    snapshots:\n+      - id: half_sharpened\n+        at_seconds: 16.5\n+        description: 'Inside the sweep:
+    the curve is narrower than at kappa = 2 and the readout shows kappa between\n+          2 and 8.'\n+      -
+    id: model_complete\n+        at_seconds: 19\n+        description: The sharpened model curve (kappa = 8) with
+    the preferred-orientation marker, the kappa \n+          label and its readout."
 scientific_review_required: true
 validation_warnings: []

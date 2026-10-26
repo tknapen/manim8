@@ -12,7 +12,7 @@ from PIL import Image
 from scianim.agent.context import describe_kind, export_context
 from scianim.agent.inspect import Finding, expected_objects, inspect_manifest, record_findings
 from scianim.agent.proposals import apply_patch, apply_proposal, list_applied, load_proposal, resolve_proposal
-from scianim.codegen.generate import write_scene_module
+from scianim.codegen.generate import generate_scene_module, write_scene_module
 from scianim.config.loader import SpecError, load_animation, load_storyboard
 from scianim.feedback.store import list_feedback
 from scianim.planning.checks import validate_project
@@ -140,17 +140,17 @@ def test_proposals_create_patch_and_record(workspace: Path) -> None:
     # A new storyboard binds data and equations: that is scientific content, so sign-off is required.
     assert apply_proposal(project, storyboard_proposal).scientific_review_required is True
     storyboard = load_storyboard(project.storyboard_path)
-    assert [s.id for s in storyboard.scenes] == ["introduction", "circuit", "tuning_curve", "model"]
+    assert [s.id for s in storyboard.scenes] == ["circuit", "data", "model"]
     assert validate_project(project, require_family=True).ok
 
     revise = load_proposal(FIXTURES / "prop_revise_storyboard.yaml")
     applied_patch = apply_proposal(project, revise)
     assert applied_patch.scientific_review_required is False  # a caption rewording binds nothing new
     after = load_storyboard(project.storyboard_path)
-    note = after.scenes[0].objects[1]
-    assert note.params["text"] == "Synthetic von Mises tuning curves" and note.reveal_at_seconds == 1
+    note = after.scenes[1].objects[1]
+    assert note.params["text"] == "Synthetic von Mises tuning curves" and note.reveal_at_seconds == 7
     diff = applied_patch.diffs["storyboard.yaml"]
-    assert "-        reveal_at_seconds: 2" in diff and "+        reveal_at_seconds: 1" in diff
+    assert "-        reveal_at_seconds: 7.5" in diff and "+        reveal_at_seconds: 7" in diff
     assert [a.proposal.id for a in list_applied(project)] == [
         "prop_create_spec",
         "prop_create_storyboard",
@@ -165,14 +165,14 @@ def test_proposals_create_patch_and_record(workspace: Path) -> None:
             "targets": [
                 {
                     "file": "storyboard.yaml",
-                    "patch": [{"op": "replace", "path": "/scenes/0/objects/1/params/source", "value": "nope"}],
+                    "patch": [{"op": "replace", "path": "/scenes/1/objects/1/params/source", "value": "nope"}],
                 }
             ],
         }
     )
     with pytest.raises(SpecError, match="not declared"):
         apply_proposal(project, broken)
-    assert load_storyboard(project.storyboard_path).scenes[0].objects[1].params["source"] == "tuning"
+    assert load_storyboard(project.storyboard_path).scenes[1].objects[1].params["source"] == "tuning"
 
 
 def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManifest:
@@ -183,8 +183,8 @@ def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManif
     (project.root / output_dir).mkdir(parents=True, exist_ok=True)
     records = []
     for snapshot_id, scene_id, t, blank in (
-        ("excitation_visible", "excitation", 9.0, False),
-        ("equation_complete", "equation", 40.0, blank_second),
+        ("excitation_visible", "excitation", 4.0, False),
+        ("pool_raised", "normalization", 14.0, blank_second),
     ):
         image = Image.new("RGB", (96, 54), "white")
         if not blank:
@@ -195,7 +195,7 @@ def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManif
         image.save(project.root / png)
         layout = [
             LayoutItem(
-                object_id="scene_title",
+                object_id="drive_caption",
                 kind="text_caption",
                 bbox=BBox(x=0.05, y=0.05, width=0.3, height=0.05),
                 text="t",
@@ -203,6 +203,15 @@ def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManif
             )
         ]
         if snapshot_id == "excitation_visible":
+            layout.append(
+                LayoutItem(
+                    object_id="drive_note",
+                    kind="text_caption",
+                    bbox=BBox(x=0.05, y=0.11, width=0.2, height=0.04),
+                    text="n",
+                    text_height_px=27,
+                )
+            )
             layout.append(
                 LayoutItem(
                     object_id="drive_curve", kind="scientific_plot", bbox=BBox(x=0.2, y=0.2, width=0.6, height=0.6)
@@ -224,7 +233,7 @@ def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManif
                 if snapshot_id == "excitation_visible"
                 else [
                     LayoutWarning(
-                        code="text_too_small", object_ids=["scene_title"], detail="font size 9px is below the minimum"
+                        code="text_too_small", object_ids=["drive_caption"], detail="font size 9px is below the minimum"
                     )
                 ],
             )
@@ -272,19 +281,19 @@ def _manifest_with_frames(project: Project, blank_second: bool) -> ArtifactManif
 def test_inspection_finds_missing_objects_and_blank_frames(project_copy: Project) -> None:
     report = validate_project(project_copy)
     assert report.storyboard
-    assert expected_objects(report.storyboard, "excitation", 9.0) == ["scene_title", "drive_curve"]
+    assert expected_objects(report.storyboard, "excitation", 4.0) == ["drive_caption", "drive_note", "drive_curve"]
     manifest = _manifest_with_frames(project_copy, blank_second=True)
     findings = inspect_manifest(project_copy, manifest, report.storyboard)
     codes = {(f.snapshot_id, f.code) for f in findings}
     # The equation checkpoint lacks its equation object (the layout only has a stray title) and the frame is blank.
-    assert ("equation_complete", "object_missing") in codes and ("equation_complete", "blank_frame") in codes
-    assert ("equation_complete", "description_names_missing_object") in codes
-    assert ("equation_complete", "object_unexpected") in codes
+    assert ("pool_raised", "object_missing") in codes and ("pool_raised", "blank_frame") in codes
+    assert ("pool_raised", "description_names_missing_object") in codes
+    assert ("pool_raised", "object_unexpected") in codes
     assert not any(f.snapshot_id == "excitation_visible" and f.severity == "discrepancy" for f in findings)
     recorded = record_findings(project_copy, manifest, findings)
     assert recorded and all(r.author == "agent:inspect" for r in recorded)
     # A warning about a present object becomes an object comment with its region; a missing object a general one.
-    assert any(r.kind == "object_comment" and r.object_id == "scene_title" and r.region is not None for r in recorded)
+    assert any(r.kind == "object_comment" and r.object_id == "drive_caption" and r.region is not None for r in recorded)
     assert any(r.kind == "general_comment" and "[object_missing]" in r.text for r in recorded)
     assert len(list_feedback(project_copy)) == len(recorded)
     assert isinstance(findings[0], Finding)
@@ -307,12 +316,11 @@ def test_codegen_handles_new_kinds(workspace: Path) -> None:
         report.animation, report.storyboard, report.style, project.scene_module_path(report.animation)
     )
     code = target.read_text()
-    for kind in (
-        "caption_with_citation",
-        "network_graph",
-        "schematic_population",
-        "receptive_field_glyph",
-        "function_plot",
-    ):
+    for kind in ("caption_with_citation", "network_graph", "schematic_population", "function_plot"):
         assert f"C.{kind}(" in code
+    assert "sharpen = self.begin_vary(model_curve" in code
     assert validate_project(project, require_family=True).ok
+    # The kinds the brief examples no longer use are generated from the gallery storyboard (rendered in CI).
+    gallery = load_storyboard(FIXTURES.parent / "gallery_storyboard.yaml")
+    gallery_code = generate_scene_module(report.animation, gallery, report.style)
+    assert "C.comparison_plot(" in gallery_code and "C.receptive_field_glyph(" in gallery_code

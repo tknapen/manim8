@@ -223,7 +223,8 @@ def check_storyboard(
 
 
 def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report) -> None:
-    """Warn when an action would start late (a reveal is still playing) or end inside the scene's fade-out.
+    """Warn when a reveal or an action would start late (an earlier reveal is still playing) or an action
+    would end inside the scene's fade-out.
 
     Reveals take `motion.reveal_seconds` each and play one after another, so the clock can run past a
     storyboard time; the renderer then warns in the manifest. Saying it here is cheaper.
@@ -232,7 +233,8 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
     events: list[tuple[float, int, str, str]] = []
     for obj in scene.objects:
         at = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
-        events.append((at, 1, "reveal", obj.id))
+        # Objects without a reveal time play one after another at the scene start by design.
+        events.append((at, 1, "reveal" if obj.reveal_at_seconds is not None else "start_reveal", obj.id))
     for action in scene.actions:
         events.append((action.at_seconds, 3, "action", action.id))
         events.append((action.end_seconds, 0, "end", action.id))
@@ -240,7 +242,12 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
     clock = scene.start_seconds
     starts: dict[str, float] = {}
     for at, _, kind, ident in events:
-        if kind == "reveal":
+        if kind in ("reveal", "start_reveal"):
+            if kind == "reveal" and clock > at + 1.0 / fps:
+                report.warn(
+                    f"object '{ident}' is due at {at:g}s but the reveals before it finish at {clock:.2f}s; "
+                    f"it will appear late (each reveal takes {motion.reveal_seconds:g}s)"
+                )
             clock = max(clock, at) + motion.reveal_seconds
         elif kind == "action":
             starts[ident] = max(clock, at)

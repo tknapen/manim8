@@ -1,0 +1,39 @@
+schema_version: "1.0"
+project_id: divisive_normalization
+based_on_animation_revision: "example_initial"
+scenes:
+  - id: gallery
+    start_seconds: 0
+    end_seconds: 6
+    purpose: "Render coverage for kinds the brief examples no longer use: a shared-axis comparison and a receptive-field glyph."
+    objects:
+      - id: comparison
+        kind: comparison_plot
+        style_role: comparison
+        data:
+          source: responses
+          encoding: {x: excitation_E, y: response_r, group: condition}
+        params:
+          condition_roles: {low_pool: primary_signal, high_pool: normalization_pool}
+          shared_axes: true
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          data_label: "synthetic data"
+          anchor: center_left
+          width_fraction: 0.6
+          height_fraction: 0.5
+      - id: field
+        kind: receptive_field_glyph
+        style_role: primary_signal
+        params:
+          center: [2, -1]
+          sigma: 1.5
+          field_extent: 5
+          label: "receptive field"
+          anchor: center_right
+          size_fraction: 0.3
+          data_label: "schematic, not mapped"
+    snapshots:
+      - id: gallery_visible
+        at_seconds: 4
+        description: "Two shared-axis panels on the left and a receptive-field glyph on the right."

@@ -113,6 +113,7 @@ class SnapshotScene(Scene):
         self.render_warnings: list[str] = []
         self._tokens: Tokens | None = None
         self._readout_face: tuple[Any, Any] = (None, None)
+        self._readout_anchors: dict[str, Mobject] = {}
 
     # --- context ------------------------------------------------------------------------------
     @property
@@ -164,6 +165,7 @@ class SnapshotScene(Scene):
     def begin_scene(self, scene_id: str, start_seconds: float | None = None) -> None:
         self.scene_id = scene_id
         self.scene_objects = []
+        self._readout_anchors = {}
         self.next_section(scene_id)
         if start_seconds is not None and abs(self.clock - start_seconds) > self.frame_seconds:
             self.timing_warnings.append(
@@ -263,7 +265,10 @@ class SnapshotScene(Scene):
 
             text = Text(readout_text(component.parameters[parameter]), **tokens.text_kwargs(annotation, color))
             group = VGroup(text)
-            reference = emphasize[0].group if emphasize else component.group
+            # Readouts of successive actions on the same reference stack away from it, newest last.
+            reference_id = emphasize[0].object_id if emphasize else component.object_id
+            reference = self._readout_anchors.get(reference_id, emphasize[0].group if emphasize else component.group)
+            self._readout_anchors[reference_id] = group
 
             def readout_place(
                 group: VGroup = group, reference: Mobject = reference, beside: bool = bool(emphasize)

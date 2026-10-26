@@ -45,7 +45,10 @@ def probe_video(path: Path) -> Probe:
     """Container metadata plus an exact frame count obtained by decoding (metadata counts can lie)."""
     with av.open(str(path)) as container:
         stream = container.streams.video[0]
-        fps = float(stream.average_rate) if stream.average_rate else 0.0
+        # The base rate is the nominal frame rate; the average rate is duration-derived and can be off by a
+        # millisecond's rounding (30.0011 fps for an 18 s movie), which is not a frame-rate error.
+        rate = stream.base_rate or stream.guessed_rate or stream.average_rate
+        fps = float(rate) if rate else 0.0
         frames = 0
         last_time: float | None = None
         for frame in container.decode(stream):
@@ -104,7 +107,7 @@ def collect_video_outputs(scene: SnapshotScene, ctx: JobContext) -> VideoOutputs
     expected = (job.manim.pixel_width, job.manim.pixel_height)
     if (probe.width, probe.height) != expected:
         out.errors.append(f"movie is {probe.width}x{probe.height}, the job asked for {expected[0]}x{expected[1]}")
-    if abs(probe.fps - job.manim.frame_rate) > 1e-3:
+    if abs(probe.fps - job.manim.frame_rate) > 1e-2:
         out.errors.append(f"movie plays at {probe.fps:g} fps, the job asked for {job.manim.frame_rate:g}")
 
     # Sections: Manim's index lists each saved section with its video path relative to the sections dir.

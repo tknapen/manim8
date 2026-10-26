@@ -3,7 +3,7 @@ id: prf_tuning
 title: "The Gaussian population receptive field"
 sources: []
 output:
-  duration_seconds: 45
+  duration_seconds: 12
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
@@ -26,15 +26,14 @@ equations:
       sigma: {meaning: "pRF size (standard deviation)", units: "deg"}
 audience: graduate_neuroscience
 objective: >-
-  Explain that a population receptive field summarizes how strongly a recording site
-  responds to each visual field position, show the one-dimensional Gaussian model with
-  its centre and size, and vary the size while the viewer watches so that what sigma
-  does to the profile is seen rather than inferred from two panels.
+  A brief clip: one Gaussian population receptive field beside its equation. Move the
+  centre, then grow the size, so that what each parameter does to the profile is seen
+  rather than inferred from two panels.
 scientific_constraints:
   - id: equation_exact
     kind: hard
     equation: gaussian_prf
-    text: "Show the Gaussian pRF equation exactly as stored and define x, x_0 and sigma."
+    text: "Show the Gaussian pRF equation exactly as stored, with x_0 and sigma highlighted."
   - id: synthetic_label
     kind: hard
     text: "Label the plotted profiles as analytic curves computed from the equation, not as measurements."
@@ -42,26 +41,21 @@ scientific_constraints:
     kind: hard
     text: "While the size varies, keep the centre, the position axis and the weight axis fixed."
 timeline:
-  - id: introduction
+  - id: start
     at_seconds: 0
     tolerance_seconds: 0
     kind: hard
-    instruction: "State what a pRF is: a weight over visual field position."
-  - id: gaussian
-    at_seconds: 12
-    tolerance_seconds: 2
-    kind: preferred
-    instruction: "Show one Gaussian profile with its centre and size."
-  - id: equation
-    at_seconds: 24
+    instruction: "Show the profile and the equation together from the first frame."
+  - id: centre
+    at_seconds: 2.5
     tolerance_seconds: 1
-    kind: hard
-    instruction: "Show the equation and define its terms."
-  - id: selectivity
-    at_seconds: 34
-    tolerance_seconds: 2
     kind: preferred
-    instruction: "Vary the size continuously and show what it does to selectivity."
+    instruction: "Move the centre first."
+  - id: size
+    at_seconds: 6.5
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Then grow the size."
 direction:
   tone: "Plain, precise, unhurried"
   avoid:

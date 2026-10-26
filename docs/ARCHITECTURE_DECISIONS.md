@@ -381,3 +381,29 @@ checkpoint a marker in the flow. Tying parameters to the equation's symbol names
 makes "emphasize σ, then vary σ" one statement rather than two that could drift apart. Further kinds (moving
 an object, fading one out, transforming one equation into another) join the same list as a discriminated
 union on `kind`.
+
+## ADR-023: An animation is a brief clip, and the examples say so
+
+**Status:** accepted, 26 October 2026
+
+**Context.** The first examples grew into forty to sixty second sequences with title cards, a scene that only
+listed symbol definitions, and side-by-side panels: slide decks with transitions. The intended product is a clip
+of a few seconds to half a minute that shows one mechanism moving.
+
+**Decision.** AGENTS.md, the spec's definition of success, the user guide and the agent context instructions
+state that an animation here is brief: typically 5 to 30 seconds, one or two scenes, the equation beside the
+picture, no title cards or definition-only scenes, and at least one quantity that varies while the viewer
+watches. The project scaffold proposes 15 seconds. The three examples are rebuilt to that shape: the pRF clip
+(12 s, one scene) moves the centre and then grows the size with stacked readouts under one equation label;
+divisive normalization (18 s, two scenes) shows the drive alone and then raises the pool beside an equation
+block; orientation tuning (20 s, three scenes, produced by the agent loop from its fixtures) shows the circuit,
+the cited synthetic curve with the model named beside it, and the model sharpening as kappa rises. The kinds
+the brief examples no longer use (`comparison_plot`, `receptive_field_glyph`) keep render coverage through a
+gallery storyboard in the test fixtures, not through an example. Readouts of successive actions on the same
+reference stack away from it. Project checks now warn when an explicit reveal is due while earlier reveals are
+still playing, as they already did for actions, and the video probe reads the nominal frame rate (a
+duration-derived average can differ by a millisecond's rounding and is not a frame-rate error).
+
+**Why.** Examples teach the shape of the work more than any instruction does, and an agent asked for "an
+animation of X" will copy them. Keeping the long-form machinery (sections, subtitles, timing proposals) costs
+nothing; what changed is the default.

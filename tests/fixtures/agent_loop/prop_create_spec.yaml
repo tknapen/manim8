@@ -34,7 +34,7 @@ targets:
           role: illustrative_data
           citation: "Synthetic von Mises tuning curves computed for this example; not measurements"
       output:
-        duration_seconds: 40
+        duration_seconds: 20
         width_px: 1920
         height_px: 1080
         aspect_ratio: "16:9"
@@ -71,9 +71,9 @@ targets:
           text: "Label every plotted curve as synthetic; none of it is recorded data."
       timeline:
         - id: model_shown
-          at_seconds: 36
+          at_seconds: 19
           kind: preferred
-          instruction: "The model curve and its preferred-orientation marker are both visible."
+          instruction: "The sharpened model curve and its preferred-orientation marker are both visible."
       direction:
         tone: "plain, didactic"
         avoid: ["decorative motion"]

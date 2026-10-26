@@ -51,14 +51,17 @@ def test_timing_proposal_from_narration_reports_conflicts(project_copy: Project,
     assert first.proposed_duration == pytest.approx(
         max(3.0, frames_for(first.narration_seconds * 1.25, 30) / 30), abs=1 / 30
     )
-    # The example's narration is shorter than its scenes, so snapshots placed late in each scene conflict.
-    assert not proposal.ok
-    assert any("snapshot" in c for s in proposal.scenes for c in s.conflicts)
-    # A slow narrator makes every scene longer than the output allows.
+    # The brief example's narration fits its scenes: the proposal moves the boundary and conflicts with nothing.
+    assert proposal.ok, [c for s in proposal.scenes for c in s.conflicts]
+    assert proposal.scenes[0].proposed_end != proposal.scenes[0].current_end
+    # A slow narrator makes every scene longer than the output allows, and a fast one shortens the second scene
+    # until its sweep and late snapshot fall outside it.
     slow = propose_timing(report.animation, report.storyboard, 20.0)
     assert any("output lasts" in c for c in slow.conflicts)
+    fast = propose_timing(report.animation, report.storyboard, 400.0)
+    assert any("action" in c or "snapshot" in c for s in fast.scenes for c in s.conflicts)
     with pytest.raises(SpecError, match="conflicts"):
-        write_proposed_storyboard(project_copy.storyboard_path, proposal, tmp_path / "refused.yaml")
+        write_proposed_storyboard(project_copy.storyboard_path, fast, tmp_path / "refused.yaml")
     # A conflict-free proposal (here: keep every boundary) is written next to the original, never in place.
     for scene in proposal.scenes:
         scene.proposed_start, scene.proposed_end, scene.conflicts = scene.current_start, scene.current_end, []
@@ -84,12 +87,12 @@ def test_build_video_job_profiles_sections_and_samples(project_copy: Project) ->
     report = _prepared(project_copy)
     sources = sources_from_report(project_copy, report)
     assert report.family
-    draft, paths, _ = build_video_job(project_copy, sources, report.family, "draft", {"mid": 22.5})
+    draft, paths, _ = build_video_job(project_copy, sources, report.family, "draft", {"mid": 10.5})
     assert draft.operation == "render_video" and draft.quality_profile == "draft"
     assert (draft.manim.pixel_width, draft.manim.pixel_height) == (1280, 720)
     assert draft.manim.frame_rate == 30 and draft.manim.save_sections and draft.manim.video_codec == "libx264"
-    assert [s.scene_id for s in draft.scenes] == ["excitation", "normalization_pool", "equation", "pool_comparison"]
-    assert draft.samples == {"mid": 22.5} and set(draft.snapshots) == set(report.storyboard.snapshot_ids())
+    assert [s.scene_id for s in draft.scenes] == ["excitation", "normalization"]
+    assert draft.samples == {"mid": 10.5} and set(draft.snapshots) == set(report.storyboard.snapshot_ids())
     assert draft.manim.media_dir == ".scianim/media/working" and paths.output_dir.name == draft.job_id
     final, _, _ = build_video_job(project_copy, sources, report.family, "final")
     assert (final.manim.pixel_width, final.manim.pixel_height) == (1920, 1080)
@@ -110,16 +113,14 @@ def test_stale_scenes_against_a_revision(project_copy: Project) -> None:
     unchanged = compare_with_revision(project_copy, report, load_revision(project_copy, revision.id))
     assert unchanged.stale_scene_ids == [] and unchanged.removed_scenes == []
     storyboard = project_copy.storyboard_path
-    storyboard.write_text(storyboard.read_text().replace("at_seconds: 19.5\n", "at_seconds: 19\n"))
+    storyboard.write_text(storyboard.read_text().replace("at_seconds: 14\n", "at_seconds: 13\n"))
     csv = project_copy.data_dir / "synthetic_responses.csv"
     csv.write_text(csv.read_text() + "11.0,1.0,1.0,5.5,low_pool,synthetic\n")
     report = _prepared(project_copy)
     changed = compare_with_revision(project_copy, report, load_revision(project_copy, revision.id))
     by_id = {s.scene_id: s.reasons for s in changed.scenes}
-    assert by_id["normalization_pool"] == ["snapshots changed"]
+    assert by_id["normalization"] == ["snapshots changed"]
     assert "data source 'responses' changed" in by_id["excitation"]
-    assert "data source 'responses' changed" in by_id["pool_comparison"]
-    assert by_id["equation"] == []
     none = compare_with_revision(project_copy, report, None)
     assert none.stale_scene_ids == [s.id for s in report.storyboard.scenes]
     # Style and custom code changes are reported through the generic path.
@@ -146,8 +147,8 @@ def test_review_sheet_shows_video_sections_and_timing(project_copy: Project) -> 
         width_px=1280,
         height_px=720,
         fps=30,
-        duration_seconds=60,
-        frame_count=1800,
+        duration_seconds=18,
+        frame_count=540,
         codec="h264",
         sha256="a" * 64,
     )
@@ -156,16 +157,19 @@ def test_review_sheet_shows_video_sections_and_timing(project_copy: Project) -> 
             name=s.scene_id,
             type="default.normal",
             video=f"{job.output_dir}/sections/{s.scene_id}.mp4",
-            metadata={"frames": 450, "duration_seconds": 15.0},
+            metadata={
+                "frames": frames_for(s.end_seconds - s.start_seconds, 30),
+                "duration_seconds": s.end_seconds - s.start_seconds,
+            },
         )
         for s in job.scenes
     ]
     timing = verify_timing(
         [(s.scene_id, s.start_seconds, s.end_seconds) for s in job.scenes],
-        [(s.name, 450) for s in sections],
-        1800,
+        [(s.name, s.metadata["frames"]) for s in sections],
+        540,
         30,
-        60,
+        18,
     )
     manifest = ArtifactManifest(
         created_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -185,4 +189,4 @@ def test_review_sheet_shows_video_sections_and_timing(project_copy: Project) -> 
     )
     html = render_sheet(manifest, report.storyboard, Path("."))
     assert "<video" in html and f"{job.job_id}.mp4" in html and "subtitles (SRT)" in html
-    assert "matches the storyboard" in html and "pool_comparison" in html
+    assert "matches the storyboard" in html and "normalization" in html

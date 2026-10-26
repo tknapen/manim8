@@ -1,6 +1,7 @@
 # SciAnim Studio: user guide
 
-A scientist describes an animation; the system keeps the description as validated YAML, enforces a personal
+A scientist describes a brief animation, a clip of a few seconds to half a minute in which one mechanism moves;
+the system keeps the description as validated YAML, enforces a personal
 style, renders named checkpoints and videos with Manim inside an isolated family environment, and offers a local
 browser for review. You never edit Manim code. Every command below is `uv run scianim ...` from a checkout, or
 `scianim ...` once installed.
@@ -117,8 +118,8 @@ actions:
     target: profile_plot
     parameter: sigma
     to: 4
-    at_seconds: 17
-    duration_seconds: 5
+    at_seconds: 6.5
+    duration_seconds: 4
     emphasize: [size_label]
 ```
 

@@ -125,25 +125,27 @@ def test_codegen_orders_timed_reveals_and_checkpoints(project_copy: Project) -> 
     text = project_copy.storyboard_path.read_text()
     text = text.replace(
         "      - id: drive_curve\n        kind: scientific_plot\n",
-        "      - id: drive_curve\n        kind: scientific_plot\n        reveal_at_seconds: 11\n",
+        "      - id: drive_curve\n        kind: scientific_plot\n        reveal_at_seconds: 3\n",
     )
     project_copy.storyboard_path.write_text(text)
     report = validate_project(project_copy)
     assert report.ok, report.errors
     code = generate_scene_module(report.animation, report.storyboard, report.style)
-    scene = code.split("# --- scene 'normalization_pool'")[0]
+    scene = code.split("# --- scene 'normalization'")[0]
     order = [
         line.strip()
         for line in scene.splitlines()
         if line.strip().startswith(("self.reveal(", "self.wait_until(", "checkpoint("))
     ]
     assert order == [
-        "self.reveal(scene_title)",
-        "self.wait_until(9)",
-        'checkpoint(self, "excitation_visible", expected_time=9)',
-        "self.wait_until(11)",
+        "self.reveal(drive_caption)",
+        "self.wait_until(2)",
+        "self.reveal(drive_note)",
+        "self.wait_until(3)",
         "self.reveal(drive_curve)",
-        "self.wait_until(14.35)",
+        "self.wait_until(4)",
+        'checkpoint(self, "excitation_visible", expected_time=4)',
+        "self.wait_until(5.35)",
     ]
 
 

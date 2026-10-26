@@ -166,10 +166,10 @@ def test_timing_staleness_and_inspection_notice_actions(project_copy: Project) -
         custom_code_changed=False,
     )
     by_id = {c.scene_id: c for c in changes.scenes}
-    assert "actions changed" in by_id["normalization_pool"].reasons and not by_id["excitation"].reasons
+    assert "actions changed" in by_id["normalization"].reasons and not by_id["excitation"].reasons
     # The readout counts as an expected object once the sweep has begun.
-    assert "raise_pool" not in expected_objects(report.storyboard, "normalization_pool", 19.5)
-    assert "raise_pool" in expected_objects(report.storyboard, "normalization_pool", 20)
+    assert "raise_pool" not in expected_objects(report.storyboard, "normalization", 8)
+    assert "raise_pool" in expected_objects(report.storyboard, "normalization", 8.5)
 
 
 def test_project_checks_warn_about_late_sweeps_and_unnamed_parameters(project_copy: Project) -> None:
@@ -178,7 +178,7 @@ def test_project_checks_warn_about_late_sweeps_and_unnamed_parameters(project_co
     storyboard = report.storyboard.model_copy(deep=True)
     assert storyboard is not None
     scene = storyboard.scenes[1]
-    scene.actions[0].at_seconds = 18.5  # the pool label is still fading in at 18.5 s
+    scene.actions[0].at_seconds = 7.5  # the equation is still fading in at 7.5 s
     late = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
     assert any("will start late" in w for w in late.warnings), late.warnings
     storyboard = report.storyboard.model_copy(deep=True)

@@ -347,13 +347,15 @@ based_on_animation_revision: "<resolved-revision-id>"
 scenes:
   - id: excitation
     start_seconds: 0
-    end_seconds: 15
-    purpose: "Establish what excitatory drive represents"
+    end_seconds: 6
+    purpose: "Excitatory drive alone: the response grows with it."
     narration:
-      text: >-
-        A neuron's response begins with its excitatory drive. Here the drive
-        grows along the horizontal axis, and the response grows with it.
+      text: "The response begins with excitatory drive: as the drive grows, so does the response."
     objects:
+      - id: drive_caption
+        kind: text_caption
+        style_role: foreground
+        params: {text: "Excitatory drive alone", role: body}
       - id: drive_curve
         kind: scientific_plot
         style_role: primary_signal
@@ -368,17 +370,17 @@ scenes:
           data_label: "synthetic data"
     snapshots:
       - id: excitation_visible
-        at_seconds: 9
-        description: "Curve and labeled excitation axis are visible"
+        at_seconds: 4
+        description: "Caption and the synthetic excitation curve with labelled axes"
 
-  - id: normalization_pool
-    start_seconds: 15
-    end_seconds: 30
-    purpose: "Introduce the divisive pool term"
+  - id: normalization
+    start_seconds: 6
+    end_seconds: 18
+    purpose: "Divide by a normalization pool, then raise the pool and watch the response compress."
     narration:
       text: >-
-        The response is divided by a normalization pool, the summed activity
-        of neighboring neurons, <mark name="pool"/> which we label P.
+        Dividing by a normalization pool P compresses it: as the pool grows, the same drive
+        yields a smaller response.
     objects:
       - id: response_curve
         kind: function_plot
@@ -389,71 +391,34 @@ scenes:
           y_label: "response r"
           x_range: [0, 10]
           y_range: [0, 6]
+          anchor: center_left
+          width_fraction: 0.55
           parameters: {sigma: 1, P: 1}
           series:
             - {label: "schematic response", expression: "x / (sigma + P)"}
           data_label: "schematic curve from the equation"
-      - id: pool_label
-        kind: equation_label
-        style_role: normalization_pool
+      - id: normalization_equation
+        kind: equation_block
+        style_role: foreground
         equation: {id: schematic_equation, highlight: [P]}
-        params: {text: "normalization pool P"}
-        reveal_at_seconds: 18
+        params: {anchor: top_right, scale: 0.9}
+        reveal_at_seconds: 7
     actions:
       - id: raise_pool
         kind: vary_parameter
         target: response_curve
         parameter: P
         to: 4
-        at_seconds: 20
-        duration_seconds: 6
-        emphasize: [pool_label]
+        at_seconds: 8.5
+        duration_seconds: 4
+        emphasize: [normalization_equation]
     snapshots:
       - id: pool_introduced
-        at_seconds: 19.5
-        description: "The response curve for P = 1 with the pool label; P highlighted"
+        at_seconds: 8
+        description: "The response curve for P = 1 with the equation beside it; P highlighted"
       - id: pool_raised
-        at_seconds: 28
+        at_seconds: 14
         description: "After the sweep the curve is compressed; the readout reads P = 4.0"
-
-  - id: equation
-    start_seconds: 30
-    end_seconds: 45
-    purpose: "Explain the schematic equation"
-    narration:
-      text: "The response equals excitation divided by sigma plus the pool."
-    objects:
-      - id: normalization_equation
-        kind: equation_block
-        style_role: foreground
-        equation: {id: schematic_equation}
-        params: {define_symbols: true}
-    snapshots:
-      - id: equation_complete
-        at_seconds: 40
-        description: "All terms visible and defined"
-
-  - id: pool_comparison
-    start_seconds: 45
-    end_seconds: 60
-    purpose: "Show the effect of increasing P with E held constant"
-    narration:
-      text: "With identical excitation, a stronger pool compresses the response."
-    objects:
-      - id: response_comparison
-        kind: comparison_plot
-        style_role: comparison
-        data:
-          source: responses
-          encoding: {x: excitation_E, y: response_r, group: condition}
-        params:
-          condition_roles: {low_pool: primary_signal, high_pool: normalization_pool}
-          shared_axes: true
-          data_label: "synthetic data"
-    snapshots:
-      - id: comparison_complete
-        at_seconds: 55
-        description: "Two conditions displayed with identical axes"
 ```
 
 The storyboard is a **contract and planning format**, not a full substitute for generated Python. Its syntax must remain compact enough for LLMs to create and humans to inspect. `scianim validate` checks each object's `params` against its kind's parameter model, each `data.source` against the animation's sources, each `equation.id` against `equations`, each `style_role` against the resolved palette, and each snapshot ID against the `checkpoint()` markers in generated code once code exists. A storyboard made only of registered kinds is rendered without hand-written code (`scianim codegen`); an object with `kind: custom` names a builder function in `code/` and is the explicit escape hatch. Allow an optional explicit `layout`/`timing` substructure when finer control is requested.
@@ -1115,7 +1080,7 @@ The implementing agent should put considered decisions in an ADR or issue, not s
 
 ## 18. Definition of success
 
-SciAnim Studio succeeds when the user can supply a paper, dataset, illustration, existing scene, or simple prompt; see a scientifically faithful animation plan under a recognizable personalized style; point at a still and request a change; inspect differences across versions; and export a precise final Manim animation **without ever needing to write or read Manim code**.
+The product is brief animations: clips of a few seconds to half a minute, one or two scenes, in which one mechanism moves while the equation term, its value and the picture change together; not slide decks or narrated lectures. SciAnim Studio succeeds when the user can supply a paper, dataset, illustration, existing scene, or simple prompt; see a scientifically faithful animation plan for such a clip under a recognizable personalized style; point at a still and request a change; inspect differences across versions; and export a precise final Manim animation **without ever needing to write or read Manim code**.
 
 At the engineering level, success means another coding agent can understand the package contracts, reproduce the render from versioned inputs, extend an animation family with additional scientific packages without contaminating the core installation, and share a project as a self-contained and auditable bundle.
 

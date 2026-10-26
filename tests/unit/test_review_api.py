@@ -48,7 +48,7 @@ def fake_manifest(
     output_dir = f"renders/{revision_id}/{job_id}"
     records = []
     for index, (snapshot_id, scene_id, t) in enumerate(
-        [("excitation_visible", "excitation", 9.0), ("equation_complete", "equation", 40.0)]
+        [("excitation_visible", "excitation", 4.0), ("pool_raised", "normalization", 14.0)]
     ):
         png = f"{output_dir}/{snapshot_id}.png"
         sha = _png(project.root / png, box=(20 + box_shift, 30, 90 + box_shift, 70))
@@ -66,7 +66,7 @@ def fake_manifest(
                 renderer_time_seconds=t,
                 layout=[
                     LayoutItem(
-                        object_id="scene_title",
+                        object_id="drive_caption",
                         kind="text_caption",
                         bbox=BBox(x=label_x, y=0.05, width=0.3, height=0.05),
                         text="Excitatory drive",
@@ -159,7 +159,7 @@ def test_feedback_record_shape_rules() -> None:
 
 def test_feedback_store_resolves_objects_and_round_trips(rendered_project) -> None:
     project, first, second = rendered_project
-    target = resolve_target(project, "working", "excitation_visible", "scene_title")
+    target = resolve_target(project, "working", "excitation_visible", "drive_caption")
     assert target.manifest.job.job_id == second.job.job_id  # the latest render of the revision
     assert target.region is not None and target.region.x == pytest.approx(0.2)
     record = build_record(
@@ -168,7 +168,7 @@ def test_feedback_store_resolves_objects_and_round_trips(rendered_project) -> No
         kind="object_comment",
         text="Nudge the title",
         snapshot_id="excitation_visible",
-        object_id="scene_title",
+        object_id="drive_caption",
         target=target,
     )
     path = write_feedback(project, record)
@@ -180,7 +180,7 @@ def test_feedback_store_resolves_objects_and_round_trips(rendered_project) -> No
     assert [r.id for r in list_feedback(project)] == [record.id]
     with pytest.raises(Exception, match="no object 'nope'"):
         resolve_target(project, "working", "excitation_visible", "nope")
-    explicit = resolve_target(project, "working", "equation_complete", job_id=first.job.job_id)
+    explicit = resolve_target(project, "working", "pool_raised", job_id=first.job.job_id)
     assert explicit.manifest.job.job_id == first.job.job_id
 
 
@@ -241,7 +241,7 @@ def test_compare_reports_pixels_and_layout(rendered_project) -> None:
     moved = by_id["excitation_visible"]
     assert not moved.identical and moved.pixel_diff_fraction is not None and moved.pixel_diff_fraction > 0
     assert moved.diff_png is not None and moved.diff_png.exists()
-    assert [(c.object_id, c.change) for c in moved.changes] == [("scene_title", "moved")]
+    assert [(c.object_id, c.change) for c in moved.changes] == [("drive_caption", "moved")]
     same = compare_manifests(project, first, first)
     assert all(r.identical and r.pixel_diff_fraction == 0.0 for r in same)
     before = [LayoutItem(object_id="a", kind="text_caption", bbox=BBox(x=0, y=0, width=0.1, height=0.1), text="x")]
@@ -269,7 +269,7 @@ def test_review_api_end_to_end_without_rendering(rendered_project, workspace: Pa
     assert client.get("/api/projects/nope").status_code == 404
 
     job = client.get(f"/api/projects/divisive_normalization/jobs/{second.job.job_id}").json()
-    assert [c["snapshot_id"] for c in job["checkpoints"]] == ["excitation_visible", "equation_complete"]
+    assert [c["snapshot_id"] for c in job["checkpoints"]] == ["excitation_visible", "pool_raised"]
     png = client.get(job["checkpoints"][0]["url"])
     assert png.status_code == 200 and png.headers["content-type"] == "image/png"
     assert client.get("/api/projects/divisive_normalization/artifacts/../animation.yaml").status_code == 404
@@ -282,7 +282,7 @@ def test_review_api_end_to_end_without_rendering(rendered_project, workspace: Pa
             "revision_id": "working",
             "kind": "object_comment",
             "snapshot_id": "excitation_visible",
-            "object_id": "scene_title",
+            "object_id": "drive_caption",
             "text": "Lower the title",
         },
     )

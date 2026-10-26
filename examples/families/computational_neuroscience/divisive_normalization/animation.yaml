@@ -13,7 +13,7 @@ sources:
   #   path: references/source_paper.pdf
   #   locators: ["p. 4", "Figure 2"]
 output:
-  duration_seconds: 60
+  duration_seconds: 18
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
@@ -36,9 +36,8 @@ equations:
       sigma: {meaning: "positive stabilizing constant"}
 audience: graduate_neuroscience
 objective: >-
-  Introduce the relationship between excitatory drive and normalization
-  pool drive, and visualize how a larger denominator suppresses a
-  schematic neural response.
+  A brief clip: show the response growing with excitatory drive, then divide by a
+  normalization pool and raise the pool while the viewer watches the response compress.
 scientific_constraints:
   - id: schematic_equation_shown
     kind: hard
@@ -47,34 +46,24 @@ scientific_constraints:
   - id: interpretation
     kind: hard
     equation: schematic_equation
-    text: "Define E as excitation, P as pool drive, and sigma as a positive stabilizer."
+    text: "Show P in the denominator and make a larger P visibly suppress the response."
   - id: synthetic_label
     kind: hard
     text: "Explicitly label source CSV values as synthetic, not measurements."
-  - id: controlled_comparison
+  - id: fixed_axes
     kind: hard
-    text: "When comparing pool drive conditions, keep excitation and axis scales fixed."
+    text: "While the pool varies, keep the drive axis and the response axis fixed."
 timeline:
   - id: introduction
     at_seconds: 0
     tolerance_seconds: 0
     kind: hard
-    instruction: "Show excitation-drive curve and explanatory title."
+    instruction: "Show the excitation-drive curve with a caption."
   - id: normalization
-    at_seconds: 15
-    tolerance_seconds: 2
-    kind: preferred
-    instruction: "Introduce normalization pool visually."
-  - id: equation
-    at_seconds: 30
+    at_seconds: 6
     tolerance_seconds: 1
-    kind: hard
-    instruction: "Show the schematic normalization equation."
-  - id: comparison
-    at_seconds: 45
-    tolerance_seconds: 2
     kind: preferred
-    instruction: "Compare low versus high normalization pool drive."
+    instruction: "Introduce the pool in the equation and raise it."
 direction:
   tone: "Minimal, precise, scientific"
   avoid:

@@ -22,7 +22,7 @@ const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:8765";
 const PROJECT = process.env.PROJECT ?? "prf_tuning";
 const WORKSPACE = process.env.WORKSPACE ?? "workspace";
 const SCREENSHOTS = process.env.SCREENSHOTS ?? "";
-const SNAPSHOT = process.env.SNAPSHOT ?? "size_labelled";
+const SNAPSHOT = process.env.SNAPSHOT ?? "widened";
 const OBJECT = process.env.OBJECT ?? "size_label";
 
 function assert(condition, message) {

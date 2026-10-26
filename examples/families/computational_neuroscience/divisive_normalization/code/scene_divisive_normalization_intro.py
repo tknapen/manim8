@@ -11,17 +11,22 @@ from scianim_bridge import components as C
 
 class DivisiveNormalizationIntro(SnapshotScene):
     def construct(self) -> None:
-        # --- scene 'excitation': 0s to 15s
-        # Introduce excitation as the numerator.
+        # --- scene 'excitation': 0s to 6s
+        # Excitatory drive alone: the response grows with it.
         self.begin_scene("excitation", start_seconds=0)
-        self.narrate("A neuron's response begins with its excitatory drive. Here the drive grows along the horizontal axis, and the schematic response grows with it. These values are synthetic, chosen to illustrate the idea.")
-        scene_title = C.text_caption(
+        self.narrate('The response begins with excitatory drive: as the drive grows, so does the response.')
+        drive_caption = C.text_caption(
             self,
-            "scene_title",
+            "drive_caption",
             style_role="foreground",
-            params={'text': 'Excitatory drive', 'role': 'title'},
+            params={'text': 'Excitatory drive alone', 'role': 'body'},
         )
-        self.reveal(scene_title)
+        drive_note = C.text_caption(
+            self,
+            "drive_note",
+            style_role="secondary_text",
+            params={'text': 'the pool is held low', 'role': 'caption', 'below': 'drive_caption'},
+        )
         drive_curve = C.scientific_plot(
             self,
             "drive_curve",
@@ -33,66 +38,52 @@ class DivisiveNormalizationIntro(SnapshotScene):
              'y_label': 'response r',
              'data_label': 'synthetic data'},
         )
+        self.reveal(drive_caption)
         self.reveal(drive_curve)
-        self.wait_until(9)
-        checkpoint(self, "excitation_visible", expected_time=9)
-        self.wait_until(14.35)
-        self.end_scene(end_seconds=15, keep=False)
+        self.wait_until(1)
+        self.reveal(drive_note)
+        self.wait_until(4)
+        checkpoint(self, "excitation_visible", expected_time=4)
+        self.wait_until(5.35)
+        self.end_scene(end_seconds=6, keep=False)
 
-        # --- scene 'normalization_pool': 15s to 30s
-        # Establish the pool term as a denominator contribution.
-        self.begin_scene("normalization_pool", start_seconds=15)
-        self.narrate('The response is divided by a normalization pool, the summed activity of neighboring neurons, <mark name="pool"/> which we label P.')
-        pool_label = C.equation_label(
+        # --- scene 'normalization': 6s to 18s
+        # Divide by a normalization pool, then raise the pool and watch the response compress.
+        self.begin_scene("normalization", start_seconds=6)
+        self.narrate('Dividing by a normalization pool P compresses it: as the pool grows, the same drive yields a smaller response.')
+        response_curve = C.function_plot(
             self,
-            "pool_label",
-            style_role="normalization_pool",
-            equation={'id': 'schematic_equation', 'highlight': ['P']},
-            params={'text': 'normalization pool P'},
+            "response_curve",
+            style_role="primary_signal",
+            equation={'id': 'schematic_equation'},
+            params={'x_label': 'excitatory drive E',
+             'y_label': 'response r',
+             'x_range': [0, 10],
+             'y_range': [0, 6],
+             'anchor': 'center_left',
+             'width_fraction': 0.55,
+             'parameters': {'sigma': 1, 'P': 1},
+             'series': [{'label': 'schematic response', 'expression': 'x / (sigma + P)'}],
+             'data_label': 'schematic curve from the equation'},
         )
-        self.reveal(pool_label)
-        self.wait_until(24)
-        checkpoint(self, "pool_introduced", expected_time=24)
-        self.wait_until(29.35)
-        self.end_scene(end_seconds=30, keep=False)
-
-        # --- scene 'equation': 30s to 45s
-        # Explain the schematic equation.
-        self.begin_scene("equation", start_seconds=30)
-        self.narrate('The response equals excitation divided by sigma plus the pool. Sigma keeps the denominator positive when the pool is silent.')
         normalization_equation = C.equation_block(
             self,
             "normalization_equation",
             style_role="foreground",
-            equation={'id': 'schematic_equation'},
-            params={'define_symbols': True},
+            equation={'id': 'schematic_equation', 'highlight': ['P']},
+            params={'anchor': 'top_right', 'scale': 0.9},
         )
+        self.reveal(response_curve)
+        self.wait_until(7)
         self.reveal(normalization_equation)
-        self.wait_until(40)
-        checkpoint(self, "equation_complete", expected_time=40)
-        self.wait_until(44.35)
-        self.end_scene(end_seconds=45, keep=False)
+        self.wait_until(8)
+        checkpoint(self, "pool_introduced", expected_time=8)
+        self.wait_until(8.5)
+        raise_pool = self.begin_vary(response_curve, "P", to=4.0, at_seconds=8.5, duration_seconds=4, action_id="raise_pool", easing=None, emphasize=[normalization_equation], show_value=True, value_decimals=1, value_label=None)
+        self.vary_until(raise_pool, 12.5)
+        self.wait_until(14)
+        checkpoint(self, "pool_raised", expected_time=14)
+        self.wait_until(17.35)
+        self.end_scene(end_seconds=18, keep=True)
 
-        # --- scene 'pool_comparison': 45s to 60s
-        # Demonstrate pool-driven suppression with constant excitation.
-        self.begin_scene("pool_comparison", start_seconds=45)
-        self.narrate('With identical excitation, a stronger pool compresses the response. Both panels share the same axes.')
-        response_comparison = C.comparison_plot(
-            self,
-            "response_comparison",
-            style_role="comparison",
-            data={'source': 'responses',
-             'encoding': {'x': 'excitation_E', 'y': 'response_r', 'group': 'condition'}},
-            params={'condition_roles': {'low_pool': 'primary_signal', 'high_pool': 'normalization_pool'},
-             'shared_axes': True,
-             'x_label': 'excitatory drive E',
-             'y_label': 'response r',
-             'data_label': 'synthetic data'},
-        )
-        self.reveal(response_comparison)
-        self.wait_until(55)
-        checkpoint(self, "comparison_complete", expected_time=55)
-        self.wait_until(59.35)
-        self.end_scene(end_seconds=60, keep=True)
-
-        self.finish(total_seconds=60)
+        self.finish(total_seconds=18)

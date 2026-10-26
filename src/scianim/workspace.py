@@ -316,7 +316,7 @@ id: {name}
 title: "{title or name.replace("_", " ").capitalize()}"
 sources: []
 output:
-  duration_seconds: 60
+  duration_seconds: 15
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
@@ -329,7 +329,7 @@ style:
   version: "{family.style.version}"
   overrides: {{}}
 equations: []
-objective: "Describe what the animation should explain."
+objective: "One mechanism in a brief clip: say what moves, and what the viewer should see it do."
 scientific_constraints: []
 timeline: []
 direction:

@@ -12,4 +12,4 @@ storyboard uses the kinds added in Milestone 5: `caption_with_citation`, `networ
 pulses and a readout counts (a `vary_parameter` action, ADR-022), instead of drawing two curves side by side.
 
 Copy it into a workspace with `scianim workspace init <dir> --with-example`, then `scianim codegen` and
-`scianim snapshot --all` render its five checkpoints; `scianim render --profile draft` makes the 40 s video.
+`scianim snapshot --all` render its five checkpoints; `scianim render --profile draft` makes the 20 s clip.

@@ -96,10 +96,10 @@ def test_cache_key_tracks_style_data_code_and_settings(project_copy: Project) ->
 
 def test_snapshot_job_payload_is_self_contained(project_copy: Project) -> None:
     report, sources = _sources(project_copy)
-    job, paths, hashes = build_snapshot_job(project_copy, sources, report.family, ["equation_complete"])
-    assert job.snapshot_ids == ["equation_complete"]
-    assert set(job.snapshots) == {"equation_complete"}
-    assert job.snapshots["equation_complete"].scene_id == "equation"
+    job, paths, hashes = build_snapshot_job(project_copy, sources, report.family, ["pool_raised"])
+    assert job.snapshot_ids == ["pool_raised"]
+    assert set(job.snapshots) == {"pool_raised"}
+    assert job.snapshots["pool_raised"].scene_id == "normalization"
     assert job.revision_id == "working"
     assert job.equations["schematic_equation"].typst == "r = E / (sigma + P)"
     assert job.data_files == {"responses": "data/synthetic_responses.csv"}

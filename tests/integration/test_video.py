@@ -23,43 +23,36 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
     project = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
     assert scianim("codegen", str(project)).returncode == 0
 
-    draft = scianim("render", str(project), "--profile", "draft", "--sample", "mid_pool=22.5")
+    draft = scianim("render", str(project), "--profile", "draft", "--sample", "mid_pool=10.5")
     assert draft.returncode == 0, draft.stdout + draft.stderr
     manifests = sorted((project / "renders" / "working").glob("*/manifest.json"))
     draft_manifest = ArtifactManifest.model_validate_json(manifests[-1].read_text())
     assert draft_manifest.job.operation == "render_video" and draft_manifest.result.status == "succeeded"
     [video] = draft_manifest.result.videos
     assert (video.width_px, video.height_px, video.fps) == (1280, 720, 30.0)
-    assert video.frame_count == 1800 and (project / video.path).stat().st_size > 10_000
-    assert [s.name for s in draft_manifest.result.sections] == [
-        "excitation",
-        "normalization_pool",
-        "equation",
-        "pool_comparison",
-    ]
-    assert all(s.metadata["frames"] == 450 for s in draft_manifest.result.sections)
+    assert video.frame_count == 540 and (project / video.path).stat().st_size > 10_000
+    assert [s.name for s in draft_manifest.result.sections] == ["excitation", "normalization"]
+    assert [s.metadata["frames"] for s in draft_manifest.result.sections] == [180, 360]
     index = json.loads((project / draft_manifest.job.output_dir / "sections" / "index.json").read_text())
     assert [entry["name"] for entry in index] == [s.name for s in draft_manifest.result.sections]
-    assert draft_manifest.result.subtitles and (project / draft_manifest.result.subtitles).read_text().count("-->") == 4
+    assert draft_manifest.result.subtitles and (project / draft_manifest.result.subtitles).read_text().count("-->") == 2
     timing = draft_manifest.result.timing
-    assert timing is not None and timing.within_tolerance and timing.actual_total_frames == 1800
+    assert timing is not None and timing.within_tolerance and timing.actual_total_frames == 540
     samples = {c.snapshot_id: c for c in draft_manifest.result.checkpoints}
     assert set(samples) == {
         "excitation_visible",
         "pool_introduced",
         "pool_raised",
-        "equation_complete",
-        "comparison_complete",
         "mid_pool",
     }
     assert all(c.kind == "sampled_video_frame" and c.fidelity == "exact" for c in samples.values())
-    assert samples["pool_introduced"].renderer_time_seconds == pytest.approx(19.5, abs=1 / 30)
-    assert samples["mid_pool"].scene_id == "normalization_pool"
+    assert samples["pool_introduced"].renderer_time_seconds == pytest.approx(8.0, abs=1 / 30)
+    assert samples["mid_pool"].scene_id == "normalization"
     assert (project / samples["mid_pool"].png).exists()
     assert (project / draft_manifest.job.output_dir / "review_sheet.html").read_text().count("<video") == 1
 
     # The same request is a cache hit; a final render is a different job with the exact output dimensions.
-    again = scianim("render", str(project), "--profile", "draft", "--sample", "mid_pool=22.5")
+    again = scianim("render", str(project), "--profile", "draft", "--sample", "mid_pool=10.5")
     assert again.returncode == 0 and "cache hit" in again.stdout
     final = scianim("render", str(project), "--profile", "final")
     assert final.returncode == 0, final.stdout + final.stderr
@@ -104,12 +97,12 @@ def test_video_job_through_the_api_runner(workspace: Path, scianim) -> None:
     assert rejected.status_code == 422
     accepted = client.post(
         "/api/projects/prf_tuning/jobs",
-        json={"operation": "render_video", "profile": "draft", "samples": {"halfway": 22.5}},
+        json={"operation": "render_video", "profile": "draft", "samples": {"halfway": 6.0}},
     )
     assert accepted.status_code == 202, accepted.text
     final = runner.wait(accepted.json()["job_id"], timeout=900)
     assert final.status == "succeeded", final.error
     job = client.get(f"/api/projects/prf_tuning/jobs/{final.job_id}").json()
-    assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 45 * 30
-    assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"intro_visible", "size_labelled", "halfway"}
+    assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 12 * 30
+    assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"gaussian_visible", "widened", "halfway"}
     assert job["timing"]["within_tolerance"], job["timing"]["problems"]

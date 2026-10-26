@@ -179,7 +179,7 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 ## Milestone 7 — motion: parameter sweeps
 
 - [x] Scene `actions` with the first kind, `vary_parameter`: named `parameters` on `function_plot`, marker positions as expressions, emphasized equation terms with a token-driven pulse, a value readout, and frame-exact sweeps split at the checkpoints inside them (ADR-022).
-- [x] The three examples vary one quantity while the viewer watches (sigma of the pRF, the pool P, kappa of the tuning curve) instead of showing conditions side by side; the agent loop fixture and context instructions use the same vocabulary.
+- [x] The three examples are brief clips of 12 to 20 s that vary one quantity while the viewer watches (the pRF's centre and size, the pool P, kappa of the tuning curve) instead of title cards, definition scenes and side-by-side panels; the project scaffold, the agent instructions and the spec state that brevity; the agent loop fixture uses the same vocabulary.
 - [ ] Further action kinds: move or fade an object, transform one equation into another, sweep a parameter of a data-bound plot.
 
 **Acceptance:** a checkpoint inside a sweep is `exact` and shows the eased value in its readout and curve; the draft and final videos keep frame-exact timing through the sweeps; `scianim validate` reports a sweep that would start late or end in a fade-out.

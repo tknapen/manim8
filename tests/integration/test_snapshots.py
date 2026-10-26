@@ -10,6 +10,7 @@ import pytest
 from scianim_core import ArtifactManifest
 
 pytestmark = pytest.mark.integration
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
 def manifests(project: Path, revision: str) -> list[ArtifactManifest]:
@@ -24,12 +25,12 @@ def project(workspace: Path) -> Path:
 
 def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, workspace: Path, scianim) -> None:
     assert scianim("codegen", str(project)).returncode == 0
-    run = scianim("snapshot", str(project), "--no-cache", "--id", "excitation_visible", "--id", "equation_complete")
+    run = scianim("snapshot", str(project), "--no-cache", "--id", "excitation_visible", "--id", "pool_raised")
     assert run.returncode == 0, run.stdout + run.stderr
     manifest = manifests(project, "working")[-1]
     assert manifest.result.status == "succeeded"
     assert manifest.job.revision_id == "working"
-    assert [c.snapshot_id for c in manifest.result.checkpoints] == ["excitation_visible", "equation_complete"]
+    assert [c.snapshot_id for c in manifest.result.checkpoints] == ["excitation_visible", "pool_raised"]
     for record in manifest.result.checkpoints:
         png = project / record.png
         assert png.exists() and png.stat().st_size > 1000
@@ -37,20 +38,20 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
         assert record.width_px == 960 and record.height_px == 540
         assert record.layout, "layout report is empty"
     first = manifest.result.checkpoints[0]
-    assert {item.object_id for item in first.layout} == {"scene_title", "drive_curve"}
+    assert {item.object_id for item in first.layout} == {"drive_caption", "drive_note", "drive_curve"}
     assert manifest.result.tool_versions and manifest.result.tool_versions.manim
     assert (project / manifest.job.output_dir / "review_sheet.html").exists()
 
     # Same inputs again: cache hit, no new job directory.
     before = len(manifests(project, "working"))
-    again = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete")
+    again = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "pool_raised")
     assert again.returncode == 0 and "cache hit" in again.stdout
     assert len(manifests(project, "working")) == before
 
     # Freeze a revision, then render it: outputs land under renders/rev_0001 from the frozen code.
     created = scianim("revision", "create", str(project), "-m", "first cut")
     assert created.returncode == 0 and "rev_0001" in created.stdout, created.stdout + created.stderr
-    rev_run = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "equation_complete")
+    rev_run = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "pool_raised")
     assert rev_run.returncode == 0, rev_run.stdout + rev_run.stderr
     rev_manifest = manifests(project, "rev_0001")[-1]
     assert rev_manifest.job.revision_id == "rev_0001"
@@ -62,7 +63,7 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
     text = sheet.read_text()
     assert 'primary_signal: "#1F5FBF"' in text
     sheet.write_text(text.replace('primary_signal: "#1F5FBF"', 'primary_signal: "#FF3B30"'))
-    changed = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete")
+    changed = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "pool_raised")
     assert changed.returncode == 0, changed.stdout + changed.stderr
     assert "cache hit" not in changed.stdout
     second = manifests(project, "working")[-1]
@@ -74,7 +75,7 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
     assert json.loads((project / second.job.output_dir / "result.json").read_text())["status"] == "succeeded"
 
     # The revision still renders from its frozen style (cache hit on the same key).
-    rev_again = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "equation_complete")
+    rev_again = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "pool_raised")
     assert rev_again.returncode == 0 and "cache hit" in rev_again.stdout
 
     listing = scianim("workspace", "list", str(workspace))
@@ -88,53 +89,67 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
 
 
 def test_prf_tuning_renders_timed_reveals_and_relational_placement(workspace: Path, scianim) -> None:
-    """The Milestone 2.5 dry-run storyboard: function_plot with markers, `below` placement, `reveal_at_seconds`,
-    and since Milestone 7 two sigma sweeps with a checkpoint inside one of them."""
+    """The pRF clip: one scene, two sweeps on the same plot, a checkpoint inside the second sweep, stacked readouts."""
     project = workspace / "families" / "computational_neuroscience" / "prf_tuning"
     assert scianim("validate", str(project)).returncode == 0
     assert scianim("codegen", str(project)).returncode == 0
     generated = (project / "code" / "scene_prf_tuning.py").read_text()
     assert (
-        generated.index("self.reveal(title)")
-        < generated.index("self.wait_until(3)")
-        < generated.index("self.reveal(subtitle)")
+        generated.index("self.reveal(profile_plot)")
+        < generated.index("self.reveal(prf_label)")
+        < generated.index("self.wait_until(2)")
+        < generated.index("shift = self.begin_vary(profile_plot")
+        < generated.index("self.vary_until(shift, 5.5)")
+        < generated.index("widen = self.begin_vary(profile_plot")
+        < generated.index("self.vary_until(widen, 8.5)")
+        < generated.index('checkpoint(self, "half_widened", expected_time=8.5)')
+        < generated.index("self.vary_until(widen, 10.5)")
     )
     run = scianim("snapshot", str(project), "--all", "--no-cache")
     assert run.returncode == 0, run.stdout + run.stderr
     manifest = manifests(project, "working")[-1]
     assert manifest.result.status == "succeeded"
     records = {c.snapshot_id: c for c in manifest.result.checkpoints}
-    assert list(records) == [
-        "intro_visible",
-        "gaussian_visible",
-        "size_labelled",
-        "half_widened",
-        "prf_widened",
-        "equation_complete",
-        "selective",
-    ]
+    assert list(records) == ["gaussian_visible", "centre_shifted", "half_widened", "widened"]
     for record in records.values():
         assert record.fidelity == "exact"
         assert record.warnings == [], (record.snapshot_id, record.warnings)
         assert (project / record.png).stat().st_size > 1000
 
-    # Checkpoints inside and after a sweep are exact and carry the readout with the eased value.
+    # Before anything moves: the plot and the equation label, no readout.
+    start = {item.object_id: item for item in records["gaussian_visible"].layout}
+    assert set(start) == {"profile_plot", "prf_label"}
+    # After the first sweep its readout shows the final centre; inside the second sweep a second readout
+    # stacks under the first and carries the eased value; both stay to the end.
+    shifted = {item.object_id: item for item in records["centre_shifted"].layout}
+    assert set(shifted) == {"profile_plot", "prf_label", "shift"}
+    assert shifted["shift"].kind == "value_readout" and shifted["shift"].text == "x₀ = -3.0 deg"
     halfway = {item.object_id: item for item in records["half_widened"].layout}
-    assert set(halfway) == {"profile_plot", "size_label", "widen"}
-    assert halfway["widen"].kind == "value_readout" and halfway["widen"].text == "σ = 2.8 deg"  # noqa: RUF001
-    done = {item.object_id: item for item in records["prf_widened"].layout}
-    assert done["widen"].text == "σ = 4.0 deg"  # noqa: RUF001
-    narrowed = {item.object_id: item for item in records["selective"].layout}
-    assert narrowed["narrow"].text == "σ = 1.0 deg"  # noqa: RUF001
+    assert set(halfway) == {"profile_plot", "prf_label", "shift", "widen"}
+    assert halfway["widen"].text == "σ = 2.8 deg"  # noqa: RUF001
+    assert halfway["widen"].bbox.y > halfway["shift"].bbox.y and halfway["shift"].bbox.y > halfway["prf_label"].bbox.y
+    done = {item.object_id: item for item in records["widened"].layout}
+    assert done["widen"].text == "σ = 4.0 deg" and done["shift"].text == "x₀ = -3.0 deg"  # noqa: RUF001
+    assert records["gaussian_visible"].sha256 != records["centre_shifted"].sha256 != records["widened"].sha256
 
-    # `below: title` puts the subtitle under the title with the left edges aligned, and nothing overlaps.
-    intro = {item.object_id: item for item in records["intro_visible"].layout}
-    assert set(intro) == {"title", "subtitle"}
-    title, subtitle = intro["title"].bbox, intro["subtitle"].bbox
-    assert subtitle.y >= title.y + title.height
-    assert abs(subtitle.x - title.x) < 1e-6
+    # `below: drive_caption` in the other example puts the note under the caption, left edges aligned.
+    dn = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
+    assert scianim("codegen", str(dn)).returncode == 0
+    assert scianim("snapshot", str(dn), "--id", "excitation_visible").returncode == 0
+    first = {item.object_id: item for item in manifests(dn, "working")[-1].result.checkpoints[0].layout}
+    caption, note = first["drive_caption"].bbox, first["drive_note"].bbox
+    assert note.y >= caption.y + caption.height
+    assert abs(note.x - caption.x) < 0.01
 
-    # The size label is revealed at 18 s: absent at 16 s, present at 21 s.
-    assert {item.object_id for item in records["gaussian_visible"].layout} == {"profile_plot"}
-    assert {item.object_id for item in records["size_labelled"].layout} == {"profile_plot", "size_label"}
-    assert records["gaussian_visible"].sha256 != records["size_labelled"].sha256
+
+def test_gallery_kinds_still_render(workspace: Path, scianim) -> None:
+    """comparison_plot and receptive_field_glyph left the brief examples; this storyboard keeps them rendered."""
+    project = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
+    (project / "storyboard.yaml").write_text((FIXTURES / "gallery_storyboard.yaml").read_text())
+    assert scianim("validate", str(project)).returncode == 0
+    assert scianim("codegen", str(project)).returncode == 0
+    run = scianim("snapshot", str(project), "--all", "--no-cache")
+    assert run.returncode == 0, run.stdout + run.stderr
+    [record] = manifests(project, "working")[-1].result.checkpoints
+    assert {item.object_id for item in record.layout} == {"comparison", "field"}
+    assert record.warnings == [], record.warnings

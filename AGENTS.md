@@ -6,7 +6,10 @@ You are implementing **SciAnim Studio**, a local-first scientific animation fram
 
 ## Mission
 
-Create a system in which a scientist describes an animation in ordinary language or structured YAML; the system enforces a personalized stylesheet and scientific constraints; an agent proposes a storyboard built from registered components; named still previews, each with a layout report, and draft videos can be reviewed in a local browser; and reproducible final Manim videos can be rendered from isolated family environments. The scientist should not need to edit or inspect Manim code.
+An animation here is a brief clip, typically five to thirty seconds and one or two scenes, that shows one
+mechanism moving (a parameter sweeps, a curve follows, the equation term beside it is emphasized); it is not a
+slide deck, a lecture or a sequence of static panels. Create a system in which a scientist describes such an
+animation in ordinary language or structured YAML; the system enforces a personalized stylesheet and scientific constraints; an agent proposes a storyboard built from registered components; named still previews, each with a layout report, and draft videos can be reviewed in a local browser; and reproducible final Manim videos can be rendered from isolated family environments. The scientist should not need to edit or inspect Manim code.
 
 ## What to implement first
 

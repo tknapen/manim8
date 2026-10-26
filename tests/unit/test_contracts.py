@@ -128,7 +128,7 @@ def test_snapshot_outside_scene_rejected(storyboard_data: dict) -> None:
 
 
 def test_overlapping_scenes_rejected(storyboard_data: dict) -> None:
-    storyboard_data["scenes"][1]["start_seconds"] = 10
+    storyboard_data["scenes"][1]["start_seconds"] = 3
     expect_error(Storyboard, storyboard_data, "must not overlap")
 
 
@@ -139,17 +139,17 @@ def test_unknown_component_kind_rejected(storyboard_data: dict) -> None:
 
 
 def test_bad_params_rejected(storyboard_data: dict) -> None:
-    storyboard_data["scenes"][0]["objects"][1]["params"]["bogus"] = 1
+    storyboard_data["scenes"][0]["objects"][2]["params"]["bogus"] = 1
     expect_error(Storyboard, storyboard_data, "invalid params for kind 'scientific_plot'")
 
 
 def test_plot_requires_data_binding(storyboard_data: dict) -> None:
-    storyboard_data["scenes"][0]["objects"][1].pop("data")
+    storyboard_data["scenes"][0]["objects"][2].pop("data")
     expect_error(Storyboard, storyboard_data, "requires a 'data' binding")
 
 
 def test_equation_block_requires_equation(storyboard_data: dict) -> None:
-    storyboard_data["scenes"][2]["objects"][0].pop("equation")
+    storyboard_data["scenes"][1]["objects"][1].pop("equation")
     expect_error(Storyboard, storyboard_data, "requires an 'equation' reference")
 
 

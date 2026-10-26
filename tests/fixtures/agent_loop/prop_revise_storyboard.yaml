@@ -4,7 +4,7 @@ kind: revise_storyboard
 created_at: "2026-10-26T18:30:00+00:00"
 author: "agent:test-loop"
 summary: "Reword the data note and reveal it earlier, as the review asked."
-rationale: "The reviewer found the note vague; naming the data as synthetic von Mises curves is more honest and the earlier reveal pairs it with the title."
+rationale: "The reviewer found the note vague; naming the data as synthetic von Mises curves is more honest and the earlier reveal pairs it with the curve."
 based_on_revision: rev_0001
 in_response_to: []
 uncertainties: []
@@ -14,8 +14,8 @@ targets:
   - file: storyboard.yaml
     patch:
       - op: replace
-        path: /scenes/0/objects/1/params/text
+        path: /scenes/1/objects/1/params/text
         value: "Synthetic von Mises tuning curves"
       - op: replace
-        path: /scenes/0/objects/1/reveal_at_seconds
-        value: 1
+        path: /scenes/1/objects/1/reveal_at_seconds
+        value: 7

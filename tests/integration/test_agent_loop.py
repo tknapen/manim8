@@ -61,23 +61,19 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     assert render.returncode == 0, render.stdout + render.stderr
     manifest = _latest_manifest(project, "working")
     assert [c.snapshot_id for c in manifest.result.checkpoints] == [
-        "intro_cited",
         "circuit_shown",
-        "curve_visible",
+        "curve_cited",
         "model_labelled",
+        "half_sharpened",
         "model_complete",
     ]
     by_id = {c.snapshot_id: c for c in manifest.result.checkpoints}
     assert {i.object_id for i in by_id["circuit_shown"].layout} == {"circuit_graph", "population"}
-    assert {i.object_id for i in by_id["model_complete"].layout} == {
-        "model_curve",
-        "receptive_field",
-        "kappa_label",
-        "sharpen",
-    }
+    assert {i.object_id for i in by_id["model_complete"].layout} == {"model_curve", "kappa_label", "sharpen"}
     readout = next(i for i in by_id["model_complete"].layout if i.object_id == "sharpen")
     assert readout.kind == "value_readout" and readout.text == "κ = 8.0"
-    assert "Synthetic von Mises tuning curves computed" in (by_id["intro_cited"].layout[1].text or "")
+    note = next(i for i in by_id["curve_cited"].layout if i.object_id == "data_note")
+    assert "Synthetic von Mises tuning curves computed" in (note.text or "")
     assert all(not c.warnings for c in manifest.result.checkpoints), [
         (c.snapshot_id, c.warnings) for c in manifest.result.checkpoints
     ]
@@ -93,7 +89,7 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
         "add",
         str(project),
         "--snapshot",
-        "intro_cited",
+        "curve_cited",
         "--object",
         "data_note",
         "--text",
@@ -117,8 +113,8 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     assert scianim("codegen", str(project)).returncode == 0
     assert scianim("snapshot", str(project), "--all").returncode == 0
     assert scianim("revision", "create", str(project), "-m", "reworded data note").returncode == 0
-    assert scianim("snapshot", str(project), "--revision", "rev_0002", "--id", "intro_cited").returncode == 0
-    assert scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "intro_cited").returncode == 0
+    assert scianim("snapshot", str(project), "--revision", "rev_0002", "--id", "curve_cited").returncode == 0
+    assert scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "curve_cited").returncode == 0
 
     # 7. The comparison shows the targeted change and nothing else moved.
     compare = scianim("compare", str(project), "rev_0001", "rev_0002")
@@ -146,4 +142,4 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     assert revision["hashes"]["data_files"]["tuning"] == extract["sha256"]
     assert "not measurements" in (project / "animation.yaml").read_text()
     stale = scianim("stale", str(project), "--since", "rev_0001")
-    assert stale.returncode == 0 and "introduction: stale" in stale.stdout and "model: unchanged" in stale.stdout
+    assert stale.returncode == 0 and "data: stale" in stale.stdout and "model: unchanged" in stale.stdout

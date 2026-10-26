@@ -7,30 +7,30 @@ proposal:
   author: agent:test-loop
   summary: Reword the data note and reveal it earlier, as the review asked.
   rationale: The reviewer found the note vague; naming the data as synthetic von Mises curves is more honest 
-    and the earlier reveal pairs it with the title.
+    and the earlier reveal pairs it with the curve.
   based_on_revision: rev_0001
   in_response_to:
-    - fb_20261026T183636_dcacd9
+    - fb_20261026T190620_c251b0
   uncertainties: []
   claims: []
   targets:
     - file: storyboard.yaml
       patch:
         - op: replace
-          path: /scenes/0/objects/1/params/text
+          path: /scenes/1/objects/1/params/text
           value: Synthetic von Mises tuning curves
         - op: replace
-          path: /scenes/0/objects/1/reveal_at_seconds
-          value: 1
+          path: /scenes/1/objects/1/reveal_at_seconds
+          value: 7
   touches_science: false
-applied_at: '2026-10-26T18:36:37+00:00'
+applied_at: '2026-10-26T19:06:21+00:00'
 applied_to_revision: working
 latest_revision_before: rev_0001
 diffs:
-  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -20,11 +20,11 @@\n         kind: caption_with_citation\n\
-    \         style_role: secondary_text\n         params:\n-          text: Illustrative tuning curves\n+     \
-    \     text: Synthetic von Mises tuning curves\n           source: tuning\n           locator: columns orientation_deg
-    and response_hz\n           below: title\n-        reveal_at_seconds: 2\n+        reveal_at_seconds: 1\n   \
-    \  snapshots:\n       - id: intro_cited\n         at_seconds: 5"
+  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -92,11 +92,11 @@\n         kind: caption_with_citation\n\
+    \         style_role: secondary_text\n         params:\n-          text: Synthetic tuning curves\n+        \
+    \  text: Synthetic von Mises tuning curves\n           source: tuning\n           locator: columns orientation_deg
+    and response_hz\n           anchor: top_left\n-        reveal_at_seconds: 7.5\n+        reveal_at_seconds: 7\n\
+    \       - id: model_label\n         kind: equation_label\n         style_role: emphasis"
 scientific_review_required: false
 validation_warnings: []
