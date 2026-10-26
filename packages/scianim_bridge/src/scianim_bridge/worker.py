@@ -110,6 +110,9 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
             scene.ctx = ctx
             scene.render()
             warnings.extend(getattr(scene, "timing_warnings", []))
+            from scianim_bridge.tokens import FONT_WARNINGS
+
+            warnings.extend(FONT_WARNINGS)
             wanted = set(job.snapshot_ids) if job.snapshot_ids else set(job.snapshots)
             unreached = sorted(wanted - ctx.captured)
             if unreached:

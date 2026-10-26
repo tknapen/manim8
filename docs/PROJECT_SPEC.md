@@ -436,7 +436,7 @@ The storyboard is a **contract and planning format**, not a full substitute for 
 A stylesheet defines an artistic signature **semantically**, not merely through a handful of global color variables. Required categories:
 
 - **Palette roles:** foreground, background, secondary text, highlight, muted, neutral, excitatory, suppressive, uncertainty, selection, error; tokens map to hex/RGB values.
-- **Typography:** font family preferences and fallbacks; title/body/math styles; minimum sizes; weight, line-height and wrapping rules; the equation engine (`typst` by default, `latex` opt-in); font licensing checks for export.
+- **Typography:** font family preferences and fallbacks (the renderer picks the first installed family and reports any substitution in the manifest); title/body/math styles; minimum sizes; weight, line-height and wrapping rules; the equation engine (`typst` by default, `latex` opt-in) with its math font (`math_font` and fallbacks for Typst, `latex_packages` for LaTeX); font licensing checks for export.
 - **Geometry:** standard canvas padding, safe-zone rules, gaps, graph line widths, marker sizes, grid and panel conventions.
 - **Charts:** axes, tick density, background grid, legend positions, color order and scientific plotting defaults.
 - **Motion:** duration defaults, easing, stagger, transition style, pacing (including `narration_words_per_minute` for duration proposals) and camera movement policies.
@@ -462,6 +462,8 @@ scene overrides (allowlisted)
 Reject missing/unknown design tokens rather than using unexplained defaults. Avoid hardcoded colors in generated Python except for documented escape hatches.
 
 Resolution produces a `ResolvedStyle` document with every token, a provenance map naming the layer that set each token, and a content hash. The renderer receives this document, never the YAML chain, and the hash enters cache keys.
+
+The bundled baseline is `default@0.2.0`, **Twin Ink**: a white page, one blue ink for signal, one red ink for attention, Helvetica for text with open-font fallbacks (TeX Gyre Heros, Nimbus Sans) and a Palatino-lineage math face (TeX Gyre Pagella Math) for equations. Its philosophy and a specimen plate live beside the sheet (`styles/default/0.2.0/PHILOSOPHY.md`, `specimen.pdf`); personal themes inherit it and record only what differs.
 
 Theme changes must be **versioned**: a new version is a new directory `styles/<name>/<version>/`, never an edit of a published one. Re-rendering an old animation uses its pinned theme by default; adopting a newer theme is an explicit revision, not a silent side effect. Inheritance is pinned (`inherits: default@0.1.0`) so a theme's resolved tokens do not drift when its parent gains a version.
 
@@ -1058,7 +1060,7 @@ A smaller task-by-task implementation checklist is in `docs/IMPLEMENTATION_PLAN.
 
 The implementing agent should put considered decisions in an ADR or issue, not silently improvise:
 
-1. **Style signature:** initial colors, fonts, transition tempo and plotting defaults should be proposed with 2–3 alternative sample stills for the user to approve. The project name `tomas_scientific` is a placeholder, not a claim that these tokens are finalized.
+1. **Style signature:** the baseline is now `default@0.2.0` (Twin Ink, with its philosophy and specimen plate); the personal layer `tomas_scientific@0.2.0` is deliberately thin. Which tokens the personal signature should change, and alternative sample stills for approval, remain to be decided.
 2. **Version strategy:** Pydantic schemas and themes need a migration policy before community sharing.
 3. **Supported platforms:** prioritize macOS/Linux, optionally Windows; test LaTeX/FFmpeg/Manim prerequisites explicitly.
 4. **PDF ingestion:** acceptable local extraction fidelity and when visual/manual inspection is needed.

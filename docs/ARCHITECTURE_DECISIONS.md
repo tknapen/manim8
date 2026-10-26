@@ -133,6 +133,21 @@ Manim's media cache and superseded working renders and never touches revisions.
 **Why.** Copying data per revision would duplicate large inputs; hashing keeps revisions honest without the cost.
 Project-local renders keep bundles and review sheets self-contained.
 
+## ADR-015: Twin Ink is the baseline theme; fonts resolve through declared fallbacks
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** `default@0.2.0` is a white-page theme with a blue ink for signal and a red ink for attention,
+Helvetica text and Palatino-lineage math (`math_font: "TeX Gyre Pagella Math"`, `latex_packages: ["newpxmath"]`).
+Every text role meets a 4.5:1 contrast ratio against the background; tints are reserved for fills. The bridge
+resolves a typeface to the first installed family among `font_family` and `font_fallbacks` and reports any
+substitution in the worker result; the Typst math font is injected as a `show math.equation` preamble. The
+personal theme `tomas_scientific@0.2.0` inherits the baseline and records only differences.
+
+**Why.** Helvetica and Palatino are proprietary; metric-compatible open fonts (TeX Gyre Heros, Nimbus Sans,
+TeX Gyre Pagella Math) keep renders reproducible on machines without them, and a reported substitution is
+better than a silent one. The previous dark placeholder was never a design.
+
 ## ADR-014: Shared assets are materialized into the project per job
 
 **Status:** accepted, 26 October 2026

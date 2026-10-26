@@ -13,7 +13,7 @@ from scianim_core.storyboard import DataBinding
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
 
-TICK_LABEL_SCALE = 0.6
+TICK_LABEL_SCALE = 0.7
 AXIS_LABEL_SCALE = 0.8
 CAPTION_SCALE = 0.7
 FALLBACK_ROLES = ("comparison", "emphasis", "warning", "neutral", "muted")

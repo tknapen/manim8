@@ -1,0 +1,67 @@
+schema_version: "1.0"
+name: default
+version: "0.2.0"
+description: >-
+  Twin Ink: a white page with one blue ink for signal and one red ink for attention,
+  Helvetica for text and a Palatino-lineage math face for equations. The general-purpose
+  baseline; personal themes inherit it. Philosophy and specimen plate sit beside this file.
+inherits: null
+palette:
+  background: "#FFFFFF"
+  foreground: "#1C2230"
+  secondary_text: "#5B6677"
+  muted: "#96A0AD"
+  neutral: "#D6DBE2"
+  grid: "#EEF1F5"
+  primary_signal: "#1F5FBF"
+  primary_signal_soft: "#9BBCE9"
+  uncertainty: "#D3E1F6"
+  selection: "#E8F0FB"
+  emphasis: "#D0342C"
+  comparison: "#9E2A25"
+  comparison_soft: "#E9B3AF"
+  warning: "#D0342C"
+  normalization_pool: "#D0342C"
+typography:
+  title:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 54
+    weight: bold
+  body:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 32
+    weight: regular
+  equation:
+    engine: typst
+    size_px_at_1080p: 46
+    math_font: "TeX Gyre Pagella Math"
+    math_font_fallbacks: ["Asana Math", "New Computer Modern Math"]
+    latex_packages: ["newpxmath"]
+  minimum_body_px_at_1080p: 26
+layout:
+  safe_margin_fraction: 0.055
+  baseline_grid_px_at_1080p: 16
+  panel_gap_px_at_1080p: 44
+  preferred_alignment: left
+geometry:
+  axis_stroke_px_at_1080p: 1.8
+  curve_stroke_px_at_1080p: 3.2
+  annotation_stroke_px_at_1080p: 2.0
+  marker_radius_px_at_1080p: 5.0
+charts:
+  grid_visible: false
+  use_shared_scales_for_comparison: true
+  legend_position: upper_right
+  show_units_when_provided: true
+motion:
+  transition_seconds: 0.65
+  reveal_seconds: 0.85
+  easing: ease_in_out_sine
+  avoid_decorative_motion: true
+  narration_words_per_minute: 150
+accessibility:
+  do_not_rely_on_color_alone: true
+  warn_on_low_contrast: true
+  minimum_contrast_body: 4.5

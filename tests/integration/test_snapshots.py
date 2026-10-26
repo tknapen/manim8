@@ -58,8 +58,10 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
     assert rev_manifest.result.status == "succeeded"
 
     # A changed palette token in the workspace's theme: new cache key and different pixels for the curve frame.
-    sheet = workspace / "styles" / "tomas_scientific" / "0.1.0" / "style.yaml"
-    sheet.write_text(sheet.read_text().replace('primary_signal: "#56B4E9"', 'primary_signal: "#FF3B30"'))
+    sheet = workspace / "styles" / "default" / "0.2.0" / "style.yaml"  # the baseline the example's theme inherits
+    text = sheet.read_text()
+    assert 'primary_signal: "#1F5FBF"' in text
+    sheet.write_text(text.replace('primary_signal: "#1F5FBF"', 'primary_signal: "#FF3B30"'))
     changed = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete")
     assert changed.returncode == 0, changed.stdout + changed.stderr
     assert "cache hit" not in changed.stdout

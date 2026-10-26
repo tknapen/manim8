@@ -39,6 +39,44 @@ _ANCHORS: dict[str, tuple[tuple[float, float], np.ndarray | None]] = {
 }
 
 
+FONT_WARNINGS: list[str] = []
+"""Human-readable notes about fonts that were substituted; the worker copies them into the result."""
+
+
+@lru_cache(maxsize=1)
+def installed_fonts() -> frozenset[str]:
+    try:
+        import manimpango
+
+        return frozenset(name.lower() for name in manimpango.list_fonts())
+    except Exception:
+        return frozenset()
+
+
+def resolve_font(typeface: Typeface) -> str:
+    """The first installed family among the typeface's family and fallbacks; generic names pass through."""
+    available = installed_fonts()
+    candidates = [typeface.font_family, *typeface.font_fallbacks]
+    generic = {"sans-serif", "sans", "serif", "monospace"}
+    for candidate in candidates:
+        if candidate.lower() in available:
+            if candidate != typeface.font_family:
+                _warn_font(f"font '{typeface.font_family}' is not installed; using fallback '{candidate}'")
+            return candidate
+        if candidate.lower() in generic:
+            _warn_font(f"font '{typeface.font_family}' is not installed; using the generic '{candidate}' family")
+            return "sans" if candidate == "sans-serif" else candidate
+    _warn_font(
+        f"font '{typeface.font_family}' and its fallbacks {typeface.font_fallbacks} are not installed; Pango will substitute"
+    )
+    return typeface.font_family
+
+
+def _warn_font(message: str) -> None:
+    if message not in FONT_WARNINGS:
+        FONT_WARNINGS.append(message)
+
+
 @lru_cache(maxsize=8)
 def text_units_per_point(font: str, weight: str) -> float:
     """Measured height of a capital letter per font_size point, for this font."""
@@ -46,11 +84,11 @@ def text_units_per_point(font: str, weight: str) -> float:
     return float(probe.height) / 100.0
 
 
-@lru_cache(maxsize=2)
-def typst_units_per_point() -> float:
+@lru_cache(maxsize=4)
+def typst_units_per_point(preamble: str = "") -> float:
     from manim import MathTypst
 
-    probe = MathTypst("H", font_size=100)
+    probe = MathTypst("H", font_size=100, typst_preamble=preamble)
     return float(probe.height) / 100.0
 
 
@@ -117,11 +155,11 @@ class Tokens:
         """Manim font_size whose capital height matches `px_at_1080p * CAP_HEIGHT_RATIO`."""
         px = px_at_1080p if px_at_1080p is not None else typeface.size_px_at_1080p
         cap_units = self.units(px) * CAP_HEIGHT_RATIO
-        return cap_units / text_units_per_point(typeface.font_family, WEIGHTS[typeface.weight])
+        return cap_units / text_units_per_point(resolve_font(typeface), WEIGHTS[typeface.weight])
 
     def text_kwargs(self, typeface: Typeface, color: ManimColor, px_at_1080p: float | None = None) -> dict:
         return {
-            "font": typeface.font_family,
+            "font": resolve_font(typeface),
             "weight": WEIGHTS[typeface.weight],
             "font_size": self.font_size(typeface, px_at_1080p),
             "color": color,
@@ -131,8 +169,26 @@ class Tokens:
     def equation_font_size(self, px_at_1080p: float | None = None) -> float:
         px = px_at_1080p if px_at_1080p is not None else self.t.typography.equation.size_px_at_1080p
         cap_units = self.units(px) * CAP_HEIGHT_RATIO
-        per_point = typst_units_per_point() if self.t.typography.equation.engine == "typst" else tex_units_per_point()
-        return cap_units / per_point
+        if self.t.typography.equation.engine == "typst":
+            return cap_units / typst_units_per_point(self.typst_preamble())
+        return cap_units / tex_units_per_point()
+
+    def typst_preamble(self) -> str:
+        """A `show` rule selecting the math font (and fallbacks) for Typst equations, or empty."""
+        equation = self.t.typography.equation
+        if not equation.math_font:
+            return ""
+        families = ", ".join(f'"{name}"' for name in [equation.math_font, *equation.math_font_fallbacks])
+        return f"#show math.equation: set text(font: ({families},))"
+
+    def tex_template(self):
+        """A Manim TexTemplate carrying the style's extra LaTeX packages."""
+        from manim import TexTemplate
+
+        template = TexTemplate()
+        for package in self.t.typography.equation.latex_packages:
+            template.add_to_preamble(f"\\usepackage{{{package}}}")
+        return template
 
     @property
     def panel_gap(self) -> float:

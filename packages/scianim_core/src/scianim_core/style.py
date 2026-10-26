@@ -50,6 +50,11 @@ class Typeface(StrictModel):
 class EquationStyle(StrictModel):
     engine: EquationEngine = "typst"
     size_px_at_1080p: float = Field(gt=0)
+    math_font: str | None = None
+    """OpenType math font for the typst engine (e.g. 'TeX Gyre Pagella Math'); None keeps Typst's default."""
+    math_font_fallbacks: list[str] = []
+    latex_packages: list[str] = []
+    """Packages added to the LaTeX preamble for the latex engine (e.g. 'newpxmath' for Palatino math)."""
 
 
 class Typography(StrictModel):

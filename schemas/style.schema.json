@@ -123,6 +123,48 @@
           "default": null,
           "title": "Engine"
         },
+        "latex_packages": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Packages"
+        },
+        "math_font": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Math Font"
+        },
+        "math_font_fallbacks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Math Font Fallbacks"
+        },
         "size_px_at_1080p": {
           "anyOf": [
             {

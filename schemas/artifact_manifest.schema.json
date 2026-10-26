@@ -277,6 +277,34 @@
           "title": "Engine",
           "type": "string"
         },
+        "latex_packages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Latex Packages",
+          "type": "array"
+        },
+        "math_font": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Math Font"
+        },
+        "math_font_fallbacks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Math Font Fallbacks",
+          "type": "array"
+        },
         "size_px_at_1080p": {
           "exclusiveMinimum": 0,
           "title": "Size Px At 1080P",

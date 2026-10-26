@@ -57,6 +57,7 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 - [x] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
 - [x] Family discovery: nearest `family.yaml` is authoritative, `family:` optional, `group.yaml` layers, explicit child families, duplicate ids rejected.
 - [x] Versioned style directories (`<name>/<version>/style.yaml`) with pinned inheritance; `scianim style list`.
+- [x] Baseline theme `default@0.2.0` (Twin Ink) with philosophy and specimen plate; font fallback resolution reported in the manifest; Typst math font and LaTeX packages from tokens.
 - [x] Workspaces: `workspace init|list`, `family init`, `project init`, read-only examples as templates.
 - [x] `asset://` sources from family and workspace `assets/`; family `components/` on the worker path.
 - [x] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.

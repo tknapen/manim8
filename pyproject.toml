@@ -51,6 +51,7 @@ ignore = ["RUF012", "B008", "E501"]
 "tests/**" = ["B011", "E501"]
 "src/scianim/review/sheet.py" = ["E501"]
 "packages/scianim_bridge/src/scianim_bridge/components/base.py" = ["RUF001"]  # Greek glyph table
+"tools/specimen_twin_ink.py" = ["RUF001"]  # Greek letters in plate labels
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

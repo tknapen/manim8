@@ -41,13 +41,24 @@ def build_equation(
     if engine == "typst":
         from manim import MathTypst
 
-        mobject = MathTypst(_group_symbols(source, highlight), font_size=font_size, color=base_color)
+        mobject = MathTypst(
+            _group_symbols(source, highlight),
+            font_size=font_size,
+            color=base_color,
+            typst_preamble=tokens.typst_preamble(),
+        )
         for symbol in highlight:
             mobject.select(f"hl_{symbol}").set_color(highlight_color)
         return mobject
     from manim import MathTex
 
-    mobject = MathTex(source, substrings_to_isolate=highlight or None, font_size=font_size, color=base_color)
+    mobject = MathTex(
+        source,
+        substrings_to_isolate=highlight or None,
+        font_size=font_size,
+        color=base_color,
+        tex_template=tokens.tex_template(),
+    )
     for symbol in highlight:
         mobject.set_color_by_tex(symbol, highlight_color)
     return mobject

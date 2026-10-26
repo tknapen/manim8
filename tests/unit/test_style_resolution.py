@@ -24,7 +24,8 @@ def write_sheet(styles: Path, name: str, version: str, body: str) -> Path:
 def test_versioned_layout_is_listed(styles_copy: Path) -> None:
     found = list_styles([styles_copy])
     assert set(found) == {"default", "tomas_scientific"}
-    assert set(found["tomas_scientific"]) == {"0.1.0"}
+    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0"}
+    assert set(found["default"]) == {"0.1.0", "0.2.0"}
 
 
 def test_theme_chain_and_provenance(styles_copy: Path) -> None:
@@ -40,15 +41,15 @@ def test_two_versions_of_a_theme_coexist(styles_copy: Path) -> None:
     write_sheet(
         styles_copy,
         "tomas_scientific",
-        "0.2.0",
+        "0.3.0",
         'inherits: tomas_scientific@0.1.0\npalette:\n  primary_signal: "#00FF00"\n',
     )
     old = resolve_style(StyleSelection(name="tomas_scientific", version="0.1.0"), [styles_copy])
-    new = resolve_style(StyleSelection(name="tomas_scientific", version="0.2.0"), [styles_copy])
+    new = resolve_style(StyleSelection(name="tomas_scientific", version="0.3.0"), [styles_copy])
     assert old.tokens.palette["primary_signal"] == "#56B4E9"
     assert new.tokens.palette["primary_signal"] == "#00FF00"
     assert new.tokens.typography == old.tokens.typography  # inherited from its predecessor
-    assert new.layers == ["theme:default@0.1.0", "theme:tomas_scientific@0.1.0", "theme:tomas_scientific@0.2.0"]
+    assert new.layers == ["theme:default@0.1.0", "theme:tomas_scientific@0.1.0", "theme:tomas_scientific@0.3.0"]
     assert old.hash != new.hash
 
 
@@ -120,7 +121,7 @@ def test_missing_required_palette_role_fails(styles_copy: Path) -> None:
 
 def test_unknown_version_lists_available_ones(styles_copy: Path) -> None:
     with pytest.raises(
-        StyleResolutionError, match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0'\]"
+        StyleResolutionError, match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0'\]"
     ):
         resolve_style(StyleSelection(name="tomas_scientific", version="9.9.9"), [styles_copy])
 
