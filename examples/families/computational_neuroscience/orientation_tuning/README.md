@@ -8,7 +8,8 @@ The applied records keep each proposal's claims, open questions and unified diff
 All curves are synthetic von Mises functions computed for the example; nothing here is recorded data. The
 storyboard uses the kinds added in Milestone 5: `caption_with_citation`, `network_graph`,
 `schematic_population` and `receptive_field_glyph`, beside `scientific_plot`, `equation_label` and
-`function_plot`.
+`function_plot`. The last scene varies the model's concentration κ from 2 to 8 while the κ in the equation
+pulses and a readout counts (a `vary_parameter` action, ADR-022), instead of drawing two curves side by side.
 
 Copy it into a workspace with `scianim workspace init <dir> --with-example`, then `scianim codegen` and
 `scianim snapshot --all` render its five checkpoints; `scianim render --profile draft` makes the 40 s video.

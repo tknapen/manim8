@@ -62,6 +62,8 @@ def changed_scenes(
                 change.reasons.append("narration changed")
             if old.objects != scene.objects:
                 change.reasons.append("objects changed")
+            if old.actions != scene.actions:
+                change.reasons.append("actions changed")
             if old.snapshots != scene.snapshots:
                 change.reasons.append("snapshots changed")
         for obj in scene.objects:

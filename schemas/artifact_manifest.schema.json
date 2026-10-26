@@ -670,6 +670,19 @@
           "title": "Easing",
           "type": "string"
         },
+        "emphasis_scale": {
+          "default": 1.3,
+          "exclusiveMinimum": 1,
+          "maximum": 2,
+          "title": "Emphasis Scale",
+          "type": "number"
+        },
+        "emphasis_seconds": {
+          "default": 0.8,
+          "exclusiveMinimum": 0,
+          "title": "Emphasis Seconds",
+          "type": "number"
+        },
         "narration_words_per_minute": {
           "default": 150,
           "exclusiveMinimum": 0,

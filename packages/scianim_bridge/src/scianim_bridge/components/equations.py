@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from manim import DOWN, LEFT, ManimColor, Mobject, Text, VGroup
@@ -12,6 +13,16 @@ from scianim_core.storyboard import EquationRef
 
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
+
+
+@dataclass
+class EquationComponent(Component):
+    """An equation object whose highlighted terms stay addressable, so a parameter sweep can emphasize one."""
+
+    highlights: dict[str, Mobject] = field(default_factory=dict)
+    """Highlighted symbol name to the glyphs that typeset it."""
+    highlight_color: ManimColor | None = None
+    symbol_units: dict[str, str | None] = field(default_factory=dict)
 
 
 def _group_symbols(source: str, symbols: list[str]) -> str:
@@ -29,12 +40,14 @@ def build_equation(
     base_color: ManimColor,
     highlight_color: ManimColor,
     px_at_1080p: float,
-) -> Mobject:
+) -> tuple[Mobject, dict[str, Mobject]]:
+    """Typeset the stored source exactly; return the mobject and the glyphs of each highlighted symbol."""
     engine = tokens.t.typography.equation.engine
     font_size = tokens.equation_font_size(px_at_1080p)
     source = equation.source_for(engine)
     if source is None:
         raise ValueError(f"equation '{equation.id}' has no '{engine}' source; the style uses the {engine} engine")
+    parts: dict[str, Mobject] = {}
     if engine == "typst":
         from manim import MathTypst
 
@@ -45,8 +58,8 @@ def build_equation(
             typst_preamble=tokens.typst_preamble(),
         )
         for symbol in highlight:
-            mobject.select(f"hl_{symbol}").set_color(highlight_color)
-        return mobject
+            parts[symbol] = mobject.select(f"hl_{symbol}").set_color(highlight_color)
+        return mobject, parts
     from manim import MathTex
 
     mobject = MathTex(
@@ -57,8 +70,8 @@ def build_equation(
         tex_template=tokens.tex_template(),
     )
     for symbol in highlight:
-        mobject.set_color_by_tex(symbol, highlight_color)
-    return mobject
+        parts[symbol] = mobject.get_parts_by_tex(symbol).set_color(highlight_color)
+    return mobject, parts
 
 
 def _equation_for(
@@ -75,6 +88,10 @@ def _equation_for(
         raise KeyError(f"equation '{ref.id}' is not in the job; known: {sorted(scene.ctx.equations)}") from None
 
 
+def _units_of(equation: Equation) -> dict[str, str | None]:
+    return {name: definition.units for name, definition in equation.symbols.items()}
+
+
 def equation_block(
     scene: SnapshotScene,
     object_id: str,
@@ -88,7 +105,8 @@ def equation_block(
     tokens = scene.tokens
     eq, ref = _equation_for(scene, equation, object_id)
     px = tokens.t.typography.equation.size_px_at_1080p * p.scale
-    main = build_equation(tokens, eq, ref.highlight, tokens.color(style_role), tokens.color("emphasis"), px)
+    highlight_color = tokens.color("emphasis")
+    main, parts = build_equation(tokens, eq, ref.highlight, tokens.color(style_role), highlight_color, px)
     group = VGroup(main)
     smallest = [px]
     if p.define_symbols and eq.symbols:
@@ -107,13 +125,16 @@ def equation_block(
     tokens.place(group, p.anchor)
     return register(
         scene,
-        Component(
+        EquationComponent(
             object_id,
             "equation_block",
             group,
             text=eq.source_for(tokens.t.typography.equation.engine),
             font_px=tokens.smallest_text_px(*smallest),
             text_like=True,
+            highlights=parts,
+            highlight_color=highlight_color,
+            symbol_units=_units_of(eq),
         ),
     )
 
@@ -131,25 +152,30 @@ def equation_label(
     tokens = scene.tokens
     eq, ref = _equation_for(scene, equation, object_id)
     body = tokens.typeface("body")
-    label = Text(p.text, **tokens.text_kwargs(body, tokens.color(style_role)))
+    highlight_color = tokens.color(style_role)
+    label = Text(p.text, **tokens.text_kwargs(body, highlight_color))
     group = VGroup(label)
     smallest = [body.size_px_at_1080p]
+    parts: dict[str, Mobject] = {}
     if p.show_equation:
         px = tokens.t.typography.equation.label_size_px_at_1080p
         smallest.append(px)
-        formula = build_equation(tokens, eq, ref.highlight, tokens.color("foreground"), tokens.color(style_role), px)
+        formula, parts = build_equation(tokens, eq, ref.highlight, tokens.color("foreground"), highlight_color, px)
         formula.next_to(label, DOWN, buff=tokens.baseline)
         formula.align_to(label, LEFT)
         group.add(formula)
     place(scene, group, p)
     return register(
         scene,
-        Component(
+        EquationComponent(
             object_id,
             "equation_label",
             group,
             text=p.text,
             font_px=tokens.smallest_text_px(*smallest),
             text_like=True,
+            highlights=parts,
+            highlight_color=highlight_color,
+            symbol_units=_units_of(eq),
         ),
     )

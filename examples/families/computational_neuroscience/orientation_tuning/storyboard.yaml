@@ -137,7 +137,7 @@ scenes:
   - id: model
     start_seconds: 28
     end_seconds: 40
-    purpose: The model curve and the recording site's receptive field.
+    purpose: The model curve, what its concentration does, and the recording site's receptive field.
     narration:
       text: 'The von Mises function reproduces the shape: a peak at the preferred orientation, sharper for larger
         kappa.'
@@ -145,25 +145,31 @@ scenes:
       - id: model_curve
         kind: function_plot
         style_role: primary_signal
+        equation:
+          id: von_mises
         params:
           x_label: orientation (deg)
           y_label: r (Hz)
           x_range:
             - 0
             - 180
+          y_range:
+            - 0
+            - 40
           anchor: center_left
           width_fraction: 0.55
+          parameters:
+            r_max: 30
+            kappa: 2
+            theta_0: 90
           series:
-            - label: kappa = 2
-              expression: 30 * exp(2 * (cos((x - 90) * pi / 180) - 1))
-            - label: kappa = 4
-              expression: 30 * exp(4 * (cos((x - 90) * pi / 180) - 1))
-              style_role: comparison
+            - label: von Mises model
+              expression: r_max * exp(kappa * (cos((x - theta_0) * pi / 180) - 1))
           markers:
-            - x: 90
-              label: "θ₀"
+            - x: theta_0
+              label: θ₀
               style_role: secondary_text
-          data_label: analytic curves from the equation
+          data_label: analytic curve from the equation
       - id: receptive_field
         kind: receptive_field_glyph
         style_role: primary_signal
@@ -175,11 +181,32 @@ scenes:
           field_extent: 5
           label: receptive field
           anchor: center_right
-          size_fraction: 0.4
+          size_fraction: 0.34
           data_label: schematic, not mapped
-        reveal_at_seconds: 33
+        reveal_at_seconds: 29.5
+      - id: kappa_label
+        kind: equation_label
+        style_role: emphasis
+        equation:
+          id: von_mises
+          highlight:
+            - kappa
+        params:
+          text: concentration kappa
+          anchor: top_right
+        reveal_at_seconds: 31
+    actions:
+      - id: sharpen
+        kind: vary_parameter
+        target: model_curve
+        parameter: kappa
+        to: 8
+        at_seconds: 33
+        duration_seconds: 4
+        emphasize:
+          - kappa_label
     snapshots:
       - id: model_complete
-        at_seconds: 36
-        description: Two model curves with the preferred-orientation marker, and the receptive-field glyph to 
-          the right.
+        at_seconds: 38
+        description: The sharpened model curve (kappa = 8) with the preferred-orientation marker, the kappa 
+          label with its readout, and the receptive-field glyph to the right.

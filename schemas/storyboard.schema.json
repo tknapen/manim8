@@ -201,6 +201,14 @@
     "Scene": {
       "additionalProperties": false,
       "properties": {
+        "actions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VaryParameter"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
         "end_seconds": {
           "exclusiveMinimum": 0,
           "title": "End Seconds",
@@ -417,6 +425,108 @@
         "column"
       ],
       "title": "SortTransform",
+      "type": "object"
+    },
+    "VaryParameter": {
+      "additionalProperties": false,
+      "description": "Vary one named parameter of a `function_plot` continuously while the viewer watches.\n\nThe curve and its markers follow the value, the equation term named by `parameter` pulses once as the\nsweep begins, and a readout shows the running value. A checkpoint inside the window splits the sweep\nat that frame, so it is still reached by the real animation flow. One action plays at a time.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "emphasize": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Emphasize",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "vary_parameter",
+          "default": "vary_parameter",
+          "title": "Kind",
+          "type": "string"
+        },
+        "parameter": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Parameter",
+          "type": "string"
+        },
+        "show_value": {
+          "default": true,
+          "title": "Show Value",
+          "type": "boolean"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "number"
+        },
+        "value_decimals": {
+          "default": 1,
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Value Decimals",
+          "type": "integer"
+        },
+        "value_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Label"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "parameter",
+        "to",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "VaryParameter",
       "type": "object"
     }
   },

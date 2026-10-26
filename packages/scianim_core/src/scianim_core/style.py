@@ -131,10 +131,18 @@ class Charts(StrictModel):
     show_units_when_provided: bool = True
 
 
+Easing = Literal["linear", "ease_in_out_sine", "smooth", "ease_out_cubic"]
+
+
 class Motion(StrictModel):
     transition_seconds: float = Field(gt=0)
     reveal_seconds: float = Field(gt=0)
-    easing: Literal["linear", "ease_in_out_sine", "smooth", "ease_out_cubic"] = "smooth"
+    easing: Easing = "smooth"
+    """Rate profile of reveals and of parameter sweeps that do not choose their own."""
+    emphasis_scale: float = Field(default=1.3, gt=1, le=2)
+    """How much an emphasized equation term grows, once, as a parameter sweep begins."""
+    emphasis_seconds: float = Field(default=0.8, gt=0)
+    """Duration of that pulse; the term is back at its size when it ends."""
     avoid_decorative_motion: bool = True
     narration_words_per_minute: float = Field(default=150, gt=0)
 

@@ -1,12 +1,7 @@
 schema_version: "1.0"
 id: prf_tuning
 title: "The Gaussian population receptive field"
-sources:
-  - id: profiles
-    type: csv
-    path: data/prf_profiles.csv
-    role: illustrative_data
-    citation: "Synthetic Gaussian profiles computed for this example; not measurements"
+sources: []
 output:
   duration_seconds: 45
   width_px: 1920
@@ -33,7 +28,8 @@ audience: graduate_neuroscience
 objective: >-
   Explain that a population receptive field summarizes how strongly a recording site
   responds to each visual field position, show the one-dimensional Gaussian model with
-  its centre and size, and compare a small and a large pRF on identical axes.
+  its centre and size, and vary the size while the viewer watches so that what sigma
+  does to the profile is seen rather than inferred from two panels.
 scientific_constraints:
   - id: equation_exact
     kind: hard
@@ -41,10 +37,10 @@ scientific_constraints:
     text: "Show the Gaussian pRF equation exactly as stored and define x, x_0 and sigma."
   - id: synthetic_label
     kind: hard
-    text: "Label the plotted profiles as synthetic, computed from the equation, not as measurements."
-  - id: shared_axes
+    text: "Label the plotted profiles as analytic curves computed from the equation, not as measurements."
+  - id: fixed_axes
     kind: hard
-    text: "When comparing pRF sizes, keep the centre, the position axis and the weight axis identical."
+    text: "While the size varies, keep the centre, the position axis and the weight axis fixed."
 timeline:
   - id: introduction
     at_seconds: 0
@@ -61,11 +57,11 @@ timeline:
     tolerance_seconds: 1
     kind: hard
     instruction: "Show the equation and define its terms."
-  - id: comparison
+  - id: selectivity
     at_seconds: 34
     tolerance_seconds: 2
     kind: preferred
-    instruction: "Compare a small and a large pRF."
+    instruction: "Vary the size continuously and show what it does to selectivity."
 direction:
   tone: "Plain, precise, unhurried"
   avoid:

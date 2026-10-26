@@ -386,6 +386,30 @@
           "default": null,
           "title": "Easing"
         },
+        "emphasis_scale": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emphasis Scale"
+        },
+        "emphasis_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emphasis Seconds"
+        },
         "narration_words_per_minute": {
           "anyOf": [
             {

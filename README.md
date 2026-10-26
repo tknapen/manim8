@@ -84,8 +84,11 @@ and `scianim stale`. Milestone 5 adds the agent loop as files: source extracts, 
 proposals with diffs and claims, self-inspection, and four more kinds (cited captions, populations,
 receptive-field glyphs, network graphs); a third example, `orientation_tuning`, is the output of that loop.
 Milestone 6 adds verified bundles (`scianim bundle export|inspect|import`) and the
-[user guide](docs/USER_GUIDE.md). Deferred: section splicing for incremental video and voiceover. See
-`docs/IMPLEMENTATION_PLAN.md` for the checklist.
+[user guide](docs/USER_GUIDE.md). Milestone 7 adds scene actions: a `vary_parameter` action sweeps a named
+parameter of a `function_plot` while the equation term pulses and a readout counts, with checkpoints inside the
+sweep captured frame-exactly; all three examples use it instead of side-by-side panels. Deferred: section
+splicing for incremental video, voiceover and further action kinds. See `docs/IMPLEMENTATION_PLAN.md` for the
+checklist.
 
 ## Example status
 

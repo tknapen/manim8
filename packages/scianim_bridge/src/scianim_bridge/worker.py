@@ -114,6 +114,7 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
             scene.ctx = ctx
             scene.render()
             warnings.extend(getattr(scene, "timing_warnings", []))
+            warnings.extend(getattr(scene, "render_warnings", []))
             from scianim_bridge.tokens import FONT_WARNINGS
 
             warnings.extend(FONT_WARNINGS)

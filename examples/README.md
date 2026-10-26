@@ -6,7 +6,8 @@ and the project below into a workspace, where environments, revisions and render
 ```text
 examples/families/computational_neuroscience/            # family template: family.yaml, pyproject.toml, uv.lock
 examples/families/computational_neuroscience/divisive_normalization/   # project template nested under its family
-examples/families/computational_neuroscience/prf_tuning/              # second project: analytic curves, markers, timed reveals
+examples/families/computational_neuroscience/prf_tuning/              # second project: analytic curves, markers, timed reveals, sigma sweeps
+examples/families/computational_neuroscience/orientation_tuning/     # third project: output of the agent loop, with a kappa sweep
 ```
 
 The projects sit under their family on purpose: the nearest `family.yaml` above a project is authoritative, so a

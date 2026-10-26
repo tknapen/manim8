@@ -37,7 +37,7 @@ def test_unknown_data_source_is_an_error(project_copy: Project) -> None:
 
 
 def test_unknown_style_role_is_an_error(project_copy: Project) -> None:
-    rewrite(project_copy.storyboard_path, "style_role: primary_signal", "style_role: neon")
+    rewrite(project_copy.storyboard_path, "style_role: normalization_pool", "style_role: neon")
     report = validate_project(project_copy)
     assert any("style_role 'neon'" in e for e in report.errors)
 
@@ -53,7 +53,11 @@ def test_missing_csv_column_is_an_error(project_copy: Project) -> None:
 
 
 def test_unknown_equation_reference_is_an_error(project_copy: Project) -> None:
-    rewrite(project_copy.storyboard_path, "equation: {id: schematic_equation}", "equation: {id: other_equation}")
+    rewrite(
+        project_copy.storyboard_path,
+        "equation: {id: schematic_equation, highlight: [P]}",
+        "equation: {id: other_equation, highlight: [P]}",
+    )
     report = validate_project(project_copy)
     assert any("equation 'other_equation'" in e for e in report.errors)
 
@@ -129,6 +133,6 @@ def test_removed_marker_is_detected(project_copy: Project) -> None:
     target = write_scene_module(
         report.animation, report.storyboard, report.style, project_copy.scene_module_path(report.animation)
     )
-    rewrite(target, 'checkpoint(self, "pool_introduced", expected_time=24)', "pass")
+    rewrite(target, 'checkpoint(self, "pool_introduced", expected_time=19.5)', "pass")
     after = validate_project(project_copy)
     assert any("without a checkpoint() marker: ['pool_introduced']" in e for e in after.errors)

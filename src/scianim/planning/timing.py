@@ -68,7 +68,7 @@ def propose_timing(
 
     The proposal keeps scene order and the first scene's start. Conflicts are reported when the
     proposal overruns the output duration, moves a hard milestone out of its scene, or leaves a
-    snapshot or a timed reveal outside its scene.
+    snapshot, a timed reveal or an action outside its scene.
     """
     fps = animation.output.fps
     proposals: list[SceneProposal] = []
@@ -101,6 +101,12 @@ def propose_timing(
                 proposal.conflicts.append(
                     f"object '{obj.id}' revealed at {obj.reveal_at_seconds:g}s falls outside the proposed "
                     f"{proposal.proposed_start:g}-{proposal.proposed_end:g}s"
+                )
+        for action in scene.actions:
+            if not (proposal.proposed_start <= action.at_seconds and action.end_seconds <= proposal.proposed_end):
+                proposal.conflicts.append(
+                    f"action '{action.id}' ({action.at_seconds:g}-{action.end_seconds:g}s) falls outside the "
+                    f"proposed {proposal.proposed_start:g}-{proposal.proposed_end:g}s"
                 )
         proposals.append(proposal)
         cursor = proposal.proposed_end

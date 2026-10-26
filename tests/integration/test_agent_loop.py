@@ -69,7 +69,14 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     ]
     by_id = {c.snapshot_id: c for c in manifest.result.checkpoints}
     assert {i.object_id for i in by_id["circuit_shown"].layout} == {"circuit_graph", "population"}
-    assert {i.object_id for i in by_id["model_complete"].layout} == {"model_curve", "receptive_field"}
+    assert {i.object_id for i in by_id["model_complete"].layout} == {
+        "model_curve",
+        "receptive_field",
+        "kappa_label",
+        "sharpen",
+    }
+    readout = next(i for i in by_id["model_complete"].layout if i.object_id == "sharpen")
+    assert readout.kind == "value_readout" and readout.text == "κ = 8.0"
     assert "Synthetic von Mises tuning curves computed" in (by_id["intro_cited"].layout[1].text or "")
     assert all(not c.warnings for c in manifest.result.checkpoints), [
         (c.snapshot_id, c.warnings) for c in manifest.result.checkpoints

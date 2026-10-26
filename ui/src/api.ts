@@ -139,6 +139,16 @@ export type Revision = {
 
 export type SceneObject = { id: string; kind: string; style_role: string | null; reveal_at_seconds: number | null };
 export type Snapshot = { id: string; at_seconds: number; description: string; kind: string };
+export type SceneAction = {
+  id: string;
+  kind: string;
+  target: string;
+  parameter: string;
+  to: number;
+  at_seconds: number;
+  end_seconds: number;
+  emphasize: string[];
+};
 export type Scene = {
   id: string;
   title: string | null;
@@ -147,6 +157,7 @@ export type Scene = {
   purpose: string;
   narration: string | null;
   objects: SceneObject[];
+  actions: SceneAction[];
   snapshots: Snapshot[];
 };
 

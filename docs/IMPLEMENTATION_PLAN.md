@@ -24,7 +24,9 @@ rather than append-only across jobs; approvals, feedback files and the SQLite in
 Milestone 4 (frame-exact timing, draft and final video with sections, subtitles, probes and sampled frames) is
 complete except for section splicing (ADR-019). Milestone 5 (source adapters, context bundles, proposals,
 self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
-guide) is complete (ADR-021). Open items across milestones: section splicing (ADR-019) and voiceover (ADR-020).
+guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
+readouts, exercised by all three examples) is complete (ADR-022). Open items across milestones: section splicing
+(ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
 
 ## Milestone 0 — repository and contracts
 
@@ -173,6 +175,14 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 - [x] Concise user guide: [`USER_GUIDE.md`](USER_GUIDE.md).
 
 **Acceptance:** A fresh-workspace bundle import validates, rebuilds its family environment on a supported platform and reproduces named snapshots. Missing licensed source files produce an explicit relinking warning, not silent substitution.
+
+## Milestone 7 — motion: parameter sweeps
+
+- [x] Scene `actions` with the first kind, `vary_parameter`: named `parameters` on `function_plot`, marker positions as expressions, emphasized equation terms with a token-driven pulse, a value readout, and frame-exact sweeps split at the checkpoints inside them (ADR-022).
+- [x] The three examples vary one quantity while the viewer watches (sigma of the pRF, the pool P, kappa of the tuning curve) instead of showing conditions side by side; the agent loop fixture and context instructions use the same vocabulary.
+- [ ] Further action kinds: move or fade an object, transform one equation into another, sweep a parameter of a data-bound plot.
+
+**Acceptance:** a checkpoint inside a sweep is `exact` and shows the eased value in its readout and curve; the draft and final videos keep frame-exact timing through the sweeps; `scianim validate` reports a sweep that would start late or end in a fade-out.
 
 ## Core automated test matrix
 

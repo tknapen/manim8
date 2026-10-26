@@ -110,7 +110,7 @@ def test_stale_scenes_against_a_revision(project_copy: Project) -> None:
     unchanged = compare_with_revision(project_copy, report, load_revision(project_copy, revision.id))
     assert unchanged.stale_scene_ids == [] and unchanged.removed_scenes == []
     storyboard = project_copy.storyboard_path
-    storyboard.write_text(storyboard.read_text().replace("at_seconds: 24\n", "at_seconds: 25\n"))
+    storyboard.write_text(storyboard.read_text().replace("at_seconds: 19.5\n", "at_seconds: 19\n"))
     csv = project_copy.data_dir / "synthetic_responses.csv"
     csv.write_text(csv.read_text() + "11.0,1.0,1.0,5.5,low_pool,synthetic\n")
     report = _prepared(project_copy)

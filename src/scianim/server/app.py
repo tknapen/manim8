@@ -203,6 +203,19 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                             }
                             for o in scene.objects
                         ],
+                        "actions": [
+                            {
+                                "id": a.id,
+                                "kind": a.kind,
+                                "target": a.target,
+                                "parameter": a.parameter,
+                                "to": a.to,
+                                "at_seconds": a.at_seconds,
+                                "end_seconds": a.end_seconds,
+                                "emphasize": list(a.emphasize),
+                            }
+                            for a in scene.actions
+                        ],
                         "snapshots": [s.model_dump(mode="json") for s in scene.snapshots],
                     }
                     for scene in storyboard.scenes

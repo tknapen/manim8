@@ -8,13 +8,15 @@ directory and never embeds code in YAML (spec section 10.4, ADR-003).
 
 from __future__ import annotations
 
+import math
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, model_validator
 
 from scianim_core.common import Slug, StrictModel
-from scianim_core.expressions import validate_expression
+from scianim_core.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCTIONS, compile_expression, validate_expression
 from scianim_core.style import Anchor
 
 REGISTRY_VERSION = "0.3.0"
@@ -100,23 +102,21 @@ class ComparisonPlotParams(StrictModel):
     height_fraction: float = Field(default=0.6, gt=0, le=1)
 
 
+PARAMETER_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
 class FunctionSeries(StrictModel):
     label: str = Field(min_length=1)
     expression: str = Field(min_length=1)
-    """Arithmetic in x: operators + - * / ^ %, functions exp log log10 sqrt sin cos tan tanh abs min max pow, constants pi e tau."""
+    """Arithmetic in x and the plot's `parameters`: operators + - * / ^ %, functions exp log log10 sqrt sin cos tan tanh abs min max pow, constants pi e tau."""
     style_role: Slug | None = None
-
-    @field_validator("expression")
-    @classmethod
-    def _safe(cls, value: str) -> str:
-        validate_expression(value, ("x",))
-        return value
 
 
 class Marker(StrictModel):
-    """A labelled vertical reference line at x."""
+    """A labelled vertical reference line at x: a number, or an expression in the plot's `parameters` (so the
+    marker follows a parameter that a `vary_parameter` action animates)."""
 
-    x: float
+    x: float | str = Field(union_mode="left_to_right")
     label: str | None = None
     style_role: Slug | None = None
 
@@ -126,7 +126,12 @@ class FunctionPlotParams(StrictModel):
     y_label: str = Field(min_length=1)
     x_range: tuple[float, float]
     y_range: tuple[float, float] | None = None
+    """Fixed vertical range. Required when a `vary_parameter` action targets the plot, so the axes stay put."""
     samples: int = Field(default=200, ge=2, le=5000)
+    parameters: dict[str, float] = {}
+    """Named constants used by `series[].expression` and `markers[].x`, e.g. {sigma: 1.5}. A scene action of kind
+    `vary_parameter` animates one of them; name them after the equation's symbols so the emphasized term and the
+    curve agree."""
     series: list[FunctionSeries] = Field(min_length=1)
     markers: list[Marker] = []
     show_legend: bool = True
@@ -137,15 +142,37 @@ class FunctionPlotParams(StrictModel):
     height_fraction: float = Field(default=0.62, gt=0, le=1)
 
     @model_validator(mode="after")
-    def _ranges(self) -> FunctionPlotParams:
+    def _checks(self) -> FunctionPlotParams:
+        for name, value in self.parameters.items():
+            if not PARAMETER_NAME.match(name) or name == "x" or name in ALLOWED_FUNCTIONS or name in ALLOWED_CONSTANTS:
+                raise ValueError(
+                    f"parameter name '{name}' must be an identifier other than 'x', a built-in function or a constant"
+                )
+            if not math.isfinite(value):
+                raise ValueError(f"parameter '{name}' must be a finite number")
+        variables = ("x", *self.parameters)
+        for series in self.series:
+            validate_expression(series.expression, variables)
         if self.x_range[0] >= self.x_range[1]:
             raise ValueError("x_range must be [low, high] with low < high")
         if self.y_range is not None and self.y_range[0] >= self.y_range[1]:
             raise ValueError("y_range must be [low, high] with low < high")
         for marker in self.markers:
-            if not (self.x_range[0] <= marker.x <= self.x_range[1]):
-                raise ValueError(f"marker at x={marker.x} lies outside x_range {list(self.x_range)}")
+            x = self.marker_x(marker)
+            if not (self.x_range[0] <= x <= self.x_range[1]):
+                raise ValueError(f"marker at x={marker.x!r} (= {x:g}) lies outside x_range {list(self.x_range)}")
         return self
+
+    def marker_x(self, marker: Marker, parameters: dict[str, float] | None = None) -> float:
+        """A marker's position for the given (default: declared) parameter values."""
+        if isinstance(marker.x, int | float):
+            return float(marker.x)
+        values = dict(self.parameters)
+        values.update(parameters or {})
+        x = compile_expression(marker.x, tuple(self.parameters))(**values)
+        if not math.isfinite(x):
+            raise ValueError(f"marker expression {marker.x!r} is not finite for parameters {values}")
+        return x
 
 
 class CustomParams(StrictModel):

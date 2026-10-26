@@ -47,12 +47,13 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
     assert set(samples) == {
         "excitation_visible",
         "pool_introduced",
+        "pool_raised",
         "equation_complete",
         "comparison_complete",
         "mid_pool",
     }
     assert all(c.kind == "sampled_video_frame" and c.fidelity == "exact" for c in samples.values())
-    assert samples["pool_introduced"].renderer_time_seconds == pytest.approx(24.0, abs=1 / 30)
+    assert samples["pool_introduced"].renderer_time_seconds == pytest.approx(19.5, abs=1 / 30)
     assert samples["mid_pool"].scene_id == "normalization_pool"
     assert (project / samples["mid_pool"].png).exists()
     assert (project / draft_manifest.job.output_dir / "review_sheet.html").read_text().count("<video") == 1

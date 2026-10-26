@@ -89,6 +89,45 @@ scianim render <project> --profile draft    # 2/3 resolution, sections, subtitle
 scianim render <project> --profile final    # exact dimensions and fps; fails if a frame is off
 ```
 
+## Making something move
+
+A figure can show two conditions side by side; an animation can vary one quantity while the viewer watches the
+equation term, its value and the curve change together. Give a `function_plot` named `parameters` (named after
+the equation's symbols), write its series and markers in terms of them, fix its `y_range`, and add a scene
+action:
+
+```yaml
+objects:
+  - id: profile_plot
+    kind: function_plot
+    equation: {id: gaussian_prf}
+    params:
+      x_range: [-10, 10]
+      y_range: [0, 1.2]
+      parameters: {x_0: 2, sigma: 1.5}
+      series: [{label: "Gaussian pRF", expression: "exp(-((x - x_0)^2) / (2 * sigma^2))"}]
+      markers: [{x: "x_0 + sigma", label: "x₀ + σ", style_role: emphasis}]
+  - id: size_label
+    kind: equation_label
+    equation: {id: gaussian_prf, highlight: [sigma]}
+    params: {text: "size sigma", anchor: top_right}
+actions:
+  - id: widen
+    kind: vary_parameter
+    target: profile_plot
+    parameter: sigma
+    to: 4
+    at_seconds: 17
+    duration_seconds: 5
+    emphasize: [size_label]
+```
+
+The σ in the equation pulses as the sweep begins, a readout under the label counts from 1.5 to 4.0 deg, the
+curve widens and the marker moves with it. A checkpoint placed inside the window captures that exact frame.
+One action plays at a time; `scianim validate` says when a sweep would start late because reveals are still
+playing, or would end during the scene's fade-out. The style's `motion` tokens set the easing and the size
+and length of the pulse.
+
 ## Revisions, forks and comparison
 
 ```bash

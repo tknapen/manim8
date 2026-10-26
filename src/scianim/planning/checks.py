@@ -19,6 +19,7 @@ from scianim_core.components import (
     FunctionPlotParams,
     NetworkGraphParams,
 )
+from scianim_core.storyboard import Scene
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -177,12 +178,21 @@ def check_storyboard(
                         report.error(
                             f"object '{obj.id}': condition_roles['{condition}'] = '{role}' is not a palette role"
                         )
-            if obj.kind == "function_plot" and palette is not None:
+            if obj.kind == "function_plot":
                 params = obj.typed_params()
                 assert isinstance(params, FunctionPlotParams)
-                for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
-                    if role is not None and role not in palette:
-                        report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
+                if palette is not None:
+                    for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
+                        if role is not None and role not in palette:
+                            report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
+                equation = equations.get(obj.equation.id) if obj.equation is not None else None
+                if equation is not None:
+                    unnamed = sorted(set(params.parameters) - set(equation.symbols))
+                    if unnamed:
+                        report.warn(
+                            f"object '{obj.id}': parameters {unnamed} are not symbols of equation '{equation.id}'; "
+                            "name them after the symbols so an emphasized term and the curve agree"
+                        )
             if obj.kind == "caption_with_citation":
                 params = obj.typed_params()
                 assert isinstance(params, CaptionWithCitationParams)
@@ -201,12 +211,52 @@ def check_storyboard(
                 if not builder_module_exists(module_name, project, report.family):
                     where = f"code/ or {report.family.components_dir}" if report.family else "code/"
                     report.error(f"object '{obj.id}': custom builder module '{module_name}' not found in {where}")
+        if style is not None:
+            check_actions(scene, style, animation.output.fps, report)
     for constraint in animation.scientific_constraints:
         if constraint.equation and not any(
             o.equation and o.equation.id == constraint.equation for o in storyboard.objects()
         ):
             report.warn(
                 f"constraint '{constraint.id}' concerns equation '{constraint.equation}' but no storyboard object shows it"
+            )
+
+
+def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report) -> None:
+    """Warn when an action would start late (a reveal is still playing) or end inside the scene's fade-out.
+
+    Reveals take `motion.reveal_seconds` each and play one after another, so the clock can run past a
+    storyboard time; the renderer then warns in the manifest. Saying it here is cheaper.
+    """
+    motion = style.tokens.motion
+    events: list[tuple[float, int, str, str]] = []
+    for obj in scene.objects:
+        at = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+        events.append((at, 1, "reveal", obj.id))
+    for action in scene.actions:
+        events.append((action.at_seconds, 3, "action", action.id))
+        events.append((action.end_seconds, 0, "end", action.id))
+    events.sort(key=lambda e: (e[0], e[1]))
+    clock = scene.start_seconds
+    starts: dict[str, float] = {}
+    for at, _, kind, ident in events:
+        if kind == "reveal":
+            clock = max(clock, at) + motion.reveal_seconds
+        elif kind == "action":
+            starts[ident] = max(clock, at)
+        else:
+            clock = max(clock, at)
+    for action in scene.actions:
+        if starts[action.id] > action.at_seconds + 1.0 / fps:
+            report.warn(
+                f"action '{action.id}' is due at {action.at_seconds:g}s but the reveals before it finish at "
+                f"{starts[action.id]:.2f}s; it will start late (move it, or reveal fewer objects first)"
+            )
+        fade_start = scene.end_seconds - motion.transition_seconds
+        if action.end_seconds > fade_start + 1e-9:
+            report.warn(
+                f"action '{action.id}' ends at {action.end_seconds:g}s, inside the fade-out of scene "
+                f"'{scene.id}' that begins at {fade_start:.2f}s"
             )
 
 

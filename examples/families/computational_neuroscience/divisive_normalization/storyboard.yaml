@@ -35,21 +35,48 @@ scenes:
   - id: normalization_pool
     start_seconds: 15
     end_seconds: 30
-    purpose: "Establish the pool term as a denominator contribution."
+    purpose: "Establish the pool term as a denominator contribution, and show what raising it does."
     narration:
       text: >-
         The response is divided by a normalization pool, the summed activity
-        of neighboring neurons, <mark name="pool"/> which we label P.
+        of neighboring neurons, <mark name="pool"/> which we label P. As the pool
+        grows, the same excitation yields a smaller response.
     objects:
+      - id: response_curve
+        kind: function_plot
+        style_role: primary_signal
+        equation: {id: schematic_equation}
+        params:
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          x_range: [0, 10]
+          y_range: [0, 6]
+          parameters: {sigma: 1, P: 1}
+          series:
+            - {label: "schematic response", expression: "x / (sigma + P)"}
+          data_label: "schematic curve from the equation"
       - id: pool_label
         kind: equation_label
         style_role: normalization_pool
         equation: {id: schematic_equation, highlight: [P]}
         params: {text: "normalization pool P"}
+        reveal_at_seconds: 18
+    actions:
+      - id: raise_pool
+        kind: vary_parameter
+        target: response_curve
+        parameter: P
+        to: 4
+        at_seconds: 20
+        duration_seconds: 6
+        emphasize: [pool_label]
     snapshots:
       - id: pool_introduced
-        at_seconds: 24
-        description: "Pool label appears, distinct from excitation drive."
+        at_seconds: 19.5
+        description: "The schematic response curve for P = 1 with the pool label beside it; P highlighted in the equation."
+      - id: pool_raised
+        at_seconds: 28
+        description: "After the sweep: the curve is compressed, the readout under the label reads P = 4.0, the axes unchanged."
   - id: equation
     start_seconds: 30
     end_seconds: 45

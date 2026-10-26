@@ -31,10 +31,13 @@ class Finding:
 
 
 def expected_objects(storyboard: Storyboard, scene_id: str, at_seconds: float) -> list[str]:
+    """Objects revealed by `at_seconds`, plus the readouts of actions that have begun (they carry the action id)."""
     scene = next((s for s in storyboard.scenes if s.id == scene_id), None)
     if scene is None:
         return []
-    return [o.id for o in scene.objects if o.reveal_at_seconds is None or o.reveal_at_seconds <= at_seconds + 1e-9]
+    objects = [o.id for o in scene.objects if o.reveal_at_seconds is None or o.reveal_at_seconds <= at_seconds + 1e-9]
+    readouts = [a.id for a in scene.actions if a.show_value and a.at_seconds <= at_seconds + 1e-9]
+    return objects + readouts
 
 
 def ink_fraction(path: Path, background_hex: str) -> float:

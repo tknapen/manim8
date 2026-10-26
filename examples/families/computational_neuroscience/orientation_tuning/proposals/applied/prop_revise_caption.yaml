@@ -10,7 +10,7 @@ proposal:
     and the earlier reveal pairs it with the title.
   based_on_revision: rev_0001
   in_response_to:
-    - fb_20261026T162602_578bcb
+    - fb_20261026T183636_dcacd9
   uncertainties: []
   claims: []
   targets:
@@ -23,7 +23,7 @@ proposal:
           path: /scenes/0/objects/1/reveal_at_seconds
           value: 1
   touches_science: false
-applied_at: '2026-10-26T16:27:36+00:00'
+applied_at: '2026-10-26T18:36:37+00:00'
 applied_to_revision: working
 latest_revision_before: rev_0001
 diffs:

@@ -201,6 +201,15 @@ export default function Overview({ id }: { id: string }) {
                       {o.reveal_at_seconds != null ? <span className="meta"> at {o.reveal_at_seconds} s</span> : null}
                     </div>
                   ))}
+                  {(scene.actions ?? []).map((a) => (
+                    <div key={a.id}>
+                      <code>{a.id}</code>{" "}
+                      <span className="meta">
+                        {a.kind}: {a.target}.{a.parameter} → {a.to}, {a.at_seconds}–{a.end_seconds} s
+                        {a.emphasize.length ? `, emphasizing ${a.emphasize.join(", ")}` : ""}
+                      </span>
+                    </div>
+                  ))}
                 </td>
                 <td>
                   {scene.snapshots.map((s) => (

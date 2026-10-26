@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
 from scianim_core.common import SchemaVersion, Slug, StrictModel, ensure_unique
-from scianim_core.components import REGISTRY, ComponentKind, validate_params
+from scianim_core.components import REGISTRY, ComponentKind, FunctionPlotParams, validate_params
+from scianim_core.style import Easing
 
 MARK_PATTERN = re.compile(r'<mark\s+name="([A-Za-z0-9_]+)"\s*/>')
 SnapshotKind = Literal["manim_checkpoint", "sampled_video_frame"]
@@ -88,6 +90,40 @@ class Snapshot(StrictModel):
     kind: SnapshotKind = "manim_checkpoint"
 
 
+class VaryParameter(StrictModel):
+    """Vary one named parameter of a `function_plot` continuously while the viewer watches.
+
+    The curve and its markers follow the value, the equation term named by `parameter` pulses once as the
+    sweep begins, and a readout shows the running value. A checkpoint inside the window splits the sweep
+    at that frame, so it is still reached by the real animation flow. One action plays at a time.
+    """
+
+    kind: Literal["vary_parameter"] = "vary_parameter"
+    id: Slug
+    target: Slug
+    """A `function_plot` object in the same scene that declares `parameter` under `params.parameters`."""
+    parameter: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    to: float = Field(allow_inf_nan=False)
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+    """Rate profile; omitted means the style's `motion.easing`."""
+    emphasize: list[Slug] = []
+    """Equation objects in this scene whose `equation.highlight` names `parameter`; their term pulses."""
+    show_value: bool = True
+    value_decimals: int = Field(default=1, ge=0, le=6)
+    value_label: str | None = None
+    """Text before the value; the default is the symbol itself (Greek names become letters)."""
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+SceneAction = VaryParameter
+"""Further action kinds join a discriminated union on `kind`."""
+
+
 class Narration(StrictModel):
     text: str = Field(min_length=1)
 
@@ -120,6 +156,8 @@ class Scene(StrictModel):
     purpose: str = Field(min_length=1)
     narration: Narration | None = None
     objects: list[SceneObject] = []
+    actions: list[SceneAction] = []
+    """Things that happen to objects while the scene plays, in time order; see `VaryParameter`."""
     snapshots: list[Snapshot] = []
 
     @model_validator(mode="after")
@@ -130,6 +168,10 @@ class Scene(StrictModel):
             )
         ensure_unique((o.id for o in self.objects), f"object (scene '{self.id}')")
         ensure_unique((s.id for s in self.snapshots), f"snapshot (scene '{self.id}')")
+        ensure_unique(
+            (*(o.id for o in self.objects), *(a.id for a in self.actions)), f"object or action (scene '{self.id}')"
+        )
+        self._check_actions()
         seen: list[str] = []
         for obj in self.objects:
             if obj.reveal_at_seconds is not None and not (
@@ -154,6 +196,74 @@ class Scene(StrictModel):
                 )
         return self
 
+    def _check_actions(self) -> None:
+        objects = {o.id: o for o in self.objects}
+
+        def reveal_time(obj: SceneObject) -> float:
+            return self.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+
+        ordered = sorted(self.actions, key=lambda a: a.at_seconds)
+        for earlier, later in pairwise(ordered):
+            if later.at_seconds < earlier.end_seconds:
+                raise ValueError(
+                    f"action '{later.id}' at {later.at_seconds:g}s overlaps action '{earlier.id}' "
+                    f"({earlier.at_seconds:g}-{earlier.end_seconds:g}s); one action plays at a time"
+                )
+        for action in self.actions:
+            if action.at_seconds < self.start_seconds or action.end_seconds > self.end_seconds:
+                raise ValueError(
+                    f"action '{action.id}' ({action.at_seconds:g}-{action.end_seconds:g}s) lies outside scene "
+                    f"'{self.id}' [{self.start_seconds}, {self.end_seconds}]"
+                )
+            target = objects.get(action.target)
+            if target is None:
+                raise ValueError(
+                    f"action '{action.id}': target '{action.target}' is not an object of scene '{self.id}'"
+                )
+            if target.kind != "function_plot":
+                raise ValueError(
+                    f"action '{action.id}': target '{target.id}' is a {target.kind}; vary_parameter needs a function_plot"
+                )
+            params = target.typed_params()
+            assert isinstance(params, FunctionPlotParams)
+            if action.parameter not in params.parameters:
+                raise ValueError(
+                    f"action '{action.id}': '{target.id}' declares no parameter '{action.parameter}' "
+                    f"(declared: {sorted(params.parameters) or 'none'})"
+                )
+            if params.y_range is None:
+                raise ValueError(
+                    f"action '{action.id}': give '{target.id}' a y_range so the axes stay fixed while "
+                    f"'{action.parameter}' varies"
+                )
+            if reveal_time(target) > action.at_seconds:
+                raise ValueError(
+                    f"action '{action.id}' at {action.at_seconds:g}s starts before its target '{target.id}' "
+                    f"is revealed at {reveal_time(target):g}s"
+                )
+            for object_id in action.emphasize:
+                obj = objects.get(object_id)
+                if obj is None:
+                    raise ValueError(
+                        f"action '{action.id}': emphasize names '{object_id}', not an object of scene '{self.id}'"
+                    )
+                if obj.equation is None or action.parameter not in obj.equation.highlight:
+                    raise ValueError(
+                        f"action '{action.id}': '{object_id}' must reference an equation whose highlight includes "
+                        f"'{action.parameter}' to be emphasized"
+                    )
+                if reveal_time(obj) > action.at_seconds:
+                    raise ValueError(
+                        f"action '{action.id}' at {action.at_seconds:g}s starts before '{object_id}' is revealed "
+                        f"at {reveal_time(obj):g}s"
+                    )
+            for obj in self.objects:
+                if obj.reveal_at_seconds is not None and action.at_seconds < obj.reveal_at_seconds < action.end_seconds:
+                    raise ValueError(
+                        f"object '{obj.id}' is revealed at {obj.reveal_at_seconds:g}s, inside action '{action.id}' "
+                        f"({action.at_seconds:g}-{action.end_seconds:g}s); one thing plays at a time"
+                    )
+
     @property
     def duration_seconds(self) -> float:
         return self.end_seconds - self.start_seconds
@@ -169,6 +279,11 @@ class Storyboard(StrictModel):
     def _checks(self) -> Storyboard:
         ensure_unique((s.id for s in self.scenes), "scene")
         ensure_unique((o.id for s in self.scenes for o in s.objects), "object")
+        ensure_unique((a.id for s in self.scenes for a in s.actions), "action")
+        ensure_unique(
+            (i for s in self.scenes for i in (*(o.id for o in s.objects), *(a.id for a in s.actions))),
+            "object or action",
+        )
         ensure_unique((snap.id for s in self.scenes for snap in s.snapshots), "snapshot")
         previous: Scene | None = None
         for scene in self.scenes:
@@ -190,6 +305,9 @@ class Storyboard(StrictModel):
 
     def objects(self) -> list[SceneObject]:
         return [o for s in self.scenes for o in s.objects]
+
+    def actions(self) -> list[SceneAction]:
+        return [a for s in self.scenes for a in s.actions]
 
     def scene_of_snapshot(self, snapshot_id: str) -> Scene:
         for scene in self.scenes:

@@ -27,38 +27,61 @@ scenes:
   - id: gaussian
     start_seconds: 12
     end_seconds: 24
-    purpose: "The Gaussian model: a centre and a size."
+    purpose: "The Gaussian model: a centre and a size, and what the size does to the profile."
     narration:
       text: >-
         The simplest model is a Gaussian. Its centre is the preferred position, and its
-        width, sigma, is the size of the receptive field.
+        width, sigma, is the size of the receptive field. As sigma grows, the site pools
+        over a wider region.
     objects:
       - id: profile_plot
         kind: function_plot
         style_role: primary_signal
+        equation: {id: gaussian_prf}
         params:
           x_label: "visual field position x (deg)"
           y_label: "pRF weight g(x)"
           x_range: [-10, 10]
+          y_range: [0, 1.2]
+          anchor: center_left
+          width_fraction: 0.55
+          parameters: {x_0: 2, sigma: 1.5}
           series:
-            - {label: "sigma = 1.5 deg", expression: "exp(-((x - 2)^2) / (2 * 1.5^2))"}
+            - {label: "Gaussian pRF", expression: "exp(-((x - x_0)^2) / (2 * sigma^2))"}
           markers:
-            - {x: 2, label: "x₀", style_role: secondary_text}
-            - {x: 3.5, label: "x₀ + σ", style_role: emphasis}
+            - {x: "x_0", label: "x₀", style_role: secondary_text}
+            - {x: "x_0 + sigma", label: "x₀ + σ", style_role: emphasis}
           data_label: "analytic curve from the equation, centre 2 deg"
       - id: size_label
         kind: equation_label
         style_role: emphasis
         equation: {id: gaussian_prf, highlight: [sigma]}
         params: {text: "size sigma", anchor: top_right}
-        reveal_at_seconds: 18
+        reveal_at_seconds: 15
+    actions:
+      - id: widen
+        kind: vary_parameter
+        target: profile_plot
+        parameter: sigma
+        to: 4
+        at_seconds: 17
+        duration_seconds: 5
+        emphasize: [size_label]
     snapshots:
       - id: gaussian_visible
-        at_seconds: 16
+        at_seconds: 14
         description: "One Gaussian profile with labelled axes and the centre and size markers; no label yet."
       - id: size_labelled
-        at_seconds: 21
-        description: "The same profile with the size label and highlighted sigma in the equation."
+        at_seconds: 16.5
+        description: "The same profile with the size label and sigma highlighted in the equation; sigma is still 1.5 deg."
+      - id: half_widened
+        at_seconds: 19.5
+        description: >-
+          Halfway through the sweep: the curve is wider than at the start, the x₀ + σ marker has moved right,
+          and the readout under the label shows a value between 1.5 and 4 deg.
+      - id: prf_widened
+        at_seconds: 23
+        description: "After the sweep: a broad profile, the readout reads sigma = 4.0 deg, the x₀ + σ marker stands at 6 deg."
   - id: equation
     start_seconds: 24
     end_seconds: 34
@@ -75,27 +98,48 @@ scenes:
       - id: equation_complete
         at_seconds: 30
         description: "The complete equation with all four symbols defined."
-  - id: comparison
+  - id: selectivity
     start_seconds: 34
     end_seconds: 45
-    purpose: "Small versus large pRF on identical axes."
+    purpose: "What the size means: shrink sigma and the site becomes selective for position; the centre never moves."
     narration:
-      text: "A small receptive field is selective for position; a large one pools over a wide region."
+      text: >-
+        A large receptive field pools over a wide region. Shrinking sigma makes the site
+        selective for position again, while the centre stays where it is.
     objects:
-      - id: size_comparison
-        kind: comparison_plot
-        style_role: comparison
-        data:
-          source: profiles
-          encoding: {x: position_deg, y: weight, group: prf_size}
+      - id: selectivity_plot
+        kind: function_plot
+        style_role: primary_signal
+        equation: {id: gaussian_prf}
         params:
-          condition_roles: {small: primary_signal, large: comparison}
-          shared_axes: true
-          show_points: false
           x_label: "visual field position x (deg)"
           y_label: "pRF weight g(x)"
-          data_label: "synthetic profiles, centre 2 deg"
+          x_range: [-10, 10]
+          y_range: [0, 1.2]
+          anchor: center_left
+          width_fraction: 0.55
+          parameters: {x_0: 2, sigma: 4}
+          series:
+            - {label: "Gaussian pRF", expression: "exp(-((x - x_0)^2) / (2 * sigma^2))"}
+          markers:
+            - {x: "x_0", label: "x₀", style_role: secondary_text}
+            - {x: "x_0 + sigma", label: "x₀ + σ", style_role: emphasis}
+          data_label: "analytic curve from the equation, centre 2 deg"
+      - id: sigma_label
+        kind: equation_label
+        style_role: emphasis
+        equation: {id: gaussian_prf, highlight: [sigma]}
+        params: {text: "size sigma", anchor: top_right}
+    actions:
+      - id: narrow
+        kind: vary_parameter
+        target: selectivity_plot
+        parameter: sigma
+        to: 1
+        at_seconds: 36.5
+        duration_seconds: 6
+        emphasize: [sigma_label]
     snapshots:
-      - id: comparison_complete
-        at_seconds: 42
-        description: "Two panels, small and large pRF, identical axes."
+      - id: selective
+        at_seconds: 43.5
+        description: "After the sweep: a narrow profile, the readout reads sigma = 1.0 deg, the x₀ + σ marker one degree from the centre."

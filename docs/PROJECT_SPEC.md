@@ -332,7 +332,8 @@ Storyboard revisions are distinct from intent revisions. The storyboard adds imp
 - `narration` per scene: the script, optionally with named marks (`<mark name="pool"/>`). It anchors pacing, produces subtitles, and later aligns voiceover.
 - `objects`: instances of registered component kinds (section 10.4) with typed `params`. Data-driven objects carry an explicit `data` binding (`source`, `encoding`, `transforms`); equation objects reference `equations[].id` from the animation spec and may name terms to `highlight`. Every object is bound to style roles, never to literal colors. An object may carry `reveal_at_seconds`, an absolute time inside its scene at which it appears; objects without it appear at the scene start in declaration order. Text-like objects are placed by `anchor`, or relative to an earlier object of the same scene with `below` or `right_of` and an optional `gap_px_at_1080p` (the style's baseline grid by default).
 - Layout constraints such as anchors, grids, safe zones, target positions.
-- Transitions, camera movements, emphasis actions, animation timing.
+- `actions`: things that happen to objects while the scene plays, one at a time. The first kind, `vary_parameter`, names a `function_plot` object, one of its named `parameters`, a target value and a window (`at_seconds`, `duration_seconds`); the curve and any markers written in terms of that parameter follow the value, the equation objects listed under `emphasize` (each must highlight that symbol) pulse once as the sweep begins, and a readout under the first of them shows the running value (`show_value`, `value_decimals`, `value_label`). The plot's `y_range` must be fixed. A checkpoint inside the window splits the sweep at that frame, so it is still a marker reached by the real flow (ADR-022).
+- Transitions and camera movements (not yet in the schema).
 - **Snapshot checkpoints** at explicit moments, naming expected visual states. Each becomes a `checkpoint()` marker in the generated code.
 - Conditions/acceptance notes for visual and scientific review.
 
@@ -379,15 +380,41 @@ scenes:
         The response is divided by a normalization pool, the summed activity
         of neighboring neurons, <mark name="pool"/> which we label P.
     objects:
+      - id: response_curve
+        kind: function_plot
+        style_role: primary_signal
+        equation: {id: schematic_equation}
+        params:
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          x_range: [0, 10]
+          y_range: [0, 6]
+          parameters: {sigma: 1, P: 1}
+          series:
+            - {label: "schematic response", expression: "x / (sigma + P)"}
+          data_label: "schematic curve from the equation"
       - id: pool_label
         kind: equation_label
         style_role: normalization_pool
         equation: {id: schematic_equation, highlight: [P]}
         params: {text: "normalization pool P"}
+        reveal_at_seconds: 18
+    actions:
+      - id: raise_pool
+        kind: vary_parameter
+        target: response_curve
+        parameter: P
+        to: 4
+        at_seconds: 20
+        duration_seconds: 6
+        emphasize: [pool_label]
     snapshots:
       - id: pool_introduced
-        at_seconds: 24
-        description: "Pool clearly distinguished from excitation"
+        at_seconds: 19.5
+        description: "The response curve for P = 1 with the pool label; P highlighted"
+      - id: pool_raised
+        at_seconds: 28
+        description: "After the sweep the curve is compressed; the readout reads P = 4.0"
 
   - id: equation
     start_seconds: 30
@@ -778,9 +805,9 @@ The registry is the contract shared by the storyboard author (human or agent), t
 - an implementation in `scianim-bridge` that builds Manim mobjects from the resolved style, the bound data and the parameters, registers them under the object ID for the layout report, and exposes deterministic reveal animations;
 - a version, included in cache keys.
 
-Initial kinds (V1, extended in Milestone 5 with `caption_with_citation`, `schematic_population`, `receptive_field_glyph` and `network_graph`): `scientific_plot` (axes, curves, optional bands and legend), `function_plot` (analytic curves from arithmetic expressions in `x`, with labelled vertical markers; no data file), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
+Initial kinds (V1, extended in Milestone 5 with `caption_with_citation`, `schematic_population`, `receptive_field_glyph` and `network_graph`): `scientific_plot` (axes, curves, optional bands and legend), `function_plot` (analytic curves from arithmetic expressions in `x` and named `parameters`, with labelled vertical markers whose positions may be expressions in those parameters; no data file; the target of `vary_parameter` actions), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
 
-`scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code. The only computed values a storyboard may carry are the `function_plot` expressions, which `scianim_core.expressions` parses and checks against a whitelist of arithmetic operators, named constants and elementary functions before the renderer compiles them; anything else (names, attributes, calls outside the whitelist) is rejected at validation. `scianim registry [kind]` prints the registered kinds and, for one kind, its parameter model, so an author or agent never has to read the Python models.
+`scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code. The only computed values a storyboard may carry are the `function_plot` series and marker expressions, which `scianim_core.expressions` parses and checks against a whitelist of arithmetic operators, named constants and elementary functions before the renderer compiles them; anything else (names, attributes, calls outside the whitelist) is rejected at validation. `scianim registry [kind]` prints the registered kinds and, for one kind, its parameter model, so an author or agent never has to read the Python models.
 
 ---
 

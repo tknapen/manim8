@@ -344,3 +344,40 @@ version, never overwrites a project, and prints the explicit next steps (`family
 trust an archive before any code from it runs; and a theme version must mean the same tokens everywhere.
 Rebuilding the environment is kept explicit because it needs network access and system libraries that a
 bundle cannot carry.
+
+## ADR-022: Scene actions; `vary_parameter` is the first, and checkpoints split it
+
+**Status:** accepted, 26 October 2026
+
+**Context.** The first three examples revealed static objects in sequence, which is a slide deck with
+transitions. What an animation can show that a figure cannot is one quantity changing while the viewer watches
+the equation term, its value and the curve move together, instead of two panels side by side.
+
+**Decision.** A scene has an `actions` list beside its objects and snapshots. The first and only kind is
+`vary_parameter`: it names a `function_plot` object in the same scene, one of that plot's named `parameters`,
+a target value, a window (`at_seconds`, `duration_seconds`), an optional easing (the style's `motion.easing`
+by default), the equation objects to `emphasize` (each must highlight that symbol), and whether to show a
+readout (`show_value`, `value_decimals`, `value_label`). A `function_plot` declares `parameters` as named
+constants that its series expressions and marker positions may use; markers accept an expression in the
+parameters so they follow a sweep; a plot that a sweep targets must fix its `y_range`, because axes never
+rescale while something varies. The validator refuses overlapping actions, reveals inside an action window,
+targets or emphasized objects revealed after the action starts, and ids shared with objects; the readout is
+registered under the action's id and appears in layout reports as kind `value_readout`.
+
+Codegen emits `begin_vary()` at the action's start and one `vary_until(t)` per checkpoint inside the window
+plus one for the end. The bridge keeps the sweep's value curve on the storyboard window, so each segment
+continues the same easing and a checkpoint inside a sweep is reached by the real animation flow at the exact
+frame (fidelity `exact`); nothing uses time-based updaters. In Manim's fast-forward mode a segment evaluates
+once at its end, which lands on the same state. The sweep rebuilds the curves in place in the axes' frame
+(the invisible axes travel with the plot group), moves the markers, staggers marker labels that would
+collide, pulses the emphasized glyphs once (`motion.emphasis_scale` over `motion.emphasis_seconds`, both
+tokens) and sets the readout text each frame; a series that leaves the fixed range is clipped and the manifest
+records a warning. Project checks warn when an action would start late because reveals are still playing, or
+would end inside the scene's fade-out; timing proposals treat an action outside its scene as a conflict;
+staleness notices changed actions; inspection expects the readout once the action has begun.
+
+**Why.** One action at a time keeps generated code a readable projection of the storyboard and keeps every
+checkpoint a marker in the flow. Tying parameters to the equation's symbol names (a warning when they differ)
+makes "emphasize σ, then vary σ" one statement rather than two that could drift apart. Further kinds (moving
+an object, fading one out, transforming one equation into another) join the same list as a discriminated
+union on `kind`.

@@ -88,7 +88,8 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
 
 
 def test_prf_tuning_renders_timed_reveals_and_relational_placement(workspace: Path, scianim) -> None:
-    """The Milestone 2.5 dry-run storyboard: function_plot with markers, `below` placement, `reveal_at_seconds`."""
+    """The Milestone 2.5 dry-run storyboard: function_plot with markers, `below` placement, `reveal_at_seconds`,
+    and since Milestone 7 two sigma sweeps with a checkpoint inside one of them."""
     project = workspace / "families" / "computational_neuroscience" / "prf_tuning"
     assert scianim("validate", str(project)).returncode == 0
     assert scianim("codegen", str(project)).returncode == 0
@@ -107,13 +108,24 @@ def test_prf_tuning_renders_timed_reveals_and_relational_placement(workspace: Pa
         "intro_visible",
         "gaussian_visible",
         "size_labelled",
+        "half_widened",
+        "prf_widened",
         "equation_complete",
-        "comparison_complete",
+        "selective",
     ]
     for record in records.values():
         assert record.fidelity == "exact"
         assert record.warnings == [], (record.snapshot_id, record.warnings)
         assert (project / record.png).stat().st_size > 1000
+
+    # Checkpoints inside and after a sweep are exact and carry the readout with the eased value.
+    halfway = {item.object_id: item for item in records["half_widened"].layout}
+    assert set(halfway) == {"profile_plot", "size_label", "widen"}
+    assert halfway["widen"].kind == "value_readout" and halfway["widen"].text == "σ = 2.8 deg"  # noqa: RUF001
+    done = {item.object_id: item for item in records["prf_widened"].layout}
+    assert done["widen"].text == "σ = 4.0 deg"  # noqa: RUF001
+    narrowed = {item.object_id: item for item in records["selective"].layout}
+    assert narrowed["narrow"].text == "σ = 1.0 deg"  # noqa: RUF001
 
     # `below: title` puts the subtitle under the title with the left edges aligned, and nothing overlaps.
     intro = {item.object_id: item for item in records["intro_visible"].layout}
