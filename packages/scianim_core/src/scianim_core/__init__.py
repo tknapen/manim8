@@ -15,6 +15,7 @@ from scianim_core.animation import (
 from scianim_core.common import SCHEMA_VERSION, RelPath, Slug, StrictModel
 from scianim_core.components import REGISTRY, REGISTRY_VERSION, ComponentDefinition, validate_params
 from scianim_core.family import FamilyManifest, SystemRequirement
+from scianim_core.feedback import FeedbackRecord, Region
 from scianim_core.group import GroupManifest
 from scianim_core.jobs import (
     ArtifactManifest,
@@ -48,6 +49,7 @@ __all__ = [
     "Constraint",
     "Equation",
     "FamilyManifest",
+    "FeedbackRecord",
     "GroupManifest",
     "InputHashes",
     "LayoutItem",
@@ -56,6 +58,7 @@ __all__ = [
     "Milestone",
     "Narration",
     "OutputSpec",
+    "Region",
     "RelPath",
     "RenderJob",
     "ResolvedStyle",

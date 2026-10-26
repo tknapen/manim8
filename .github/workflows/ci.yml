@@ -20,6 +20,22 @@ jobs:
       - run: uv run scianim validate examples/families/computational_neuroscience/prf_tuning
       - run: uv run scianim schemas export schemas --check
 
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+      - name: The committed bundle must match the source
+        run: git diff --exit-code --stat src/scianim/server/static
+
   family-render:
     runs-on: ubuntu-latest
     steps:
@@ -36,3 +52,21 @@ jobs:
       - run: uv run scianim workspace list workspace
       - run: uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
       - run: uv run pytest tests/integration -q -m integration
+      - name: Render the dry-run example for the browser test
+        run: |
+          uv run scianim codegen workspace/families/computational_neuroscience/prf_tuning
+          uv run scianim snapshot workspace/families/computational_neuroscience/prf_tuning --all
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npx playwright install --with-deps chromium
+        working-directory: ui
+      - name: Browser acceptance against the served UI
+        run: |
+          uv run scianim serve --workspace workspace --port 8765 > serve.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/api/projects > /dev/null && break; sleep 1; done
+          node tests/ui/e2e.mjs || { cat serve.log; exit 1; }

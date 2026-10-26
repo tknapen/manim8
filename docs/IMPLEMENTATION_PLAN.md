@@ -19,8 +19,9 @@ versioned styles, the nearest-family rule with groups, workspaces with read-only
 `asset://` sources and family components. Known gaps: `environment.manager` values other than `uv` are rejected
 rather than implemented; the `custom` kind is validated but has no rendered example; the job log is per job
 rather than append-only across jobs; approvals, feedback files and the SQLite index are Milestone 3. Milestone 2.5
-(the agent dry run) is complete and documented in [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md); Milestone 3
-onward has not started.
+(the agent dry run) is complete and documented in [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md). Milestone 3
+(the local review UI: API, SQLite index, feedback files, comparison, React front end) is complete (ADR-018);
+Milestone 4 onward has not started.
 
 ## Milestone 0 — repository and contracts
 
@@ -102,17 +103,23 @@ deferred (see the log).
 
 **Build tasks**
 
-- [ ] FastAPI project listing / revision / jobs / artifact endpoints.
+- [x] FastAPI project listing / revision / jobs / artifact endpoints (`src/scianim/server/app.py`, OpenAPI at `/docs`).
 - [x] File-based write-once revisions (`revision create|list`, `snapshot --revision`); project-local renders with `scianim clean`.
-- [ ] SQLite index of projects, revisions, jobs, annotations and approvals; files remain canonical.
-- [ ] `feedback/*.yaml` as the canonical annotation store; `scianim feedback add`; the UI reads and writes the same records.
-- [ ] React/TypeScript frontend: family/project navigation, filmstrip and large viewer, kind labels (`manim_checkpoint`, `sampled_video_frame`, `storyboard_schematic`).
-- [ ] Region annotations in normalized coordinates plus object resolution from the layout report (`object_id`).
-- [ ] Before/after comparison; `scianim compare` for image diffs and moved or changed objects; statuses `approved`, `needs revision`, `scientific concern`.
-- [ ] Job polling, logs, retry/cancel; nonblocking render requests.
-- [ ] Record how a change invalidates stale previews and approvals.
+- [x] SQLite index of projects, revisions, jobs, annotations and approvals; files remain canonical (`scianim index rebuild`).
+- [x] `feedback/*.yaml` as the canonical annotation store; `scianim feedback add|status|list`; the UI reads and writes the same records.
+- [x] React/TypeScript frontend: family/project navigation, filmstrip and large viewer, kind labels (`manim_checkpoint`, `sampled_video_frame`, `storyboard_schematic`).
+- [x] Region annotations in normalized coordinates plus object resolution from the layout report (`object_id`).
+- [x] Before/after comparison; `scianim compare` for image diffs and moved or changed objects; statuses `approved`, `needs revision`, `scientific concern`.
+- [x] Job polling, logs, retry/cancel; nonblocking render requests.
+- [x] Record how a change invalidates stale previews and approvals (ADR-018: approvals bind to the image hash of an immutable revision; the compare tools show whether a later render is identical).
 
 **Acceptance:** A browser user can view a generated snapshot, click an object or mark a region, submit a request, and retrieve the annotation bound to the correct immutable revision after restarting the server.
+
+**Result:** `tests/unit/test_review_api.py` covers the records, the index, the comparison and the API without
+rendering; `tests/integration/test_review_server.py` renders through the API, annotates an object, approves a
+frozen revision and reads everything back after a restart; `tests/ui/e2e.mjs` drives the built UI in Chromium
+through the same steps. Not built: the storyboard editor (view C) and video review (view E), which wait for
+Milestone 4; project creation from the browser, which waits for Milestone 5.
 
 ## Milestone 4 — storyboard timing and video rendering
 

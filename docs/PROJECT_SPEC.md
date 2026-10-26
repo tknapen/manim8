@@ -900,6 +900,9 @@ scianim codegen path/to/project           # Scene module from registered compone
 scianim review-sheet path/to/project      # Static HTML contact sheet of checkpoints
 scianim compare path/to/project revA revB # Image diffs and moved/changed objects
 scianim feedback add path/to/project --snapshot pool_introduced --object pool_label --text "..."
+scianim feedback status path/to/project --revision rev_0002 --snapshot pool_introduced --status approved
+scianim feedback list path/to/project
+scianim index rebuild [--workspace DIR]     # Recreate the SQLite cache from the files
 scianim schemas export schemas/
 scianim plan path/to/project             # Create/refresh storyboard proposal
 scianim snapshot path/to/project --all   # Named checkpoint stills
@@ -931,6 +934,8 @@ Commands that require LLM reasoning (e.g. `plan`) must be able to call an instal
 - `POST /api/bundles/export`, `POST /api/bundles/import`
 
 For jobs, return IDs and status; long-running render work must not block an HTTP request until completion. Use polling first; Server-Sent Events or WebSockets may be added later for live logs.
+
+Implemented in Milestone 3 (`scianim serve`, loopback by default, OpenAPI at `/docs`): `GET /api/workspace`, `GET /api/projects`, `GET /api/projects/{id}` (brief, storyboard, validation, revisions, jobs), `GET /api/projects/{id}/revisions`, `GET|POST /api/projects/{id}/jobs`, `GET /api/projects/{id}/jobs/{job}` with its checkpoints and layout reports, `GET .../jobs/{job}/log`, `POST .../jobs/{job}/cancel`, `GET /api/projects/{id}/artifacts/{path}` (confined to `renders/`), `GET|POST /api/projects/{id}/feedback`, `GET /api/projects/{id}/compare?a=&b=` with diff images. Projects are addressed by id; a workspace with duplicate project ids reports the duplicate as a problem and serves the first. Project creation, proposals, approvals as a separate resource and bundles wait for later milestones; approvals are feedback records of kind `status`.
 
 ---
 

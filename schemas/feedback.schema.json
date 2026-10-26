@@ -1,0 +1,248 @@
+{
+  "$defs": {
+    "Region": {
+      "additionalProperties": false,
+      "description": "A rectangle in normalized image coordinates, origin top-left.",
+      "properties": {
+        "height": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Height",
+          "type": "number"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Width",
+          "type": "number"
+        },
+        "x": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "Region",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "author": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Author"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^fb_\\d{8}T\\d{6}_[0-9a-f]{6}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "image_height_px": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Image Height Px"
+    },
+    "image_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Image Sha256"
+    },
+    "image_width_px": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Image Width Px"
+    },
+    "job_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Job Id"
+    },
+    "kind": {
+      "enum": [
+        "region_comment",
+        "object_comment",
+        "general_comment",
+        "status"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "object_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Object Id"
+    },
+    "project_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "region": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Region"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "revision_id": {
+      "pattern": "^(working|rev_\\d{4})$",
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "scene_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scene Id"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "severity": {
+      "default": "visual",
+      "enum": [
+        "visual",
+        "scientific",
+        "timing",
+        "other"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Id"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "enum": [
+            "approved",
+            "needs_revision",
+            "scientific_concern"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Status"
+    },
+    "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+    },
+    "time_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time Seconds"
+    }
+  },
+  "required": [
+    "id",
+    "created_at",
+    "project_id",
+    "revision_id",
+    "kind"
+  ],
+  "title": "FeedbackRecord",
+  "type": "object"
+}

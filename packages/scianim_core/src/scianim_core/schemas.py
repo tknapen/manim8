@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from scianim_core.animation import AnimationSpec
 from scianim_core.family import FamilyManifest
+from scianim_core.feedback import FeedbackRecord
 from scianim_core.group import GroupManifest
 from scianim_core.jobs import ArtifactManifest, RenderJob, WorkerResult
 from scianim_core.revisions import RevisionRecord
@@ -28,6 +29,7 @@ PUBLIC_SCHEMAS: dict[str, type[BaseModel]] = {
     "render_job": RenderJob,
     "worker_result": WorkerResult,
     "artifact_manifest": ArtifactManifest,
+    "feedback": FeedbackRecord,
 }
 
 

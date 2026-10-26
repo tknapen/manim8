@@ -14,9 +14,12 @@ from rich.tree import Tree
 
 from scianim.clean import clean_project
 from scianim.codegen.generate import write_scene_module
+from scianim.compare import compare_dir, compare_manifests
 from scianim.config.loader import SpecError, load_spec
 from scianim.doctor import Check, control_plane_checks, family_checks
 from scianim.families.resolve import load_family_context, locate_family, probe_environment, sync_environment
+from scianim.feedback.store import build_record, list_feedback, resolve_target, write_feedback
+from scianim.index import Index
 from scianim.planning.checks import Report, validate_project
 from scianim.project import Project, find_project
 from scianim.render.jobs import (
@@ -27,6 +30,7 @@ from scianim.render.jobs import (
     sources_from_revision,
     tool_versions_for,
 )
+from scianim.render.manifests import manifest_for_ref
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import create_revision, list_revisions, load_revision
 from scianim.styles.resolve import list_styles
@@ -39,6 +43,7 @@ from scianim.workspace import (
     scan_workspace,
 )
 from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest
+from scianim_core.feedback import Region
 from scianim_core.schemas import export_schemas
 
 QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
@@ -51,6 +56,8 @@ family_app = typer.Typer(no_args_is_help=True, help="Families: environments, com
 env_app = typer.Typer(no_args_is_help=True, help="Family render environment (uv).")
 project_app = typer.Typer(no_args_is_help=True, help="Projects (animations).")
 revision_app = typer.Typer(no_args_is_help=True, help="Immutable project revisions.")
+feedback_app = typer.Typer(no_args_is_help=True, help="Review feedback records (feedback/*.yaml).")
+index_app = typer.Typer(no_args_is_help=True, help="The workspace SQLite index (a cache of the files).")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(workspace_app, name="workspace")
@@ -58,6 +65,8 @@ app.add_typer(family_app, name="family")
 family_app.add_typer(env_app, name="env")
 app.add_typer(project_app, name="project")
 app.add_typer(revision_app, name="revision")
+app.add_typer(feedback_app, name="feedback")
+app.add_typer(index_app, name="index")
 
 out = Console()
 err = Console(stderr=True)
@@ -621,6 +630,198 @@ def clean(
     out.print(
         f"{verb} {len(report.removed)} item(s), {report.bytes_freed / 1e6:.1f} MB; kept {len(report.kept)} job(s)"
     )
+
+
+# --- review: feedback, comparison, index and server -----------------------------------------------
+
+
+def _parse_region(value: str | None) -> Region | None:
+    if value is None:
+        return None
+    try:
+        x, y, w, h = (float(part) for part in value.split(","))
+    except ValueError:
+        fail("--region must be x,y,width,height in normalized image coordinates, e.g. 0.2,0.36,0.25,0.14")
+    return Region(x=x, y=y, width=w, height=h)
+
+
+@feedback_app.command("add")
+def feedback_add(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    text: Annotated[str, typer.Option("--text", "-t", help="The comment.")],
+    revision: Annotated[str, typer.Option(help="working or rev_NNNN the comment refers to.")] = "working",
+    snapshot: Annotated[str | None, typer.Option(help="Snapshot (checkpoint) id.")] = None,
+    scene: Annotated[str | None, typer.Option(help="Scene id (derived from the snapshot when omitted).")] = None,
+    object_id: Annotated[str | None, typer.Option("--object", help="Object id from the layout report.")] = None,
+    region: Annotated[str | None, typer.Option(help="x,y,width,height normalized to the image.")] = None,
+    severity: Annotated[str, typer.Option(help="visual, scientific, timing or other.")] = "visual",
+    job: Annotated[
+        str | None, typer.Option(help="Job whose image was reviewed (default: the revision's latest).")
+    ] = None,
+    author: Annotated[str | None, typer.Option(help="Who wrote it.")] = None,
+) -> None:
+    """Record a comment bound to a revision, a snapshot and optionally an object or a region."""
+    try:
+        proj = find_project(project)
+        spec = proj.load_animation()
+        target = resolve_target(proj, revision, snapshot, object_id, job) if snapshot else None
+        parsed = _parse_region(region)
+        kind = "object_comment" if object_id else ("region_comment" if parsed else "general_comment")
+        record = build_record(
+            spec.id,
+            revision_id=revision,
+            kind=kind,  # type: ignore[arg-type]
+            text=text,
+            severity=severity,  # type: ignore[arg-type]
+            snapshot_id=snapshot,
+            scene_id=scene,
+            object_id=object_id,
+            region=parsed,
+            target=target,
+            author=author,
+        )
+        path = write_feedback(proj, record)
+    except SpecError as exc:
+        fail(str(exc))
+    except ValueError as exc:
+        fail(str(exc))
+    out.print(f"[green]{record.id}[/green] -> {path.relative_to(proj.root)}")
+
+
+@feedback_app.command("status")
+def feedback_status(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    snapshot: Annotated[str, typer.Option(help="Snapshot (checkpoint) id.")],
+    status: Annotated[str, typer.Option(help="approved, needs_revision or scientific_concern.")],
+    revision: Annotated[str, typer.Option(help="rev_NNNN (approval refuses the working copy).")] = "working",
+    job: Annotated[
+        str | None, typer.Option(help="Job whose image was reviewed (default: the revision's latest).")
+    ] = None,
+    text: Annotated[str, typer.Option(help="Optional note.")] = "",
+    author: Annotated[str | None, typer.Option(help="Who decided.")] = None,
+) -> None:
+    """Mark a checkpoint of a revision; the record names the image hash that was displayed."""
+    try:
+        proj = find_project(project)
+        spec = proj.load_animation()
+        target = resolve_target(proj, revision, snapshot, None, job)
+        record = build_record(
+            spec.id,
+            revision_id=revision,
+            kind="status",
+            status=status,  # type: ignore[arg-type]
+            text=text,
+            snapshot_id=snapshot,
+            target=target,
+            author=author,
+        )
+        path = write_feedback(proj, record)
+    except SpecError as exc:
+        fail(str(exc))
+    except ValueError as exc:
+        fail(str(exc))
+    out.print(
+        f"[green]{record.id}[/green] {status} {revision}/{snapshot} (image {record.image_sha256[:12]}...) -> {path.name}"
+    )
+
+
+@feedback_app.command("list")
+def feedback_list(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    snapshot: Annotated[str | None, typer.Option(help="Only this snapshot.")] = None,
+    revision: Annotated[str | None, typer.Option(help="Only this revision.")] = None,
+) -> None:
+    """List feedback records in creation order."""
+    try:
+        proj = find_project(project)
+        records = list_feedback(proj, strict=True)
+    except SpecError as exc:
+        fail(str(exc))
+    records = [
+        r
+        for r in records
+        if (snapshot is None or r.snapshot_id == snapshot) and (revision is None or r.revision_id == revision)
+    ]
+    if not records:
+        out.print("no feedback records")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for column in ("id", "revision", "snapshot", "object", "kind", "severity/status", "text"):
+        table.add_column(column)
+    for r in records:
+        table.add_row(
+            r.id, r.revision_id, r.snapshot_id or "-", r.object_id or "-", r.kind, r.status or r.severity, r.text[:80]
+        )
+    out.print(table)
+
+
+@app.command()
+def compare(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    a: Annotated[str, typer.Argument(help="Job id or revision id (its latest succeeded render).")],
+    b: Annotated[str, typer.Argument(help="Job id or revision id.")],
+    no_images: Annotated[bool, typer.Option(help="Skip writing diff PNGs.")] = False,
+) -> None:
+    """Pixel and layout differences between two renders; diff PNGs go to .scianim/compare/."""
+    try:
+        proj = find_project(project)
+    except SpecError as exc:
+        fail(str(exc))
+    manifest_a, manifest_b = manifest_for_ref(proj, a), manifest_for_ref(proj, b)
+    if manifest_a is None or manifest_b is None:
+        fail(f"no succeeded render for '{a if manifest_a is None else b}'")
+    out_dir = None if no_images else compare_dir(proj, manifest_a.job.job_id, manifest_b.job.job_id)
+    results = compare_manifests(proj, manifest_a, manifest_b, out_dir)
+    table = Table(show_header=True, header_style="bold")
+    for column in ("snapshot", "identical", "pixels changed", "layout changes", "note"):
+        table.add_column(column)
+    for item in results:
+        changes = "; ".join(f"{c.object_id} {c.change}" for c in item.changes) or "-"
+        pixels = "-" if item.pixel_diff_fraction is None else f"{100 * item.pixel_diff_fraction:.2f}%"
+        table.add_row(item.snapshot_id, "yes" if item.identical else "no", pixels, changes, item.note or "")
+    out.print(
+        f"A = {manifest_a.job.job_id} ({manifest_a.job.revision_id}); B = {manifest_b.job.job_id} ({manifest_b.job.revision_id})"
+    )
+    out.print(table)
+    if out_dir is not None:
+        out.print(f"diff images: {out_dir}")
+
+
+@index_app.command("rebuild")
+def index_rebuild(
+    workspace: Annotated[Path | None, typer.Option(help="Workspace root (default: the one containing cwd).")] = None,
+) -> None:
+    """Recreate the SQLite index from the files; safe to run at any time."""
+    root = workspace_or_fail(workspace)
+    index = Index(root)
+    index.rebuild()
+    projects = index.projects()
+    out.print(f"indexed {len(projects)} project(s) into {index.path}")
+    for problem in index.problems:
+        out.print(f"  [yellow]problem[/yellow] {problem}")
+    index.close()
+
+
+@app.command()
+def serve(
+    workspace: Annotated[Path | None, typer.Option(help="Workspace root (default: the one containing cwd).")] = None,
+    host: Annotated[str, typer.Option(help="Bind address; keep it on loopback unless you know why not.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="TCP port.")] = 8765,
+) -> None:
+    """Run the local review server (API under /api, the UI at /)."""
+    root = workspace_or_fail(workspace)
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        err.print(
+            "[yellow]warning:[/yellow] binding to a non-loopback address exposes a service that runs Manim code "
+            "from your workspace; there is no authentication"
+        )
+    import uvicorn
+
+    from scianim.server.app import create_app
+
+    application = create_app(root)
+    out.print(f"SciAnim Studio review server on http://{host}:{port}/ (workspace {root}); Ctrl+C stops it")
+    uvicorn.run(application, host=host, port=port, log_level="warning")
 
 
 def main() -> None:

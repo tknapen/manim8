@@ -237,3 +237,6 @@ workspace/
 
 # Manim text/tex cache written when bridge tests run from the repository root
 media/
+
+# UI build dependencies
+ui/node_modules/

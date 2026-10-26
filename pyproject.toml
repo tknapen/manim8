@@ -12,16 +12,22 @@ dependencies = [
   "ruamel.yaml>=0.18",
   "rich>=13",
   "jinja2>=3.1",
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+  "pillow>=10",
 ]
 
 [project.scripts]
 scianim = "scianim.cli:app"
 
-[project.optional-dependencies]
-api = ["fastapi>=0.115", "uvicorn>=0.30"]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.8", "mypy>=1.13"]
+dev = [
+    "pytest>=8",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "httpx>=0.27",
+]
 
 [tool.uv.workspace]
 members = ["packages/scianim_core"]

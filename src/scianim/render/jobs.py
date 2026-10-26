@@ -6,6 +6,8 @@ import datetime as dt
 import json
 import os
 import shutil
+import subprocess
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +15,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from scianim.config.loader import SpecError, format_validation_error, load_animation, load_storyboard
-from scianim.families.resolve import FamilyContext, probe_environment, run_command
+from scianim.families.resolve import FamilyContext, probe_environment
 from scianim.planning.checks import Report
 from scianim.project import Project, scene_class_name
 from scianim.revisions.store import RevisionSources
@@ -211,6 +213,10 @@ def job_paths(project: Project, job_id: str, revision_id: str) -> JobPaths:
     )
 
 
+def new_job_id() -> str:
+    return f"job_{dt.datetime.now(dt.UTC).strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:6]}"
+
+
 def build_snapshot_job(
     project: Project,
     sources: JobSources,
@@ -218,9 +224,10 @@ def build_snapshot_job(
     snapshot_ids: list[str],
     profile: QualityProfile = "snapshot",
     tool_versions: dict[str, object] | None = None,
+    job_id: str | None = None,
 ) -> tuple[RenderJob, JobPaths, InputHashes]:
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
-    job_id = f"job_{dt.datetime.now(dt.UTC).strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:6]}"
+    job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
     media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
     manim = manim_settings(spec, style, profile, media_dir)
@@ -304,24 +311,73 @@ def worker_env(family: FamilyContext) -> dict[str, str]:
     return env
 
 
-def run_job(
-    project: Project, family: FamilyContext, job: RenderJob, paths: JobPaths, hashes: InputHashes, timeout: float = 1800
-) -> ArtifactManifest:
+@dataclass
+class LaunchedJob:
+    """A worker process that is running (or has run) for a job."""
+
+    job: RenderJob
+    paths: JobPaths
+    hashes: InputHashes
+    argv: list[str]
+    process: subprocess.Popen[str]
+    started: float
+    stdout_path: Path
+    stderr_path: Path
+
+
+def _check_family_env(family: FamilyContext) -> None:
     if not family.venv_python.exists():
         raise SpecError(
             family.path, f"family environment missing at {family.venv_dir}; run `scianim family env sync {family.root}`"
         )
+
+
+def launch_job(
+    project: Project, family: FamilyContext, job: RenderJob, paths: JobPaths, hashes: InputHashes
+) -> LaunchedJob:
+    """Start the worker without waiting for it. `complete_job` collects the result."""
+    _check_family_env(family)
     paths.job_dir.mkdir(parents=True, exist_ok=True)
     paths.output_dir.mkdir(parents=True, exist_ok=True)
     paths.job_file.write_text(job.model_dump_json(indent=2))
     argv = [str(family.venv_python), "-m", "scianim_bridge.worker", str(paths.job_file)]
-    result = run_command(argv, cwd=project.root, timeout=timeout, env=worker_env(family))
+    stdout_path = paths.job_dir / "stdout.txt"
+    stderr_path = paths.job_dir / "stderr.txt"
+    with stdout_path.open("w", encoding="utf-8") as out_handle, stderr_path.open("w", encoding="utf-8") as err_handle:
+        process = subprocess.Popen(
+            argv, cwd=project.root, env=worker_env(family), stdout=out_handle, stderr=err_handle, text=True
+        )
+    return LaunchedJob(job, paths, hashes, argv, process, time.monotonic(), stdout_path, stderr_path)
+
+
+def complete_job(project: Project, launched: LaunchedJob) -> ArtifactManifest:
+    """Wait for a launched worker, write the log and the manifest, and record the cache pointer."""
+    returncode = launched.process.wait()
+    elapsed = time.monotonic() - launched.started
+    stdout = launched.stdout_path.read_text(encoding="utf-8", errors="replace")
+    stderr = launched.stderr_path.read_text(encoding="utf-8", errors="replace")
+    return _finish_job(
+        project, launched.job, launched.paths, launched.hashes, launched.argv, returncode, stdout, stderr, elapsed
+    )
+
+
+def _finish_job(
+    project: Project,
+    job: RenderJob,
+    paths: JobPaths,
+    hashes: InputHashes,
+    argv: list[str],
+    returncode: int,
+    stdout: str,
+    stderr: str,
+    elapsed: float,
+) -> ArtifactManifest:
     paths.log_file.write_text(
-        f"$ {' '.join(argv)}\n(exit {result.returncode}, {result.elapsed_seconds:.1f}s)\n\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}\n"
+        f"$ {' '.join(argv)}\n(exit {returncode}, {elapsed:.1f}s)\n\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n"
     )
     result_file = paths.output_dir / "result.json"
     if not result_file.exists():
-        tail = result.stderr.strip().splitlines()[-25:]
+        tail = stderr.strip().splitlines()[-25:]
         raise SpecError(paths.log_file, "worker produced no result.json; last stderr lines:\n" + "\n".join(tail))
     try:
         worker_result = WorkerResult.model_validate_json(result_file.read_text())
@@ -341,6 +397,20 @@ def run_job(
     return manifest
 
 
+def run_job(
+    project: Project, family: FamilyContext, job: RenderJob, paths: JobPaths, hashes: InputHashes, timeout: float = 1800
+) -> ArtifactManifest:
+    """Launch the worker and wait for it (the CLI path)."""
+    launched = launch_job(project, family, job, paths, hashes)
+    try:
+        launched.process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        launched.process.kill()
+        launched.process.wait()
+        raise SpecError(paths.job_file, f"worker exceeded the timeout of {timeout:g}s and was killed") from None
+    return complete_job(project, launched)
+
+
 def tool_versions_for(family: FamilyContext) -> dict[str, object]:
     probe = probe_environment(family)
     return probe if probe.get("available") else {}
@@ -350,13 +420,17 @@ __all__ = [
     "FAMILY_ROOT_ENV",
     "WORKING_REVISION",
     "JobSources",
+    "LaunchedJob",
     "build_snapshot_job",
     "cache_key",
     "cached_manifest",
+    "complete_job",
     "input_hashes",
     "job_paths",
+    "launch_job",
     "manim_settings",
     "materialize_data_files",
+    "new_job_id",
     "run_job",
     "sources_from_report",
     "sources_from_revision",

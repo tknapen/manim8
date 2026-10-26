@@ -47,6 +47,9 @@ uv run scianim revision create $P -m "first cut"       # revisions/rev_0001, wri
 uv run scianim snapshot $P --revision rev_0001         # renders/rev_0001/<job>/
 uv run scianim workspace list workspace                # families, groups, projects, duplicate ids
 uv run scianim clean $P                                # media cache and superseded working renders
+uv run scianim feedback add $P --snapshot equation_complete --object normalization_equation --text "..."
+uv run scianim compare $P rev_0001 working             # pixel and layout differences, diff PNGs
+uv run scianim serve --workspace workspace             # review UI and API on http://127.0.0.1:8765/
 uv run pytest tests/unit -q                            # contracts, cascade, checks, isolation, workspaces, revisions
 uv run pytest tests/integration -q -m integration      # real renders in a temporary workspace; skipped without uv
 uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
@@ -62,8 +65,11 @@ Milestones 0 to 2 of the implementation plan are implemented and tested on the e
 JSON Schemas, file and project validation, versioned styles with a cascade that records provenance, workspaces
 with families, groups and projects, `uv` family environments, the component registry with six kinds,
 deterministic code generation, in-flow checkpoints with layout reports, content-addressed caching, write-once
-revisions, shared assets, and a static review sheet. Not yet built: the web UI and feedback files, video rendering
-and sections, source ingestion, agent operations, bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
+revisions, shared assets, and a static review sheet. Milestone 3 adds the local review server (`scianim serve`):
+a FastAPI API over the same files, a rebuildable SQLite index, typed feedback records in `feedback/*.yaml` with
+object resolution from the layout report, render comparison, non-blocking render jobs with logs and cancel, and a
+React front end built into the package (source in `ui/`). Not yet built: video rendering and sections, source
+ingestion, agent operations, bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status
 

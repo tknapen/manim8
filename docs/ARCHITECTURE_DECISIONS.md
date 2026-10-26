@@ -202,3 +202,38 @@ size (22 px at 1080p), below the style's own minimum, and plots never reported t
 A multiplier in bridge code is a hardcoded size by another name. Named roles make the hierarchy a reviewable
 decision in the sheet, the validator makes the minimum a promise rather than a hope, and despined axes are the
 plotting convention of the field the baseline is for.
+
+## ADR-018: Review records are files; the server and the index are views of them
+
+**Status:** accepted, 26 October 2026 (Milestone 3)
+
+**Decision.** A review annotation is a typed `FeedbackRecord` stored as `feedback/<id>.yaml` in the project,
+written by `scianim feedback add|status` or by the review server; both produce the same record. A record binds
+to `project_id`, `revision_id` (`working` or `rev_NNNN`), the `job_id` whose image was shown, `scene_id`,
+`snapshot_id`, an optional `object_id` resolved from the layout report, a `region` in normalized image
+coordinates, the displayed image's `sha256` and pixel size. Status records (`approved`, `needs_revision`,
+`scientific_concern`) require the image hash, and `approved` refuses the working copy. The SQLite index
+(`<workspace>/.scianim/index.sqlite`) caches projects, revisions, jobs, checkpoints and feedback; it carries a
+schema version and is dropped and rebuilt from the files whenever that version changes, so it can never be the
+only copy of anything. Jobs the server runs record their lifecycle in `.scianim/jobs/<job>/status.json`
+next to the worker log, so queued, running and canceled jobs are visible without a manifest.
+
+**Invalidation rule.** An approval refers to one image: the hash of the checkpoint PNG rendered from one
+immutable revision. A later revision does not inherit it. What `scianim compare` and the Compare view can
+show is whether a later render of the same snapshot is pixel-identical to the approved image; when it is, the
+reviewer may carry the approval over with a new status record on the new revision, which again names the
+hash it saw. Comments are requests for change and may target the working copy; a comment stays attached to
+the revision and image it was made on. Scene-level dependency tracking (spec section 11.3) is deferred to the
+video milestone; until then nothing is marked stale implicitly, and the compare tools make staleness visible
+instead.
+
+**Server boundary.** The API (`scianim serve`, loopback by default) accepts only ids that match the contracts'
+patterns, serves artifacts from `renders/` and `.scianim/compare/` of a known project, and runs renders by
+building the same typed job as the CLI and launching the family worker in a separate process; a request can
+name a project, a revision and snapshot ids, never a path or code. The React UI is built into the package so
+that `uv run scianim serve` needs no Node at run time; CI rebuilds it and fails when the committed bundle
+differs from the source.
+
+**Why.** Files keep the agent and the browser on equal footing (spec section 9.2) and keep bundles
+self-contained; the index exists only for listing speed. Binding approvals to image hashes is the concrete form
+of "never approve a mutable path" (section 9.3) that the system can verify.
