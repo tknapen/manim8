@@ -496,7 +496,7 @@
     "inherits": {
       "anyOf": [
         {
-          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "pattern": "^[a-z][a-z0-9_]{0,63}@\\d+\\.\\d+\\.\\d+$",
           "type": "string"
         },
         {

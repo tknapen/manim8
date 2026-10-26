@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from scianim_core.common import (
+    AssetUri,
     Kind,
     RelPath,
     SchemaVersion,
@@ -62,7 +63,8 @@ class Equation(StrictModel):
 class SourceRef(StrictModel):
     id: Slug
     type: SourceType
-    path: RelPath
+    path: RelPath | AssetUri = Field(union_mode="left_to_right")
+    """Project-relative path, or `asset://<id>` for a shared family or workspace asset."""
     role: SourceRole
     citation: str | None = None
     locators: list[str] = []
@@ -135,7 +137,8 @@ class AnimationSpec(StrictModel):
     schema_version: SchemaVersion
     id: Slug
     title: str = Field(min_length=1)
-    family: Slug
+    family: Slug | None = None
+    """Optional: the nearest ancestor `family.yaml` is authoritative; when present this must match it."""
     sources: list[SourceRef] = []
     output: OutputSpec
     style: StyleSelection

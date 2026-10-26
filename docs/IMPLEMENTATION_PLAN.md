@@ -14,11 +14,12 @@
 ## Status (26 October 2026)
 
 Milestones 0, 1 and 2 are implemented and pass their acceptance commands on the example project (see the README's
-developer section for the exact commands). Known gaps inside those milestones: `environment.manager` values other
-than `uv` are rejected rather than implemented; nested topical groups and `group.yaml` are not read yet; the
-`custom` kind is wired but has no example or test; the job log is per job rather than append-only across jobs;
-revisions do not exist yet, so every job renders the working copy under revision id `working` and is identified by
-its input hashes. Milestone 2.5 onward has not started.
+developer section for the exact commands), and the hierarchy decisions of ADR-010 to ADR-014 are implemented:
+versioned styles, the nearest-family rule with groups, workspaces with read-only examples, write-once revisions,
+`asset://` sources and family components. Known gaps: `environment.manager` values other than `uv` are rejected
+rather than implemented; the `custom` kind is validated but has no rendered example; the job log is per job
+rather than append-only across jobs; approvals, feedback files and the SQLite index are Milestone 3. Milestone 2.5
+onward has not started.
 
 ## Milestone 0 — repository and contracts
 
@@ -37,10 +38,10 @@ its input hashes. Milestone 2.5 onward has not started.
 **Acceptance**
 
 ```bash
-scianim validate examples/divisive_normalization/animation.yaml
-scianim validate examples/divisive_normalization/storyboard.yaml
-scianim validate examples/divisive_normalization
-scianim doctor
+E=examples/families/computational_neuroscience/divisive_normalization
+scianim validate $E/animation.yaml $E/storyboard.yaml $E     # templates validate in place (read-only)
+scianim workspace init workspace --with-example               # instances live in a workspace
+scianim doctor --project workspace/families/computational_neuroscience/divisive_normalization
 pytest tests/unit
 ```
 
@@ -54,7 +55,10 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 
 - [x] Token cascade: default → theme version chain → family → group → project (allowlisted) → scene (allowlisted). Deep merge; unknown token paths rejected; no hardcoded fallback for missing tokens.
 - [x] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
-- [x] Family discovery: declared family root, `uv.lock`, nested topical groups, explicit child families.
+- [x] Family discovery: nearest `family.yaml` is authoritative, `family:` optional, `group.yaml` layers, explicit child families, duplicate ids rejected.
+- [x] Versioned style directories (`<name>/<version>/style.yaml`) with pinned inheritance; `scianim style list`.
+- [x] Workspaces: `workspace init|list`, `family init`, `project init`, read-only examples as templates.
+- [x] `asset://` sources from family and workspace `assets/`; family `components/` on the worker path.
 - [x] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.
 - [x] Worker launch via subprocess from the family `.venv`: structured job file in, JSON result out; capture stdout, stderr, exit status and elapsed time.
 - [x] Test that the control-plane process never imports `manim` or `scianim_bridge`, and that installing a specialized dependency into a family does not alter control-plane dependencies.
@@ -91,6 +95,7 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 **Build tasks**
 
 - [ ] FastAPI project listing / revision / jobs / artifact endpoints.
+- [x] File-based write-once revisions (`revision create|list`, `snapshot --revision`); project-local renders with `scianim clean`.
 - [ ] SQLite index of projects, revisions, jobs, annotations and approvals; files remain canonical.
 - [ ] `feedback/*.yaml` as the canonical annotation store; `scianim feedback add`; the UI reads and writes the same records.
 - [ ] React/TypeScript frontend: family/project navigation, filmstrip and large viewer, kind labels (`manim_checkpoint`, `sampled_video_frame`, `storyboard_schematic`).

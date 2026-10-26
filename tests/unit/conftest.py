@@ -6,11 +6,11 @@ from pathlib import Path
 import pytest
 
 from scianim.project import Project
+from scianim.workspace import EXAMPLE_FAMILY, EXAMPLE_PROJECT, init_workspace
 
 REPO = Path(__file__).resolve().parents[2]
-EXAMPLE = REPO / "examples" / "divisive_normalization"
+EXAMPLE = REPO / "examples" / "families" / EXAMPLE_FAMILY / EXAMPLE_PROJECT
 STYLES = REPO / "styles"
-FAMILIES = REPO / "examples" / "families"
 
 
 @pytest.fixture
@@ -19,23 +19,21 @@ def repo_root() -> Path:
 
 
 @pytest.fixture
-def example_project() -> Project:
-    return Project(EXAMPLE)
+def workspace(tmp_path: Path) -> Path:
+    """A fresh workspace holding the bundled styles plus the example family and project."""
+    root = tmp_path / "ws"
+    init_workspace(root, with_example=True)
+    return root
 
 
 @pytest.fixture
-def project_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Project:
-    """A writable copy of the example project with styles and families discoverable."""
-    target = tmp_path / "divisive_normalization"
-    shutil.copytree(EXAMPLE, target, ignore=shutil.ignore_patterns(".scianim", "renders", "code", "__pycache__"))
-    monkeypatch.setenv("SCIANIM_STYLES", str(STYLES))
-    monkeypatch.setenv("SCIANIM_FAMILIES", str(FAMILIES))
-    return Project(target)
+def project_copy(workspace: Path) -> Project:
+    """The example project inside a workspace: styles and family resolve by ancestry, no env vars."""
+    return Project(workspace / "families" / EXAMPLE_FAMILY / EXAMPLE_PROJECT)
 
 
 @pytest.fixture
-def styles_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def styles_copy(tmp_path: Path) -> Path:
     target = tmp_path / "styles"
     shutil.copytree(STYLES, target)
-    monkeypatch.setenv("SCIANIM_STYLES", str(target))
     return target

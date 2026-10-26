@@ -292,8 +292,16 @@
           "type": "array"
         },
         "path": {
-          "title": "Path",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "pattern": "^asset://[a-z][a-z0-9_./-]*[a-z0-9]$",
+              "type": "string"
+            }
+          ],
+          "title": "Path"
         },
         "role": {
           "enum": [
@@ -438,9 +446,17 @@
       "type": "object"
     },
     "family": {
-      "pattern": "^[a-z][a-z0-9_]{0,63}$",
-      "title": "Family",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Family"
     },
     "id": {
       "pattern": "^[a-z][a-z0-9_]{0,63}$",
@@ -497,7 +513,6 @@
     "schema_version",
     "id",
     "title",
-    "family",
     "output",
     "style",
     "objective"

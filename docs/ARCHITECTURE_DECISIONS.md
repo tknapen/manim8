@@ -87,3 +87,58 @@ Typst, manimpango and pycairo inside the family environment.
 
 **Why.** Verified on a clean Ubuntu 24.04 container: with `libcairo2-dev` and `libpango1.0-dev` present, the family
 lock installs manim 0.22.0 from PyPI and the example renders without LaTeX or a system ffmpeg.
+
+## ADR-010: Versioned style directories with pinned inheritance
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** Sheets live at `styles/<name>/<version>/style.yaml`; resolution is by name and version; a sheet
+inherits another only as `name@version`.
+
+**Why.** A single sheet per theme cannot keep an old project rendering with its pinned theme after a bump, and a
+bundle must carry exactly the pinned sheet. Pinned inheritance keeps a theme's resolved tokens stable when its
+parent gains a version.
+
+## ADR-011: The nearest family is authoritative
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** The closest `family.yaml` above a project defines its family. `animation.yaml` may omit `family:`;
+if present it must match. A project outside every family directory is looked up by id in `families/` search
+roots, where the id must be unique. `group.yaml` files between family and project add style overrides in order.
+
+**Why.** The previous permissive search could silently bind a project to a grandparent or a sibling tree.
+
+## ADR-012: Examples are read-only templates; workspaces hold instances
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** Nothing under `examples/` is rendered in place. `scianim workspace init` creates a workspace
+(bundled styles copied in), `family init` and `project init` populate it, optionally `--from-example`. Family
+`pyproject.toml` files are generated with relative path sources to the source checkout; the example lock is
+copied only when that relative path is identical.
+
+**Why.** Rendering into the repository tree muddled fixtures and user data, and the spec requires that users never
+create folders by hand.
+
+## ADR-013: Revisions are write-once directories; data is recorded by hash
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** `revision create` copies specs, generated code and the resolved style into `revisions/rev_NNNN/`
+with `revision.json`. Data files stay in `data/`; their hashes are recorded and `snapshot --revision` refuses to
+render when they changed. Renders are project-local under `renders/<revision>/<job>/`; `scianim clean` removes
+Manim's media cache and superseded working renders and never touches revisions.
+
+**Why.** Copying data per revision would duplicate large inputs; hashing keeps revisions honest without the cost.
+Project-local renders keep bundles and review sheets self-contained.
+
+## ADR-014: Shared assets are materialized into the project per job
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** `asset://<id>` resolves to the family's `assets/`, then the workspace's. At job time the file is
+copied into the project's `.scianim/assets/` and the job references that project-relative path.
+
+**Why.** Job payloads and manifests must stay free of machine-specific absolute paths; the copy is cheap and
+hashed.

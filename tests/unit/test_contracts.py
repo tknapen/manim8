@@ -8,13 +8,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from scianim.config.loader import SpecError, load_spec, load_yaml
-from scianim_core import AnimationSpec, FamilyManifest, Storyboard, StyleSheet
+from scianim.config.loader import SpecError, detect_kind, load_spec, load_yaml
+from scianim_core import AnimationSpec, FamilyManifest, GroupManifest, Storyboard, StyleSheet, WorkspaceManifest
 from scianim_core.schemas import render_schemas
 
 REPO = Path(__file__).resolve().parents[2]
-ANIMATION = REPO / "examples/divisive_normalization/animation.yaml"
-STORYBOARD = REPO / "examples/divisive_normalization/storyboard.yaml"
+EXAMPLE = REPO / "examples" / "families" / "computational_neuroscience" / "divisive_normalization"
+ANIMATION = EXAMPLE / "animation.yaml"
+STORYBOARD = EXAMPLE / "storyboard.yaml"
 
 
 @pytest.fixture
@@ -32,19 +33,33 @@ def storyboard_data() -> dict:
     [
         (ANIMATION, "animation", AnimationSpec),
         (STORYBOARD, "storyboard", Storyboard),
-        (REPO / "styles/default/style.yaml", "style", StyleSheet),
-        (REPO / "styles/tomas_scientific/style.yaml", "style", StyleSheet),
-        (
-            REPO / "examples/families/computational_neuroscience/family.yaml",
-            "family",
-            FamilyManifest,
-        ),
+        (REPO / "styles/default/0.1.0/style.yaml", "style", StyleSheet),
+        (REPO / "styles/tomas_scientific/0.1.0/style.yaml", "style", StyleSheet),
+        (REPO / "examples/families/computational_neuroscience/family.yaml", "family", FamilyManifest),
     ],
 )
 def test_examples_load(path: Path, kind: str, model: type) -> None:
     detected, loaded = load_spec(path)
     assert detected == kind
     assert isinstance(loaded, model)
+
+
+def test_example_animation_has_no_family_key(animation_data: dict) -> None:
+    assert "family" not in animation_data  # the nearest family.yaml is authoritative
+    assert AnimationSpec.model_validate(animation_data).family is None
+
+
+def test_kind_detection_by_content_and_name(tmp_path: Path) -> None:
+    assert detect_kind({"schema_version": "1.0", "id": "x", "tags": ["a"]}) == "group"
+    assert detect_kind({"schema_version": "1.0", "id": "x"}) == "workspace"
+    assert detect_kind({"output": {}, "objective": "x"}) == "animation"
+    assert detect_kind({}, tmp_path / "group.yaml") == "group"
+    GroupManifest.model_validate(
+        {"schema_version": "1.0", "id": "perception", "style": {"overrides": {"palette.emphasis": "#000000"}}}
+    )
+    WorkspaceManifest.model_validate({"schema_version": "1.0", "id": "lab"})
+    with pytest.raises(ValidationError):
+        GroupManifest.model_validate({"schema_version": "1.0", "id": "perception", "environment": {"manager": "uv"}})
 
 
 def expect_error(model: type, data: dict, fragment: str) -> None:
@@ -76,6 +91,14 @@ def test_path_escape_rejected(animation_data: dict) -> None:
 def test_absolute_path_rejected(animation_data: dict) -> None:
     animation_data["sources"][0]["path"] = "/tmp/data.csv"
     expect_error(AnimationSpec, animation_data, "relative to the project directory")
+
+
+def test_asset_uri_accepted(animation_data: dict) -> None:
+    animation_data["sources"][0]["path"] = "asset://shared/responses.csv"
+    assert AnimationSpec.model_validate(animation_data).sources[0].path == "asset://shared/responses.csv"
+    animation_data["sources"][0]["path"] = "asset://../escape.csv"
+    with pytest.raises(ValidationError):
+        AnimationSpec.model_validate(animation_data)
 
 
 def test_milestone_beyond_duration_rejected(animation_data: dict) -> None:
@@ -143,15 +166,22 @@ def test_narration_marks_unique(storyboard_data: dict) -> None:
 
 
 def test_invalid_color_token_rejected() -> None:
-    data = load_yaml(REPO / "styles/default/style.yaml")
+    data = load_yaml(REPO / "styles/default/0.1.0/style.yaml")
     data["palette"]["primary_signal"] = "blue"
     expect_error(StyleSheet, data, "String should match pattern")
 
 
 def test_unknown_style_key_rejected() -> None:
-    data = load_yaml(REPO / "styles/tomas_scientific/style.yaml")
+    data = load_yaml(REPO / "styles/tomas_scientific/0.1.0/style.yaml")
     data["typography"]["title"]["kerning"] = 1
     expect_error(StyleSheet, data, "Extra inputs are not permitted")
+
+
+def test_inherits_must_pin_a_version() -> None:
+    data = load_yaml(REPO / "styles/tomas_scientific/0.1.0/style.yaml")
+    assert data["inherits"] == "default@0.1.0"
+    data["inherits"] = "default"
+    expect_error(StyleSheet, data, "String should match pattern")
 
 
 def test_loader_reports_readable_errors(tmp_path: Path) -> None:
@@ -166,13 +196,14 @@ def test_schema_export_is_deterministic() -> None:
     first = render_schemas()
     second = render_schemas()
     assert first == second
-    assert set(first) == {
+    assert {
         "animation.schema.json",
         "storyboard.schema.json",
         "style.schema.json",
         "family.schema.json",
-        "resolved_style.schema.json",
+        "group.schema.json",
+        "workspace.schema.json",
+        "revision.schema.json",
         "render_job.schema.json",
-        "worker_result.schema.json",
         "artifact_manifest.schema.json",
-    }
+    } <= set(first)

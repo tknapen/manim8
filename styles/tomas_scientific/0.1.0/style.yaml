@@ -4,7 +4,7 @@ version: "0.1.0"
 description: >-
   Illustrative scientific style tokens. These defaults are provisional and
   should be redesigned with the user using two or three representative previews.
-inherits: default
+inherits: default@0.1.0
 palette:
   background: "#101820"
   foreground: "#F2F4F5"

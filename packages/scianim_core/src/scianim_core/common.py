@@ -49,6 +49,20 @@ def check_relative_path(value: str) -> str:
 RelPath = Annotated[str, AfterValidator(check_relative_path)]
 """Project-relative path. '.' is allowed; '..', absolute paths and backslashes are not."""
 
+ASSET_SCHEME = "asset://"
+AssetUri = Annotated[str, StringConstraints(pattern=r"^asset://[a-z][a-z0-9_./-]*[a-z0-9]$")]
+"""Reference to a shared asset by id, resolved against family and workspace `assets/` directories."""
+
+
+def is_asset_uri(value: str) -> bool:
+    return value.startswith(ASSET_SCHEME)
+
+
+def asset_id(value: str) -> str:
+    if not is_asset_uri(value):
+        raise ValueError(f"not an asset URI: {value!r}")
+    return value[len(ASSET_SCHEME) :]
+
 
 def ensure_unique(ids: Iterable[str], what: str) -> None:
     """Raise ValueError naming duplicate identifiers."""

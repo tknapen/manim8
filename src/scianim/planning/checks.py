@@ -1,4 +1,4 @@
-"""Cross-file project validation (spec sections 5.2, 8.4, 15.1)."""
+"""Cross-file project validation (spec sections 4.1, 5.2, 8.4, 15.1)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from scianim.config.loader import SpecError
-from scianim.families.resolve import FamilyContext, find_family
+from scianim.families.resolve import FamilyContext, GroupContext, locate_family, resolve_asset
 from scianim.project import Project, scene_class_name
 from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
+from scianim_core.common import is_asset_uri
 from scianim_core.components import ComparisonPlotParams
 
 NARRATION_OVERRUN_FACTOR = 1.15
@@ -26,7 +27,12 @@ class Report:
     animation: AnimationSpec | None = None
     storyboard: Storyboard | None = None
     family: FamilyContext | None = None
+    family_via: str | None = None
+    groups: list[GroupContext] = field(default_factory=list)
     style: ResolvedStyle | None = None
+    workspace: Path | None = None
+    source_paths: dict[str, Path] = field(default_factory=dict)
+    """Resolved absolute path per source id (project files and materialized assets alike)."""
 
     @property
     def ok(self) -> bool:
@@ -66,6 +72,13 @@ def csv_columns(path: Path) -> list[str]:
         return next(reader, [])
 
 
+def builder_module_exists(module_name: str, project: Project, family: FamilyContext | None) -> bool:
+    relative = module_name.replace(".", "/") + ".py"
+    if (project.code_dir / relative).exists():
+        return True
+    return family is not None and (family.components_dir / relative).exists()
+
+
 def check_storyboard(
     animation: AnimationSpec,
     storyboard: Storyboard,
@@ -80,7 +93,8 @@ def check_storyboard(
         report.error(f"storyboard ends at {storyboard.total_end_seconds}s but output duration is {duration}s")
     elif duration - storyboard.total_end_seconds > 1.0 / animation.output.fps:
         report.warn(
-            f"storyboard ends at {storyboard.total_end_seconds}s, leaving {duration - storyboard.total_end_seconds:.2f}s of the {duration}s output unplanned"
+            f"storyboard ends at {storyboard.total_end_seconds}s, leaving "
+            f"{duration - storyboard.total_end_seconds:.2f}s of the {duration}s output unplanned"
         )
     for milestone in animation.hard_milestones():
         inside = any(s.start_seconds <= milestone.at_seconds <= s.end_seconds for s in storyboard.scenes)
@@ -97,14 +111,16 @@ def check_storyboard(
             est = scene.narration.estimated_seconds(wpm)
             if est > scene.duration_seconds * NARRATION_OVERRUN_FACTOR:
                 report.warn(
-                    f"scene '{scene.id}': narration needs about {est:.1f}s at {wpm:g} words/min but the scene lasts {scene.duration_seconds:g}s"
+                    f"scene '{scene.id}': narration needs about {est:.1f}s at {wpm:g} words/min "
+                    f"but the scene lasts {scene.duration_seconds:g}s"
                 )
             elif est < scene.duration_seconds * NARRATION_UNDERRUN_FACTOR:
                 report.note(f"scene '{scene.id}': narration covers about {est:.1f}s of {scene.duration_seconds:g}s")
         for obj in scene.objects:
             if obj.style_role is not None and palette is not None and obj.style_role not in palette:
                 report.error(
-                    f"object '{obj.id}': style_role '{obj.style_role}' is not a palette role of style '{style.theme}'; roles: {sorted(palette)}"
+                    f"object '{obj.id}': style_role '{obj.style_role}' is not a palette role of style "
+                    f"'{style.theme}'; roles: {sorted(palette)}"  # type: ignore[union-attr]
                 )
             if obj.data is not None:
                 source = sources.get(obj.data.source)
@@ -117,10 +133,8 @@ def check_storyboard(
                         f"object '{obj.id}': data source '{source.id}' has type '{source.type}'; plots need csv"
                     )
                 else:
-                    path = project.root / source.path
-                    if not path.exists():
-                        report.error(f"source '{source.id}': file {source.path} not found under {project.root}")
-                    else:
+                    path = report.source_paths.get(source.id)
+                    if path is not None and path.exists():
                         columns = set(csv_columns(path))
                         wanted = {obj.data.encoding.x, obj.data.encoding.y}
                         if obj.data.encoding.group:
@@ -147,7 +161,8 @@ def check_storyboard(
                         )
                     if style and equation.source_for(style.tokens.typography.equation.engine) is None:
                         report.error(
-                            f"object '{obj.id}': equation '{equation.id}' has no '{style.tokens.typography.equation.engine}' source but the style uses that engine"
+                            f"object '{obj.id}': equation '{equation.id}' has no "
+                            f"'{style.tokens.typography.equation.engine}' source but the style uses that engine"
                         )
             if obj.kind == "comparison_plot" and palette is not None:
                 params = obj.typed_params()
@@ -158,10 +173,10 @@ def check_storyboard(
                             f"object '{obj.id}': condition_roles['{condition}'] = '{role}' is not a palette role"
                         )
             if obj.kind == "custom":
-                builder = obj.params["builder"]
-                module_name = builder.split(":")[0].replace(".", "/")
-                if not (project.code_dir / f"{module_name}.py").exists():
-                    report.error(f"object '{obj.id}': custom builder module code/{module_name}.py not found")
+                module_name = obj.params["builder"].split(":")[0]
+                if not builder_module_exists(module_name, project, report.family):
+                    where = f"code/ or {report.family.components_dir}" if report.family else "code/"
+                    report.error(f"object '{obj.id}': custom builder module '{module_name}' not found in {where}")
     for constraint in animation.scientific_constraints:
         if constraint.equation and not any(
             o.equation and o.equation.id == constraint.equation for o in storyboard.objects()
@@ -192,28 +207,46 @@ def check_markers(storyboard: Storyboard, scene_module: Path, report: Report) ->
         report.error(f"{scene_module.name}: duplicate checkpoint() markers: {duplicates}")
 
 
+def resolve_sources(project: Project, animation: AnimationSpec, report: Report) -> None:
+    family_root = report.family.root if report.family else None
+    for source in animation.sources:
+        if is_asset_uri(source.path):
+            try:
+                report.source_paths[source.id] = resolve_asset(source.path, family_root, report.workspace)
+            except SpecError as exc:
+                report.error(f"source '{source.id}': {exc.message}")
+        else:
+            path = project.root / source.path
+            if path.exists():
+                report.source_paths[source.id] = path.resolve()
+            else:
+                report.error(f"source '{source.id}': file {source.path} not found under {project.root}")
+
+
 def validate_project(project: Project, require_family: bool = False) -> Report:
     report = Report()
+    report.workspace = project.workspace_root()
     try:
         animation = project.load_animation()
     except SpecError as exc:
         report.error(exc.message if exc.path is None else f"{exc.path}: {exc.message}")
         return report
     report.animation = animation
-    for source in animation.sources:
-        if not (project.root / source.path).exists():
-            report.error(f"source '{source.id}': file {source.path} not found under {project.root}")
     try:
-        report.family = find_family(project.root, animation.family, project.family_search_roots())
+        lookup = locate_family(project.root, animation.family, project.family_search_roots())
+        report.family, report.family_via, report.groups = lookup.context, lookup.via, list(lookup.groups)
     except SpecError as exc:
         (report.error if require_family else report.warn)(exc.message)
+    resolve_sources(project, animation, report)
     family_manifest: FamilyManifest | None = report.family.manifest if report.family else None
     if family_manifest and family_manifest.style.name != animation.style.name:
         report.note(
             f"project uses style '{animation.style.name}' while family '{family_manifest.id}' defaults to '{family_manifest.style.name}'"
         )
     try:
-        report.style = resolve_style(animation.style, project.style_search_dirs(), family_manifest)
+        report.style = resolve_style(
+            animation.style, project.style_search_dirs(), family_manifest, [g.manifest for g in report.groups]
+        )
     except SpecError as exc:
         report.error(exc.message)
     try:

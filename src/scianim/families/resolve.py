@@ -1,4 +1,4 @@
-"""Family discovery, uv environment sync, environment probing and system requirements."""
+"""Family discovery (nearest ancestor wins), groups, assets, uv environments and system requirements."""
 
 from __future__ import annotations
 
@@ -12,11 +12,16 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
-from scianim.config.loader import SpecError, load_family
-from scianim_core import FamilyManifest, SystemRequirement
+from scianim.config.loader import SpecError, load_family, load_group
+from scianim_core import FamilyManifest, GroupManifest, SystemRequirement
+from scianim_core.common import asset_id
 
 FAMILY_FILE = "family.yaml"
+GROUP_FILE = "group.yaml"
+ASSETS_DIR = "assets"
+COMPONENTS_DIR = "components"
 
 PROBE_SCRIPT = r"""
 import json, importlib, platform, sys
@@ -60,6 +65,31 @@ class FamilyContext:
             return self.venv_dir / "Scripts" / "python.exe"
         return self.venv_dir / "bin" / "python"
 
+    @property
+    def components_dir(self) -> Path:
+        return self.root / COMPONENTS_DIR
+
+    @property
+    def assets_dir(self) -> Path:
+        return self.root / ASSETS_DIR
+
+
+@dataclass(frozen=True)
+class GroupContext:
+    manifest: GroupManifest
+    path: Path
+
+    @property
+    def root(self) -> Path:
+        return self.path.parent
+
+
+@dataclass(frozen=True)
+class FamilyLookup:
+    context: FamilyContext
+    via: Literal["ancestor", "search_root"]
+    groups: tuple[GroupContext, ...]
+
 
 def load_family_context(path: Path) -> FamilyContext:
     path = path.resolve()
@@ -68,26 +98,98 @@ def load_family_context(path: Path) -> FamilyContext:
     return FamilyContext(manifest=load_family(path), path=path)
 
 
-def find_family(project_root: Path, family_id: str, search_roots: list[Path]) -> FamilyContext:
-    """Ancestors of the project first (spec 4.1), then declared search roots."""
-    looked: list[Path] = []
-    for parent in (project_root.resolve(), *project_root.resolve().parents):
+def load_group_context(path: Path) -> GroupContext:
+    return GroupContext(manifest=load_group(path), path=path.resolve())
+
+
+def nearest_family(project_root: Path) -> FamilyContext | None:
+    """The closest `family.yaml` strictly above the project directory."""
+    for parent in project_root.resolve().parents:
         candidate = parent / FAMILY_FILE
         if candidate.exists():
-            looked.append(candidate)
-            ctx = load_family_context(candidate)
-            if ctx.manifest.id == family_id:
-                return ctx
+            return load_family_context(candidate)
+    return None
+
+
+def collect_groups(family_root: Path, project_root: Path) -> list[GroupContext]:
+    """`group.yaml` files on the path from the family down to the project, outermost first."""
+    family_root = family_root.resolve()
+    project_root = project_root.resolve()
+    if family_root not in project_root.parents:
+        return []
+    groups: list[GroupContext] = []
+    node = family_root
+    for part in project_root.relative_to(family_root).parts[:-1]:
+        node = node / part
+        candidate = node / GROUP_FILE
+        if candidate.exists():
+            groups.append(load_group_context(candidate))
+    ids = [g.manifest.id for g in groups]
+    duplicates = sorted({i for i in ids if ids.count(i) > 1})
+    if duplicates:
+        raise SpecError(
+            None, f"group id(s) {duplicates} appear more than once between {family_root} and {project_root}"
+        )
+    return groups
+
+
+def locate_family(project_root: Path, declared: str | None, search_roots: list[Path]) -> FamilyLookup:
+    """Resolve a project's family (spec section 4.1).
+
+    The nearest ancestor `family.yaml` is authoritative; a declared `family:` must match it. Only a
+    project outside every family directory is looked up by id in the search roots, where the id
+    must be unique.
+    """
+    nearest = nearest_family(project_root)
+    if nearest is not None:
+        if declared is not None and nearest.manifest.id != declared:
+            raise SpecError(
+                nearest.path,
+                f"project declares family '{declared}' but lives under family '{nearest.manifest.id}'; "
+                "remove `family:` from animation.yaml or move the project",
+            )
+        return FamilyLookup(nearest, "ancestor", tuple(collect_groups(nearest.root, project_root)))
+    if declared is None:
+        raise SpecError(
+            None,
+            "no family: the project is not inside a family directory and animation.yaml has no `family:`",
+        )
+    matches: list[FamilyContext] = []
+    looked: list[Path] = []
     for root in search_roots:
         if not root.is_dir():
             continue
         for candidate in sorted(root.glob(f"*/{FAMILY_FILE}")):
             looked.append(candidate)
             ctx = load_family_context(candidate)
-            if ctx.manifest.id == family_id:
-                return ctx
-    where = ", ".join(str(p) for p in looked) or "(no family.yaml files found)"
-    raise SpecError(None, f"family '{family_id}' not found; inspected: {where}")
+            if ctx.manifest.id == declared:
+                matches.append(ctx)
+    if not matches:
+        where = ", ".join(str(p) for p in looked) or "(no family.yaml files found)"
+        raise SpecError(None, f"family '{declared}' not found; inspected: {where}")
+    if len(matches) > 1:
+        raise SpecError(
+            None, f"family '{declared}' is declared in more than one place: {[str(m.path) for m in matches]}"
+        )
+    return FamilyLookup(matches[0], "search_root", ())
+
+
+def resolve_asset(uri: str, family_root: Path | None, workspace_root: Path | None) -> Path:
+    """`asset://<id>` -> file under the family's `assets/`, else the workspace's `assets/`."""
+    ident = asset_id(uri)
+    if any(part in ("..", "") for part in ident.split("/")):
+        raise SpecError(None, f"asset id '{ident}' must be a plain relative path")
+    searched: list[Path] = []
+    for base in (family_root, workspace_root):
+        if base is None:
+            continue
+        directory = base / ASSETS_DIR
+        searched.append(directory)
+        candidate = directory / ident
+        if candidate.is_file():
+            return candidate
+    where = ", ".join(str(p) for p in searched) or "(no assets directories)"
+    raise SpecError(None, f"asset '{uri}' not found; searched: {where}")
 
 
 @dataclass
@@ -121,10 +223,7 @@ def sync_environment(ctx: FamilyContext, locked: bool = False, timeout: float = 
     a missing or stale lockfile is an error instead.
     """
     if ctx.manifest.environment.manager != "uv":
-        raise SpecError(
-            ctx.path,
-            f"environment manager '{ctx.manifest.environment.manager}' is not implemented yet",
-        )
+        raise SpecError(ctx.path, f"environment manager '{ctx.manifest.environment.manager}' is not implemented yet")
     uv = uv_executable()
     if uv is None:
         raise SpecError(ctx.path, "`uv` is not installed or not on PATH (https://docs.astral.sh/uv/)")
@@ -149,10 +248,7 @@ def probe_environment(ctx: FamilyContext, timeout: float = 120) -> dict[str, obj
     """Report interpreter and package versions inside the family environment, without importing them here."""
     python = ctx.venv_python
     if not python.exists():
-        return {
-            "available": False,
-            "reason": f"no environment at {ctx.venv_dir}; run `scianim family env sync`",
-        }
+        return {"available": False, "reason": f"no environment at {ctx.venv_dir}; run `scianim family env sync`"}
     result = run_command([str(python), "-I", "-c", PROBE_SCRIPT], cwd=ctx.env_root, timeout=timeout)
     if not result.ok:
         return {"available": False, "reason": result.stderr.strip()[-500:] or "probe failed"}
@@ -207,11 +303,7 @@ def check_system_requirements(
         elif req.kind == "library":
             found = ctypes.util.find_library(req.name)
             checks.append(
-                RequirementCheck(
-                    req,
-                    found is not None,
-                    found or f"lib{req.name} not found by the dynamic loader",
-                )
+                RequirementCheck(req, found is not None, found or f"lib{req.name} not found by the dynamic loader")
             )
         elif req.kind == "font":
             ok, detail = _font_installed(req.name)
@@ -219,11 +311,7 @@ def check_system_requirements(
         elif req.kind == "python_module":
             present = bool(probe and probe.get(req.name))
             checks.append(
-                RequirementCheck(
-                    req,
-                    present,
-                    "importable in family environment" if present else "not importable",
-                )
+                RequirementCheck(req, present, "importable in family environment" if present else "not importable")
             )
         else:  # image
             checks.append(RequirementCheck(req, True, "container images are recorded, not verified, in this version"))

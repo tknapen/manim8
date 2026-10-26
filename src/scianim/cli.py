@@ -10,26 +10,34 @@ from typing import Annotated
 import typer
 from rich.console import Console
 from rich.table import Table
+from rich.tree import Tree
 
+from scianim.clean import clean_project
 from scianim.codegen.generate import write_scene_module
 from scianim.config.loader import SpecError, load_spec
 from scianim.doctor import Check, control_plane_checks, family_checks
-from scianim.families.resolve import (
-    find_family,
-    load_family_context,
-    probe_environment,
-    sync_environment,
-)
+from scianim.families.resolve import load_family_context, locate_family, probe_environment, sync_environment
 from scianim.planning.checks import Report, validate_project
 from scianim.project import Project, find_project
 from scianim.render.jobs import (
-    WORKING_REVISION,
     build_snapshot_job,
     cached_manifest,
     run_job,
+    sources_from_report,
+    sources_from_revision,
     tool_versions_for,
 )
 from scianim.review.sheet import write_sheet
+from scianim.revisions.store import create_revision, list_revisions, load_revision
+from scianim.styles.resolve import list_styles
+from scianim.workspace import (
+    DEFAULT_STYLE_REF,
+    find_workspace,
+    init_family,
+    init_project,
+    init_workspace,
+    scan_workspace,
+)
 from scianim_core import ArtifactManifest
 from scianim_core.schemas import export_schemas
 
@@ -38,12 +46,18 @@ QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
 app = typer.Typer(no_args_is_help=True, help="SciAnim Studio control plane. Never imports Manim.")
 style_app = typer.Typer(no_args_is_help=True, help="Style token resolution.")
 schemas_app = typer.Typer(no_args_is_help=True, help="JSON Schema export.")
-family_app = typer.Typer(no_args_is_help=True, help="Family environments.")
+workspace_app = typer.Typer(no_args_is_help=True, help="Workspaces hold styles, families and projects.")
+family_app = typer.Typer(no_args_is_help=True, help="Families: environments, components and assets.")
 env_app = typer.Typer(no_args_is_help=True, help="Family render environment (uv).")
+project_app = typer.Typer(no_args_is_help=True, help="Projects (animations).")
+revision_app = typer.Typer(no_args_is_help=True, help="Immutable project revisions.")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
+app.add_typer(workspace_app, name="workspace")
 app.add_typer(family_app, name="family")
 family_app.add_typer(env_app, name="env")
+app.add_typer(project_app, name="project")
+app.add_typer(revision_app, name="revision")
 
 out = Console()
 err = Console(stderr=True)
@@ -63,6 +77,18 @@ def print_report(report: Report, label: str) -> None:
         out.print(f"  [dim]note    {message}[/dim]")
     status = "[green]valid[/green]" if report.ok else "[red]invalid[/red]"
     out.print(f"{label}: {status} ({len(report.errors)} errors, {len(report.warnings)} warnings)")
+
+
+def workspace_or_fail(workspace: Path | None) -> Path:
+    root = workspace.resolve() if workspace is not None else find_workspace(Path.cwd())
+    if root is None:
+        fail("not inside a workspace; pass --workspace or run `scianim workspace init <dir>`")
+    if workspace is not None and not (root / "workspace.yaml").exists():
+        fail(f"{root} is not a workspace (no workspace.yaml)")
+    return root
+
+
+# --- validation and diagnostics ----------------------------------------------------------------
 
 
 @app.command()
@@ -127,13 +153,16 @@ def doctor(
         if project is not None:
             proj = find_project(project)
             spec = proj.load_animation()
-            contexts.append(find_family(proj.root, spec.family, proj.family_search_roots()))
+            contexts.append(locate_family(proj.root, spec.family, proj.family_search_roots()).context)
     except SpecError as exc:
         fail(str(exc))
     for ctx in contexts:
         checks.extend(family_checks(ctx))
     ok = _print_checks(checks)
     raise typer.Exit(0 if ok else 1)
+
+
+# --- styles ------------------------------------------------------------------------------------
 
 
 def _flatten(data: dict, prefix: str = "") -> dict[str, object]:
@@ -177,6 +206,31 @@ def style_resolve(
     out.print(table)
 
 
+@style_app.command("list")
+def style_list(
+    path: Annotated[
+        Path | None, typer.Argument(help="Project or workspace directory (default: current directory).")
+    ] = None,
+) -> None:
+    """List the style sheets visible from a project or workspace, by name and version."""
+    start = (path or Path.cwd()).resolve()
+    try:
+        search_dirs = find_project(start).style_search_dirs()
+    except SpecError:
+        search_dirs = Project(start).style_search_dirs()
+    found = list_styles(search_dirs)
+    if not found:
+        fail(f"no style sheets found; searched: {[str(d) for d in search_dirs]}")
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("style")
+    table.add_column("version")
+    table.add_column("path", overflow="fold")
+    for name, versions in sorted(found.items()):
+        for version, sheet in sorted(versions.items()):
+            table.add_row(name, version, str(sheet))
+    out.print(table)
+
+
 @schemas_app.command("export")
 def schemas_export(
     directory: Annotated[Path, typer.Argument(help="Target directory.")] = Path("schemas"),
@@ -190,6 +244,70 @@ def schemas_export(
         out.print(f"schemas in {directory} are up to date")
     else:
         out.print(f"wrote schemas to {directory}")
+
+
+# --- workspaces, families, projects --------------------------------------------------------------
+
+
+@workspace_app.command("init")
+def workspace_init(
+    directory: Annotated[Path, typer.Argument(help="Workspace directory to create.")],
+    workspace_id: Annotated[
+        str | None, typer.Option("--id", help="Workspace id (default: from the directory name).")
+    ] = None,
+    styles_from: Annotated[Path | None, typer.Option(help="Directory of versioned style sheets to copy in.")] = None,
+    with_example: Annotated[bool, typer.Option(help="Also copy the example family and project.")] = False,
+) -> None:
+    """Create a workspace: workspace.yaml, styles/, families/ and assets/."""
+    try:
+        report = init_workspace(directory, workspace_id, styles_from, with_example)
+    except SpecError as exc:
+        fail(str(exc))
+    for created in report.created:
+        out.print(f"  created {created}")
+    for note in report.notes:
+        out.print(f"[yellow]note:[/yellow] {note}")
+    out.print(f"[green]workspace ready[/green] at {directory.resolve()}")
+
+
+@workspace_app.command("list")
+def workspace_list(
+    directory: Annotated[Path | None, typer.Argument(help="Workspace directory (default: the enclosing one).")] = None,
+) -> None:
+    """Show families, groups and projects, and report duplicate ids or orphan projects."""
+    root = workspace_or_fail(directory)
+    scan = scan_workspace(root)
+    tree = Tree(f"[bold]{root}[/bold]")
+    for family in scan.families:
+        env = "env ok" if family.has_environment else ("lock only" if family.has_lockfile else "no env")
+        branch = tree.add(f"family [bold]{family.id}[/bold]  ({family.path.relative_to(root)}, {env})")
+        for project in family.projects:
+            groups = f" via {' / '.join(project.groups)}" if project.groups else ""
+            storyboard = "storyboard" if project.has_storyboard else "no storyboard"
+            branch.add(f"project [bold]{project.id}[/bold]  ({project.path.relative_to(root)}, {storyboard}{groups})")
+    out.print(tree)
+    for problem in scan.problems:
+        out.print(f"  [red]problem[/red] {problem}")
+    raise typer.Exit(1 if scan.problems else 0)
+
+
+@family_app.command("init")
+def family_init(
+    family_id: Annotated[str, typer.Argument(help="Family id (slug).")],
+    workspace: Annotated[Path | None, typer.Option(help="Workspace directory (default: the enclosing one).")] = None,
+    style: Annotated[str, typer.Option(help="Default style as name@version.")] = DEFAULT_STYLE_REF,
+    from_example: Annotated[
+        str | None, typer.Option(help="Copy an example family (e.g. computational_neuroscience).")
+    ] = None,
+    title: Annotated[str | None, typer.Option(help="Display title.")] = None,
+) -> None:
+    """Create a family directory with family.yaml and a render-environment pyproject."""
+    root = workspace_or_fail(workspace)
+    try:
+        dest = init_family(root, family_id, style, from_example, title)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"[green]family created[/green] at {dest}\nnext: scianim family env sync {dest}")
 
 
 @env_app.command("sync")
@@ -214,15 +332,35 @@ def family_env_sync(
 
 
 @env_app.command("probe")
-def family_env_probe(
-    family: Annotated[Path, typer.Argument(help="Family directory or family.yaml.")],
-) -> None:
+def family_env_probe(family: Annotated[Path, typer.Argument(help="Family directory or family.yaml.")]) -> None:
     """Report interpreter and package versions inside the family environment."""
     try:
         ctx = load_family_context(family)
     except SpecError as exc:
         fail(str(exc))
     out.print_json(json.dumps(probe_environment(ctx)))
+
+
+@project_app.command("init")
+def project_init(
+    name: Annotated[str, typer.Argument(help="Project name; becomes its id (slug).")],
+    family: Annotated[str, typer.Option(help="Family id the project belongs to.")],
+    workspace: Annotated[Path | None, typer.Option(help="Workspace directory (default: the enclosing one).")] = None,
+    from_example: Annotated[
+        str | None, typer.Option(help="Copy an example project (e.g. divisive_normalization).")
+    ] = None,
+    title: Annotated[str | None, typer.Option(help="Display title.")] = None,
+) -> None:
+    """Create a project under its family, from a template or from an example."""
+    root = workspace_or_fail(workspace)
+    try:
+        dest = init_project(root, family, name, from_example, title)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"[green]project created[/green] at {dest}")
+
+
+# --- generation and rendering --------------------------------------------------------------------
 
 
 def _prepare(project_path: Path, require_family: bool) -> tuple[Project, Report]:
@@ -238,11 +376,7 @@ def _prepare(project_path: Path, require_family: bool) -> tuple[Project, Report]
 def codegen(project: Annotated[Path, typer.Argument(help="Project directory.")]) -> None:
     """Generate the scene module from the storyboard's registered components."""
     proj, report = _prepare(project, require_family=False)
-    marker_errors = (
-        "checkpoint() marker",
-        "markers not in the storyboard",
-        "duplicate checkpoint()",
-    )
+    marker_errors = ("checkpoint() marker", "markers not in the storyboard", "duplicate checkpoint()")
     blocking = [e for e in report.errors if not any(m in e for m in marker_errors)]
     if blocking or report.animation is None or report.storyboard is None or report.style is None:
         print_report(report, str(project))
@@ -288,6 +422,9 @@ def snapshot(
     ids: Annotated[list[str] | None, typer.Option("--id", help="Snapshot ID to render (repeatable).")] = None,
     all_snapshots: Annotated[bool, typer.Option("--all", help="Render every snapshot (default when no --id).")] = False,
     profile: Annotated[str, typer.Option(help="Quality profile: storyboard, snapshot, draft or final.")] = "snapshot",
+    revision: Annotated[
+        str | None, typer.Option(help="Render an immutable revision (e.g. rev_0002) instead of the working copy.")
+    ] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 1800,
 ) -> None:
@@ -295,13 +432,10 @@ def snapshot(
     if profile not in QUALITY_PROFILES:
         fail(f"profile must be one of {list(QUALITY_PROFILES)}")
     proj, report = _prepare(project, require_family=True)
-    if (
-        not report.ok
-        or report.animation is None
-        or report.storyboard is None
-        or report.style is None
-        or report.family is None
-    ):
+    if report.family is None:
+        print_report(report, str(project))
+        fail("the project's family could not be resolved; see above")
+    if revision is None and not report.ok:
         print_report(report, str(project))
         fail("project does not validate; see above")
     family = report.family
@@ -309,16 +443,12 @@ def snapshot(
     if not tool_versions:
         fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
     try:
-        job, paths, hashes = build_snapshot_job(
-            proj,
-            report.animation,
-            report.storyboard,
-            report.style,
-            family,
-            list(ids or []),
-            profile,  # type: ignore[arg-type]
-            tool_versions,
+        sources = (
+            sources_from_revision(proj, load_revision(proj, revision), report)
+            if revision
+            else sources_from_report(proj, report)
         )
+        job, paths, hashes = build_snapshot_job(proj, sources, family, list(ids or []), profile, tool_versions)  # type: ignore[arg-type]
     except SpecError as exc:
         fail(str(exc))
     if not no_cache:
@@ -328,14 +458,14 @@ def snapshot(
             _print_checkpoints(hit)
             return
     out.print(
-        f"rendering {len(job.snapshot_ids)} checkpoint(s) in family '{family.manifest.id}' "
+        f"rendering {len(job.snapshot_ids)} checkpoint(s) of {sources.revision_id} in family '{family.manifest.id}' "
         f"({job.manim.pixel_width}x{job.manim.pixel_height}, cache {job.cache_key[:23]}...)"
     )
     try:
         manifest = run_job(proj, family, job, paths, hashes, timeout=timeout)
     except SpecError as exc:
         fail(str(exc))
-    sheet = write_sheet(manifest, report.storyboard, paths.output_dir / "review_sheet.html")
+    sheet = write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")
     _print_checkpoints(manifest)
     out.print(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}")
     if manifest.result.status != "succeeded":
@@ -344,10 +474,54 @@ def snapshot(
         raise typer.Exit(1)
 
 
+@revision_app.command("create")
+def revision_create(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    message: Annotated[str, typer.Option("--message", "-m", help="What changed and why.")],
+    allow_empty: Annotated[bool, typer.Option(help="Record a revision even if nothing changed.")] = False,
+) -> None:
+    """Freeze the working copy (specs, generated code, resolved style) as an immutable revision."""
+    proj, report = _prepare(project, require_family=False)
+    if not report.ok:
+        print_report(report, str(project))
+        fail("fix the errors above before creating a revision")
+    try:
+        record = create_revision(proj, report, message, allow_empty=allow_empty)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"[green]{record.id}[/green] created (parent {record.parent or 'none'}): {record.message}")
+    out.print(f"  files: {', '.join(record.files)}")
+
+
+@revision_app.command("list")
+def revision_list(project: Annotated[Path, typer.Argument(help="Project directory.")]) -> None:
+    """List revisions with their parents and messages."""
+    try:
+        proj = find_project(project)
+    except SpecError as exc:
+        fail(str(exc))
+    records = list_revisions(proj)
+    if not records:
+        out.print("no revisions yet; run `scianim revision create <project> -m <message>`")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for column in ("revision", "parent", "created", "style", "message"):
+        table.add_column(column)
+    for record in records:
+        table.add_row(
+            record.id,
+            record.parent or "-",
+            record.created_at,
+            f"{record.style_theme}@{record.style_version}",
+            record.message,
+        )
+    out.print(table)
+
+
 @app.command("review-sheet")
 def review_sheet(
     project: Annotated[Path, typer.Argument(help="Project directory.")],
-    manifest: Annotated[Path | None, typer.Option(help="manifest.json to render; default: the latest.")] = None,
+    manifest: Annotated[Path | None, typer.Option(help="manifest.json to render; default: the latest job.")] = None,
 ) -> None:
     """Write a static HTML contact sheet for a job's checkpoints."""
     proj, report = _prepare(project, require_family=False)
@@ -355,13 +529,34 @@ def review_sheet(
         fail("project has no storyboard")
     path = manifest
     if path is None:
-        candidates = sorted((proj.renders_dir / WORKING_REVISION).glob("*/manifest.json"))
+        candidates = sorted(proj.renders_dir.glob("*/job_*/manifest.json"), key=lambda p: p.parent.name)
         if not candidates:
             fail("no manifests found; run `scianim snapshot` first")
         path = candidates[-1]
     doc = ArtifactManifest.model_validate_json(path.read_text())
     target = write_sheet(doc, report.storyboard, path.parent / "review_sheet.html")
     out.print(f"wrote {target}")
+
+
+@app.command()
+def clean(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    keep: Annotated[int, typer.Option(help="Newest working jobs to keep.")] = 1,
+    media: Annotated[bool, typer.Option(help="Also remove Manim's media cache under .scianim/media.")] = True,
+    dry_run: Annotated[bool, typer.Option(help="Report what would be removed without deleting.")] = False,
+) -> None:
+    """Reclaim space: media cache, old job logs and superseded working renders. Revisions are never touched."""
+    try:
+        proj = find_project(project)
+    except SpecError as exc:
+        fail(str(exc))
+    report = clean_project(proj, keep=keep, media=media, dry_run=dry_run)
+    verb = "would remove" if dry_run else "removed"
+    for path in report.removed:
+        out.print(f"  {verb} {path.relative_to(proj.root)}")
+    out.print(
+        f"{verb} {len(report.removed)} item(s), {report.bytes_freed / 1e6:.1f} MB; kept {len(report.kept)} job(s)"
+    )
 
 
 def main() -> None:

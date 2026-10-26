@@ -1,0 +1,138 @@
+{
+  "$defs": {
+    "RevisionHashes": {
+      "additionalProperties": false,
+      "properties": {
+        "animation_spec": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Animation Spec",
+          "type": "string"
+        },
+        "custom_code": {
+          "additionalProperties": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "default": {},
+          "title": "Custom Code",
+          "type": "object"
+        },
+        "data_files": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "title": "Data Files",
+          "type": "object"
+        },
+        "resolved_style": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Resolved Style",
+          "type": "string"
+        },
+        "scene_code": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Code"
+        },
+        "storyboard": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Storyboard"
+        }
+      },
+      "required": [
+        "animation_spec",
+        "resolved_style"
+      ],
+      "title": "RevisionHashes",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "files": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "hashes": {
+      "$ref": "#/$defs/RevisionHashes"
+    },
+    "id": {
+      "pattern": "^rev_\\d{4}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "pattern": "^rev_\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "style_theme": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Style Theme",
+      "type": "string"
+    },
+    "style_version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Style Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "created_at",
+    "message",
+    "style_theme",
+    "style_version",
+    "hashes"
+  ],
+  "title": "RevisionRecord",
+  "type": "object"
+}

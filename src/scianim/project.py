@@ -12,6 +12,7 @@ from scianim_core import AnimationSpec, Storyboard
 
 ANIMATION_FILE = "animation.yaml"
 STORYBOARD_FILE = "storyboard.yaml"
+WORKSPACE_FILE = "workspace.yaml"
 
 
 def env_paths(name: str) -> list[Path]:
@@ -50,6 +51,21 @@ class Project:
     @property
     def scianim_dir(self) -> Path:
         return self.root / ".scianim"
+
+    @property
+    def revisions_dir(self) -> Path:
+        return self.root / "revisions"
+
+    @property
+    def assets_cache_dir(self) -> Path:
+        return self.scianim_dir / "assets"
+
+    def workspace_root(self) -> Path | None:
+        """The nearest ancestor holding `workspace.yaml`, if any."""
+        for parent in self.root.resolve().parents:
+            if (parent / WORKSPACE_FILE).exists():
+                return parent
+        return None
 
     def load_animation(self) -> AnimationSpec:
         return load_animation(self.animation_path)

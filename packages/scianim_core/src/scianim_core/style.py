@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, create_model
 
 from scianim_core.common import HexColor, SchemaVersion, SemVer, Slug, StrictModel
 
@@ -20,6 +20,8 @@ Anchor = Literal[
     "bottom_right",
 ]
 EquationEngine = Literal["typst", "latex"]
+StyleRef = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}@\d+\.\d+\.\d+$")]
+"""`name@version`, the only way one sheet may refer to another; inheritance is pinned."""
 FontWeight = Literal["light", "regular", "medium", "semibold", "bold"]
 
 REQUIRED_PALETTE_ROLES: frozenset[str] = frozenset(
@@ -147,7 +149,7 @@ class StyleSheet(StrictModel):
     name: Slug
     version: SemVer
     description: str | None = None
-    inherits: Slug | None = None
+    inherits: StyleRef | None = None
     palette: dict[Slug, HexColor] = {}
     typography: PartialTypography | None = None  # type: ignore[valid-type]
     layout: PartialLayout | None = None  # type: ignore[valid-type]
@@ -178,3 +180,11 @@ class ResolvedStyle(StrictModel):
     def px(self, px_at_1080p: float, output_height_px: int) -> float:
         """Scale a token given in pixels at 1080p to the actual output height."""
         return px_at_1080p * output_height_px / 1080.0
+
+
+def split_style_ref(ref: str) -> tuple[str, str]:
+    """'tomas_scientific@0.1.0' -> ('tomas_scientific', '0.1.0')."""
+    name, _, version = ref.partition("@")
+    if not name or not version:
+        raise ValueError(f"style reference must look like name@version, got {ref!r}")
+    return name, version

@@ -9,16 +9,20 @@ from pydantic import BaseModel, ValidationError
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-from scianim_core import AnimationSpec, FamilyManifest, Storyboard, StyleSheet
+from scianim_core import AnimationSpec, FamilyManifest, GroupManifest, Storyboard, StyleSheet, WorkspaceManifest
 
-SpecKind = Literal["animation", "storyboard", "style", "family"]
+SpecKind = Literal["animation", "storyboard", "style", "family", "group", "workspace"]
 
 MODELS: dict[SpecKind, type[BaseModel]] = {
     "animation": AnimationSpec,
     "storyboard": Storyboard,
     "style": StyleSheet,
     "family": FamilyManifest,
+    "group": GroupManifest,
+    "workspace": WorkspaceManifest,
 }
+
+CANONICAL_NAMES: dict[str, SpecKind] = {f"{kind}.yaml": kind for kind in MODELS}
 
 _yaml = YAML(typ="safe")
 
@@ -55,21 +59,24 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 
 def detect_kind(data: dict[str, Any], path: Path | None = None) -> SpecKind:
+    if path is not None and path.name in CANONICAL_NAMES:
+        return CANONICAL_NAMES[path.name]
     keys = set(data)
     if {"project_id", "scenes"} <= keys:
         return "storyboard"
-    if {"output", "objective"} & keys and "family" in keys:
+    if {"output", "objective"} <= keys:
         return "animation"
     if "palette" in keys or "inherits" in keys:
         return "style"
-    if "environment" in keys or "system_requirements" in keys:
+    if "environment" in keys or "system_requirements" in keys or "components" in keys:
         return "family"
-    if path is not None:
-        name = path.name
-        for kind in MODELS:
-            if name.startswith(kind):
-                return kind
-    raise SpecError(path, "cannot tell which specification this is (animation, storyboard, style or family)")
+    if "tags" in keys or "shared_assets" in keys:
+        return "group"
+    if keys <= {"schema_version", "id", "description"}:
+        return "workspace"
+    raise SpecError(
+        path, "cannot tell which specification this is (animation, storyboard, style, family, group or workspace)"
+    )
 
 
 def validate_data(data: dict[str, Any], kind: SpecKind, path: Path | None = None) -> BaseModel:
@@ -106,4 +113,16 @@ def load_style_sheet(path: Path) -> StyleSheet:
 def load_family(path: Path) -> FamilyManifest:
     _, model = load_spec(path, "family")
     assert isinstance(model, FamilyManifest)
+    return model
+
+
+def load_group(path: Path) -> GroupManifest:
+    _, model = load_spec(path, "group")
+    assert isinstance(model, GroupManifest)
+    return model
+
+
+def load_workspace_manifest(path: Path) -> WorkspaceManifest:
+    _, model = load_spec(path, "workspace")
+    assert isinstance(model, WorkspaceManifest)
     return model

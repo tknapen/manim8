@@ -1,71 +1,35 @@
-"""Named checkpoints rendered by Manim inside the family environment (Milestone 2 acceptance)."""
+"""Named checkpoints rendered by Manim inside a workspace family environment (Milestone 2 acceptance)."""
 
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 from scianim_core import ArtifactManifest
 
-REPO = Path(__file__).resolve().parents[2]
-EXAMPLE = REPO / "examples" / "divisive_normalization"
-
 pytestmark = pytest.mark.integration
 
 
-def scianim(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    import os
-
-    merged = {**os.environ, **(env or {})}
-    return subprocess.run(
-        [sys.executable, "-m", "scianim.cli", *args],
-        capture_output=True,
-        text=True,
-        env=merged,
-        check=False,
-    )
-
-
-def latest_manifest(project: Path) -> ArtifactManifest:
-    candidates = sorted((project / "renders" / "working").glob("*/manifest.json"))
-    assert candidates, "no manifest written"
-    return ArtifactManifest.model_validate_json(candidates[-1].read_text())
+def manifests(project: Path, revision: str) -> list[ArtifactManifest]:
+    paths = sorted((project / "renders" / revision).glob("*/manifest.json"))
+    return [ArtifactManifest.model_validate_json(p.read_text()) for p in paths]
 
 
 @pytest.fixture
-def project(tmp_path: Path, ready_family: Path) -> Path:
-    target = tmp_path / "divisive_normalization"
-    shutil.copytree(EXAMPLE, target, ignore=shutil.ignore_patterns(".scianim", "renders", "code", "__pycache__"))
-    return target
+def project(workspace: Path) -> Path:
+    return workspace / "families" / "computational_neuroscience" / "divisive_normalization"
 
 
-def test_two_named_checkpoints_and_manifest(project: Path, tmp_path: Path) -> None:
-    styles = tmp_path / "styles"
-    shutil.copytree(REPO / "styles", styles)
-    env = {"SCIANIM_STYLES": str(styles), "SCIANIM_FAMILIES": str(REPO / "examples" / "families")}
-    assert scianim("codegen", str(project), env=env).returncode == 0
-    run = scianim(
-        "snapshot",
-        str(project),
-        "--no-cache",
-        "--id",
-        "excitation_visible",
-        "--id",
-        "equation_complete",
-        env=env,
-    )
+def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, workspace: Path, scianim) -> None:
+    assert scianim("codegen", str(project)).returncode == 0
+    run = scianim("snapshot", str(project), "--no-cache", "--id", "excitation_visible", "--id", "equation_complete")
     assert run.returncode == 0, run.stdout + run.stderr
-    manifest = latest_manifest(project)
+    manifest = manifests(project, "working")[-1]
     assert manifest.result.status == "succeeded"
-    assert [c.snapshot_id for c in manifest.result.checkpoints] == [
-        "excitation_visible",
-        "equation_complete",
-    ]
+    assert manifest.job.revision_id == "working"
+    assert [c.snapshot_id for c in manifest.result.checkpoints] == ["excitation_visible", "equation_complete"]
     for record in manifest.result.checkpoints:
         png = project / record.png
         assert png.exists() and png.stat().st_size > 1000
@@ -78,23 +42,44 @@ def test_two_named_checkpoints_and_manifest(project: Path, tmp_path: Path) -> No
     assert (project / manifest.job.output_dir / "review_sheet.html").exists()
 
     # Same inputs again: cache hit, no new job directory.
-    before = len(list((project / "renders" / "working").iterdir()))
-    again = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete", env=env)
+    before = len(manifests(project, "working"))
+    again = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete")
     assert again.returncode == 0 and "cache hit" in again.stdout
-    assert len(list((project / "renders" / "working").iterdir())) == before
+    assert len(manifests(project, "working")) == before
 
-    # A changed palette token: new cache key, different pixels for the curve, same for the equation-only frame? The
-    # equation frame also contains nothing in primary_signal, but the background is untouched either way; we only
-    # assert the curve frame differs and the key changes.
-    sheet = styles / "tomas_scientific" / "style.yaml"
+    # Freeze a revision, then render it: outputs land under renders/rev_0001 from the frozen code.
+    created = scianim("revision", "create", str(project), "-m", "first cut")
+    assert created.returncode == 0 and "rev_0001" in created.stdout, created.stdout + created.stderr
+    rev_run = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "equation_complete")
+    assert rev_run.returncode == 0, rev_run.stdout + rev_run.stderr
+    rev_manifest = manifests(project, "rev_0001")[-1]
+    assert rev_manifest.job.revision_id == "rev_0001"
+    assert rev_manifest.job.scene_module.startswith("revisions/rev_0001/code/")
+    assert rev_manifest.result.status == "succeeded"
+
+    # A changed palette token in the workspace's theme: new cache key and different pixels for the curve frame.
+    sheet = workspace / "styles" / "tomas_scientific" / "0.1.0" / "style.yaml"
     sheet.write_text(sheet.read_text().replace('primary_signal: "#56B4E9"', 'primary_signal: "#FF3B30"'))
-    changed = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete", env=env)
+    changed = scianim("snapshot", str(project), "--id", "excitation_visible", "--id", "equation_complete")
     assert changed.returncode == 0, changed.stdout + changed.stderr
     assert "cache hit" not in changed.stdout
-    second = latest_manifest(project)
+    second = manifests(project, "working")[-1]
     assert second.job.cache_key != manifest.job.cache_key
     assert second.inputs.resolved_style != manifest.inputs.resolved_style
     by_id_before = {c.snapshot_id: c for c in manifest.result.checkpoints}
     by_id_after = {c.snapshot_id: c for c in second.result.checkpoints}
     assert by_id_after["excitation_visible"].sha256 != by_id_before["excitation_visible"].sha256
     assert json.loads((project / second.job.output_dir / "result.json").read_text())["status"] == "succeeded"
+
+    # The revision still renders from its frozen style (cache hit on the same key).
+    rev_again = scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "equation_complete")
+    assert rev_again.returncode == 0 and "cache hit" in rev_again.stdout
+
+    listing = scianim("workspace", "list", str(workspace))
+    assert listing.returncode == 0 and "divisive_normalization" in listing.stdout
+
+    cleaned = scianim("clean", str(project), "--keep", "1")
+    assert cleaned.returncode == 0, cleaned.stdout + cleaned.stderr
+    assert not (project / ".scianim" / "media").exists()
+    assert len(manifests(project, "working")) == 1
+    assert len(manifests(project, "rev_0001")) == 1

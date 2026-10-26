@@ -11,7 +11,7 @@ The repository started as a documentation-first handoff and is being implemented
 3. **[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)** — prioritized milestones, acceptance criteria and suggested first three pull requests.
 4. **[`docs/ARCHITECTURE_DECISIONS.md`](docs/ARCHITECTURE_DECISIONS.md)** — decisions that shape the contracts.
 5. **[`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md)** — the review, checked against the Manim 0.22 source, that produced spec 0.2.
-6. **[`examples/`](examples/)** and **[`styles/`](styles/)** — an example animation and storyboard, a family manifest, a synthetic CSV, and the default and personal style tokens.
+6. **[`examples/`](examples/)** and **[`styles/`](styles/)** — read-only templates: an example family with a nested project (animation, storyboard, synthetic CSV) and the versioned default and personal style tokens.
 
 ## Key architectural choices
 
@@ -36,28 +36,34 @@ go through Typst and video through PyAV, both pinned inside the family lockfile.
 ```bash
 uv sync --group dev                                   # control plane (never installs Manim)
 uv run scianim doctor                                 # prerequisites
-uv run scianim validate examples/divisive_normalization
-uv run scianim style resolve examples/divisive_normalization
-uv run scianim family env sync examples/families/computational_neuroscience   # Manim + bridge, isolated
-uv run scianim doctor --project examples/divisive_normalization
-uv run scianim codegen examples/divisive_normalization                        # scene module from the storyboard
-uv run scianim snapshot examples/divisive_normalization --all                 # four named checkpoints + manifest.json
-uv run pytest tests/unit -q                                                   # contracts, cascade, checks, isolation
-uv run pytest tests/integration -q -m integration                             # real renders; skipped without the family env
-uv run --project examples/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
+uv run scianim workspace init workspace --with-example           # workspace/ with styles, the example family and project
+P=workspace/families/computational_neuroscience/divisive_normalization
+uv run scianim family env sync workspace/families/computational_neuroscience   # Manim + bridge, isolated (minutes once)
+uv run scianim doctor --project $P
+uv run scianim validate $P && uv run scianim style resolve $P
+uv run scianim codegen $P                              # scene module from the storyboard
+uv run scianim snapshot $P --all                       # four named checkpoints + manifest.json + review sheet
+uv run scianim revision create $P -m "first cut"       # revisions/rev_0001, write-once
+uv run scianim snapshot $P --revision rev_0001         # renders/rev_0001/<job>/
+uv run scianim workspace list workspace                # families, groups, projects, duplicate ids
+uv run scianim clean $P                                # media cache and superseded working renders
+uv run pytest tests/unit -q                            # contracts, cascade, checks, isolation, workspaces, revisions
+uv run pytest tests/integration -q -m integration      # real renders in a temporary workspace; skipped without uv
+uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
 ```
 
-Outputs land in `examples/divisive_normalization/renders/working/<job>/`: one PNG per checkpoint, `manifest.json`
-with layout reports and input hashes, and `review_sheet.html`. The worker log is under `.scianim/jobs/<job>/`.
+Outputs land in `<project>/renders/<revision>/<job>/`: one PNG per checkpoint, `manifest.json` with layout reports
+and input hashes, and `review_sheet.html`. Worker logs are under `.scianim/jobs/<job>/`. `examples/` is read-only;
+the workspace holds everything that changes.
 
 ## What exists today
 
 Milestones 0 to 2 of the implementation plan are implemented and tested on the example: typed contracts and
-JSON Schemas, file and project validation, the style cascade with provenance and hash, `uv` family environments,
-the component registry with five kinds, deterministic code generation, in-flow checkpoints with layout reports,
-content-addressed caching, and a static review sheet. Not yet built: revisions (every job renders the working copy
-under the `working` revision id), the web UI, video rendering and sections, source ingestion, agent operations,
-bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
+JSON Schemas, file and project validation, versioned styles with a cascade that records provenance, workspaces
+with families, groups and projects, `uv` family environments, the component registry with five kinds,
+deterministic code generation, in-flow checkpoints with layout reports, content-addressed caching, write-once
+revisions, shared assets, and a static review sheet. Not yet built: the web UI and feedback files, video rendering
+and sections, source ingestion, agent operations, bundles. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status
 

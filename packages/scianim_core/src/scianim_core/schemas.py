@@ -9,15 +9,21 @@ from pydantic import BaseModel
 
 from scianim_core.animation import AnimationSpec
 from scianim_core.family import FamilyManifest
+from scianim_core.group import GroupManifest
 from scianim_core.jobs import ArtifactManifest, RenderJob, WorkerResult
+from scianim_core.revisions import RevisionRecord
 from scianim_core.storyboard import Storyboard
 from scianim_core.style import ResolvedStyle, StyleSheet
+from scianim_core.workspace import WorkspaceManifest
 
 PUBLIC_SCHEMAS: dict[str, type[BaseModel]] = {
     "animation": AnimationSpec,
     "storyboard": Storyboard,
     "style": StyleSheet,
     "family": FamilyManifest,
+    "group": GroupManifest,
+    "workspace": WorkspaceManifest,
+    "revision": RevisionRecord,
     "resolved_style": ResolvedStyle,
     "render_job": RenderJob,
     "worker_result": WorkerResult,

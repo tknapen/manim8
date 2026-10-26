@@ -9,7 +9,15 @@ import pytest
 from scianim_bridge.data import DataTable, apply_binding, load_csv
 
 REPO = Path(__file__).resolve().parents[3]
-CSV = REPO / "examples" / "divisive_normalization" / "data" / "synthetic_responses.csv"
+CSV = (
+    REPO
+    / "examples"
+    / "families"
+    / "computational_neuroscience"
+    / "divisive_normalization"
+    / "data"
+    / "synthetic_responses.csv"
+)
 
 
 def test_load_csv_and_columns() -> None:

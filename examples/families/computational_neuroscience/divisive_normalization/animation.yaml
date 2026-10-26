@@ -1,7 +1,6 @@
 schema_version: "1.0"
 id: divisive_normalization_intro
 title: "Divisive normalization: excitation and pool"
-family: computational_neuroscience
 sources:
   - id: responses
     type: csv

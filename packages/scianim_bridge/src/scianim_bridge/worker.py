@@ -45,10 +45,15 @@ def emit(event: str, **data: object) -> None:
     print(json.dumps({"event": event, **data}), flush=True)
 
 
+def _family_component_dirs() -> list[str]:
+    family_root = os.environ.get("SCIANIM_FAMILY_ROOT")
+    return [str(Path(family_root) / "components")] if family_root else []
+
+
 def load_scene_class(module_path: Path, class_name: str):
-    code_dir = str(module_path.parent)
-    if code_dir not in sys.path:
-        sys.path.insert(0, code_dir)
+    for directory in [str(module_path.parent), *_family_component_dirs()]:
+        if directory not in sys.path:
+            sys.path.insert(0, directory)
     spec = importlib.util.spec_from_file_location(module_path.stem, module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load scene module {module_path}")

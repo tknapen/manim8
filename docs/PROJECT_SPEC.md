@@ -126,77 +126,69 @@ scianim-studio/
 │   └── scianim_bridge/               # `scianim-bridge`: render-side helpers (style tokens, components,
 │                                     #   checkpoint(), layout report, worker). Depends on manim + core.
 ├── src/scianim/                      # Control plane. Never imports manim or scianim_bridge.
-│   ├── __init__.py
 │   ├── cli.py
+│   ├── workspace.py                  # workspace init/list, family init, project init
 │   ├── config/                       # YAML parsing and validation
-│   ├── styles/                       # Token cascade resolution and export
-│   ├── families/                     # Family discovery, uv environment sync, system requirements
+│   ├── styles/                       # Versioned token cascade resolution and export
+│   ├── families/                     # Nearest-family resolution, groups, assets, uv sync
 │   ├── planning/                     # Storyboard timing, narration estimates, cross-file checks
 │   ├── codegen/                      # Deterministic scene code from registered components
 │   ├── render/                       # Job payloads, worker launch, cache keys, manifests
-│   ├── revisions/                    # Immutable snapshots, diffs, lineage
+│   ├── revisions/                    # Write-once revision directories
 │   ├── review/                       # Static review sheets, comparisons, feedback files
-│   ├── storage/                      # Project manifests, artifact store
-│   ├── bundles/                      # Export, import, checksums, portability
-│   ├── agents/                       # Provider-neutral context and patch contracts
+│   ├── clean.py                      # Reclaim caches and superseded working renders
+│   ├── bundles/                      # Export, import, checksums, portability (later)
+│   ├── agents/                       # Provider-neutral context and patch contracts (later)
 │   ├── api/                          # FastAPI server (Milestone 3)
 │   └── security/                     # Path control, trust, process constraints
 ├── web/                              # React + TypeScript UI (Milestone 3)
-├── styles/
-│   ├── default/style.yaml
-│   └── tomas_scientific/style.yaml
+├── styles/                           # Bundled themes, copied into new workspaces
+│   ├── default/0.1.0/style.yaml      #   <name>/<version>/style.yaml; inheritance pins name@version
+│   └── tomas_scientific/0.1.0/style.yaml
 ├── schemas/                          # JSON Schemas exported from scianim-core
 ├── docs/
-│   ├── PROJECT_SPEC.md               # This complete specification
-│   ├── IMPLEMENTATION_PLAN.md        # Milestones and test gates
-│   ├── PLAN_REVIEW.md                # Rationale for the 0.2 revisions
-│   └── ARCHITECTURE_DECISIONS.md     # Architecture decision records
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── golden/                       # Visually compared test snapshots
-│   └── fixtures/
-├── examples/
-│   ├── divisive_normalization/
-│   └── families/computational_neuroscience/   # family.yaml, pyproject.toml, uv.lock
-└── workspace/                        # User data; configurable, normally ignored
-    ├── assets/                       # Explicitly managed global assets
+├── examples/                         # Read-only templates for `--from-example`; never rendered in place
+│   └── families/computational_neuroscience/            # family.yaml, pyproject.toml, uv.lock
+│       └── divisive_normalization/                     # project template nested under its family
+└── workspace/                        # User data, created by `scianim workspace init`; gitignored
+    ├── workspace.yaml
+    ├── styles/<name>/<version>/style.yaml              # the user's themes (bundled ones copied in)
+    ├── assets/                                         # asset://<id> shared across families
     └── families/
         └── computational_neuroscience/
             ├── family.yaml           # Family ID, style, environment, system requirements
             ├── pyproject.toml        # Family render dependencies: manim, scianim-bridge, science packages
             ├── uv.lock               # Committed / shareable dependency lock
             ├── .venv/                # Local only; never export/commit
-            ├── assets/
-            ├── components/
-            ├── group.yaml            # Optional group-level preferences
-            ├── divisive_normalization/
-            │   ├── animation.yaml
-            │   ├── storyboard.yaml
-            │   ├── references/
-            │   ├── data/
-            │   ├── code/             # Generated, reviewable Python (scene module, custom builders)
-            │   ├── feedback/         # Canonical annotation records (*.yaml); the UI edits these
-            │   ├── revisions/        # Revision snapshots and manifest.json files
-            │   ├── renders/          # Previews, drafts, finals, review sheets
-            │   └── .scianim/         # Local cache, current revision, transient jobs, Manim media_dir
-            └── perception/
-                └── retinotopy/
-                    └── animation_example/
+            ├── assets/               # asset://<id> shared within the family
+            ├── components/           # Custom builders shared within the family
+            ├── perception/           # A topical group: a folder with group.yaml (style overrides,
+            │   ├── group.yaml        #   assets, tags); never an environment
+            │   └── retinotopy_intro/
+            └── divisive_normalization/
+                ├── animation.yaml    # `family:` is optional: the nearest family.yaml is authoritative
+                ├── storyboard.yaml
+                ├── references/
+                ├── data/
+                ├── code/             # Generated, reviewable Python (scene module, custom builders)
+                ├── feedback/         # Canonical annotation records (*.yaml); the UI edits these
+                ├── revisions/        # rev_0001/ ...: write-once copies of specs, code, resolved style
+                ├── renders/          # working/<job>/ and rev_0001/<job>/: PNGs, manifest.json, sheets
+                └── .scianim/         # jobs, logs, cache pointers, materialized assets, Manim media
 ```
 
-The workspace can reside outside the package repository (`SCIANIM_WORKSPACE=/path/...`). The displayed workspace tree is illustrative; **the user should not need to manually create these folders**.
+`scianim workspace init <dir>` creates a workspace anywhere (the repository's `workspace/` is gitignored for convenience); `scianim family init` and `scianim project init` populate it, optionally from the read-only templates under `examples/`. **The user never creates these folders by hand.** `scianim workspace list` inventories families, groups and projects and reports duplicate ids.
 
 ### 4.1 Hierarchy and inheritance
 
-- `styles/default/style.yaml` establishes the baseline style.
-- A named personal stylesheet (e.g. `tomas_scientific`) overrides the baseline.
-- A `family.yaml` may select a stylesheet version and supply family-specific defaults.
-- Optional `group.yaml` files define local organizational defaults or shared assets.
+- Styles live at `styles/<name>/<version>/style.yaml`, in the workspace and in the bundled set the workspace was initialized from. A project pins `name` and `version`; a sheet inherits another only as `name@version`. Several versions of one theme coexist, so old projects keep rendering with their pinned theme after a bump, and a bundle carries exactly the pinned sheet.
+- A `family.yaml` selects a stylesheet version and supplies family-specific overrides and system requirements.
+- **The nearest `family.yaml` above a project is authoritative.** `animation.yaml` may omit `family:`; when present it must match the nearest declaration, and a mismatch is an error rather than a search. Only a project outside every family directory is looked up by id, and that id must be unique. A `family.yaml` deeper in the tree is an explicit child-family boundary.
+- Optional `group.yaml` files in the folders between a family and a project define topical groups: style overrides applied after the family's, shared assets and tags. A group never declares an environment.
 - An `animation.yaml` can override only explicitly permitted tokens, not silently supersede declared hard rules.
-- Each project has a stable ID independent of its folder name, so projects can be moved without losing revision identity.
-
-**Do not use directory position alone to guess the Python environment.** Environment identity must be explicit in `family.yaml` and inherited until an intentionally declared child-family boundary. Nested folders that are merely topical categories do not create new environments.
+- Each project has a stable ID independent of its folder name, so projects can be moved without losing revision identity. Duplicate project ids within a workspace are reported by `scianim workspace list`.
+- `asset://<id>` sources resolve against the family's `assets/`, then the workspace's; custom builders resolve against the project's `code/`, then the family's `components/`.
 
 ### 4.2 Dependency isolation
 
@@ -471,7 +463,7 @@ Reject missing/unknown design tokens rather than using unexplained defaults. Avo
 
 Resolution produces a `ResolvedStyle` document with every token, a provenance map naming the layer that set each token, and a content hash. The renderer receives this document, never the YAML chain, and the hash enters cache keys.
 
-Theme changes must be **versioned**. Re-rendering an old animation uses its pinned theme by default; adopting a newer theme is an explicit revision, not a silent side effect.
+Theme changes must be **versioned**: a new version is a new directory `styles/<name>/<version>/`, never an edit of a published one. Re-rendering an old animation uses its pinned theme by default; adopting a newer theme is an explicit revision, not a silent side effect. Inheritance is pinned (`inherits: default@0.1.0`) so a theme's resolved tokens do not drift when its parent gains a version.
 
 ### 5.4 `family.yaml`: scope and environment
 
@@ -493,7 +485,7 @@ Every accepted change produces a revision ID, a timestamp, a change description,
 
 Manifests are JSON files named `manifest.json`. Never use a bare `.manifest` extension: the common Python `.gitignore` template ignores `*.manifest`, `*.spec`, `*.log` and `lib/`.
 
-A revision is immutable. The *working copy* may evolve, but approval and render actions operate on revision snapshots; this avoids stale renders or confusing feedback attached to the wrong code version.
+A revision is immutable. The *working copy* may evolve, but approval and render actions operate on revision snapshots; this avoids stale renders or confusing feedback attached to the wrong code version. `scianim revision create` writes `revisions/rev_NNNN/` once (specs, generated code, resolved style, `revision.json` with hashes); data files stay in `data/` and are recorded by hash, and `scianim snapshot --revision rev_NNNN` refuses to render if they changed. Renders go to `renders/<revision>/<job>/`; `renders/working/` holds renders of the working copy, which `scianim clean` may discard.
 
 ---
 
@@ -892,10 +884,12 @@ Recommended commands (final names to be refined during implementation):
 
 ```bash
 scianim doctor
-scianim workspace init /path/to/workspace
-scianim family init computational_neuroscience --style tomas_scientific
+scianim workspace init /path/to/workspace [--with-example]
+scianim workspace list /path/to/workspace     # Families, groups, projects; duplicate ids
+scianim family init computational_neuroscience --style tomas_scientific@0.1.0 [--from-example ...]
 scianim family env sync computational_neuroscience
-scianim project init divisive_normalization_intro --family computational_neuroscience
+scianim project init divisive_normalization --family computational_neuroscience [--from-example ...]
+scianim style list path/to/project           # Visible themes by name and version
 scianim validate path/to/animation.yaml
 scianim validate path/to/project          # Cross-file checks: storyboard, style roles, markers
 scianim style resolve path/to/project     # Resolved tokens with provenance and hash
@@ -909,7 +903,10 @@ scianim snapshot path/to/project --all   # Named checkpoint stills
 scianim snapshot path/to/project --id equation_complete
 scianim render path/to/project --profile draft
 scianim render path/to/project --profile final
-scianim revisions path/to/project
+scianim revision create path/to/project -m "..."   # Write-once revisions/rev_NNNN
+scianim revision list path/to/project
+scianim snapshot path/to/project --revision rev_0002
+scianim clean path/to/project [--keep N]        # Media cache and superseded working renders
 scianim bundle export path/to/project --output bundle.scianim.zip
 scianim bundle inspect bundle.scianim.zip
 scianim bundle import bundle.scianim.zip --into /path/to/workspace
@@ -1070,7 +1067,7 @@ The implementing agent should put considered decisions in an ADR or issue, not s
 7. **Bundle defaults:** export only source manifests unless assets are redistributable and specifically selected.
 8. **Audio:** V1 `audio: none`, but `narration` is in the storyboard schema from the start; subtitles come from it through Manim subcaptions, and voiceover alignment through manim-voiceover bookmarks is the later addition.
 9. **Frame sampling:** how scene checkpoint states and full-video time samples are reconciled, with no claims of frame equivalence unless verified.
-10. **Revision store:** whether project revisions use Git plumbing (one commit per revision, tags for approvals) or the file-plus-SQLite design in section 11; the trade is free diffs and lineage against coupling the workspace to Git.
+10. **Revision store:** the file-based write-once store of section 11 is implemented; whether to move revisions onto Git plumbing (one commit per revision, tags for approvals) stays open. The trade is free diffs and lineage against coupling the workspace to Git.
 11. **Typst coverage:** which notation the default Typst engine cannot express, and the per-family opt-in path to LaTeX.
 
 ---
