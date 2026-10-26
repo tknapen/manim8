@@ -60,8 +60,8 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
         sorted((project / "renders" / "working").glob("*/manifest.json"))[-1].read_text()
     )
     [movie] = final_manifest.result.videos
-    assert (movie.width_px, movie.height_px, movie.fps, movie.frame_count) == (1920, 1080, 30.0, 1800)
-    assert movie.duration_seconds == pytest.approx(60.0)
+    assert (movie.width_px, movie.height_px, movie.fps, movie.frame_count) == (1920, 1080, 30.0, 540)
+    assert movie.duration_seconds == pytest.approx(18.0)
     assert final_manifest.result.timing and final_manifest.result.timing.within_tolerance
 
     # The API lists both videos and serves the movie and the subtitles.
@@ -69,7 +69,7 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
     detail = client.get("/api/projects/divisive_normalization").json()
     assert detail["latest_video"]["working"] == final_manifest.job.job_id
     job = client.get(f"/api/projects/divisive_normalization/jobs/{final_manifest.job.job_id}").json()
-    assert job["videos"][0]["frame_count"] == 1800 and job["timing"]["within_tolerance"]
+    assert job["videos"][0]["frame_count"] == 540 and job["timing"]["within_tolerance"]
     assert client.get(job["videos"][0]["url"]).headers["content-type"] == "video/mp4"
     assert "-->" in client.get(job["subtitles_url"]).text
     # A time-stamped comment on the video binds to the scene at that moment.

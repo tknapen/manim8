@@ -146,8 +146,9 @@ def test_gallery_kinds_still_render(workspace: Path, scianim) -> None:
     """comparison_plot and receptive_field_glyph left the brief examples; this storyboard keeps them rendered."""
     project = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
     (project / "storyboard.yaml").write_text((FIXTURES / "gallery_storyboard.yaml").read_text())
-    assert scianim("validate", str(project)).returncode == 0
+    # Codegen first: the shared workspace may hold a scene module generated for the example's own storyboard.
     assert scianim("codegen", str(project)).returncode == 0
+    assert scianim("validate", str(project)).returncode == 0
     run = scianim("snapshot", str(project), "--all", "--no-cache")
     assert run.returncode == 0, run.stdout + run.stderr
     [record] = manifests(project, "working")[-1].result.checkpoints

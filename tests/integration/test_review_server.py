@@ -44,13 +44,13 @@ def test_render_annotate_and_approve_through_the_api(workspace: Path, scianim) -
             "job_id": job_id,
             "kind": "object_comment",
             "snapshot_id": "widened",
-            "object_id": "size_label",
+            "object_id": "prf_label",
             "text": "The label crowds the equation.",
         },
     )
     assert comment.status_code == 201, comment.text
     record = comment.json()
-    assert record["scene_id"] == "gaussian" and record["region"]["width"] > 0
+    assert record["scene_id"] == "prf" and record["region"]["width"] > 0
     assert record["image_sha256"] == next(c["sha256"] for c in job["checkpoints"] if c["snapshot_id"] == "widened")
 
     # Approval needs an immutable revision; render it through the API, then approve the displayed image.
