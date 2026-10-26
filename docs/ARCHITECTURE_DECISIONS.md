@@ -319,3 +319,28 @@ marks already exist in the storyboard for it. Figure extraction from PDFs is pag
 (brief and synthetic CSV to spec, storyboard, real snapshots, inspection, a review comment, a targeted patch
 and a revision comparison) with fixture proposals and no network. Separating what a source says from what
 anyone inferred, and binding claims to locators, is the concrete form of spec section 6.2.
+
+## ADR-021: Bundles are verified archives that carry everything but the environment
+
+**Status:** accepted, 26 October 2026 (Milestone 6)
+
+**Decision.** `scianim bundle export` writes `<name>.scianim.zip` with one `scianim-bundle/` root holding
+`bundle.yaml` (a `BundleManifest`), a generated README with the family's system requirements and the
+post-import steps, `projects/<id>/` (specs, data, references as text, code, revisions, feedback, applied
+proposals, optionally renders), `family.yaml`, every style sheet in each project's inheritance chain, the
+family's shared components and assets, `environments/pyproject.toml` with the lockfile, and `MANIFEST.sha256`
+over every file. Members are written in sorted order with a fixed timestamp so the checksums are meaningful.
+The export refuses symlinks and credential-looking files, never includes `.venv`, `.scianim`, caches or
+renders unless asked, fails on absolute paths in text files unless `--redact-paths`, and omits PDFs and
+third-party reference images unless `--include-source-assets`; every omission is recorded with a relink
+instruction. `scianim bundle inspect` validates entry names (no absolute paths, `..`, symlinks or escapes from
+the root), the manifest and every checksum without importing or running anything. `scianim bundle import`
+verifies first, then creates the family (fresh `pyproject.toml` pointing at this checkout's packages; the
+lockfile is reused only when `packages/` sits at the same relative place as at export), copies components,
+assets and projects, adds style sheets that are absent and refuses a sheet that differs from an existing
+version, never overwrites a project, and prints the explicit next steps (`family env sync`, `validate`).
+
+**Why.** Sharing must not share secrets, machine paths or copyrighted sources; a reviewer must be able to
+trust an archive before any code from it runs; and a theme version must mean the same tokens everywhere.
+Rebuilding the environment is kept explicit because it needs network access and system libraries that a
+bundle cannot carry.

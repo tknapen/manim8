@@ -15,6 +15,7 @@ from rich.tree import Tree
 from scianim.agent.context import export_context
 from scianim.agent.inspect import inspect_manifest, record_findings
 from scianim.agent.proposals import apply_proposal, list_applied, list_pending, load_proposal, resolve_proposal
+from scianim.bundles import BundleError, ExportOptions, export_bundle, import_bundle, inspect_bundle
 from scianim.clean import clean_project
 from scianim.codegen.generate import write_scene_module
 from scianim.compare import compare_dir, compare_manifests
@@ -67,6 +68,7 @@ feedback_app = typer.Typer(no_args_is_help=True, help="Review feedback records (
 index_app = typer.Typer(no_args_is_help=True, help="The workspace SQLite index (a cache of the files).")
 sources_app = typer.Typer(no_args_is_help=True, help="Source adapters: what supplied files say.")
 propose_app = typer.Typer(no_args_is_help=True, help="Agent proposals: validate and apply spec or storyboard changes.")
+bundle_app = typer.Typer(no_args_is_help=True, help="Portable bundles: export, inspect and import.")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(workspace_app, name="workspace")
@@ -78,6 +80,7 @@ app.add_typer(feedback_app, name="feedback")
 app.add_typer(index_app, name="index")
 app.add_typer(sources_app, name="sources")
 app.add_typer(propose_app, name="propose")
+app.add_typer(bundle_app, name="bundle")
 
 out = Console()
 err = Console(stderr=True)
@@ -920,6 +923,98 @@ def inspect(
         out.print(f"recorded {len(written)} feedback record(s)")
     discrepancies = [f for f in findings if f.severity == "discrepancy"]
     raise typer.Exit(1 if discrepancies else 0)
+
+
+# --- bundles ----------------------------------------------------------------------------------------
+
+
+@bundle_app.command("export")
+def bundle_export(
+    target: Annotated[
+        Path, typer.Argument(help="Project directory (one project) or family directory (every project).")
+    ],
+    output: Annotated[Path, typer.Option("--output", "-o", help="Archive to write, e.g. name.scianim.zip.")],
+    include_renders: Annotated[bool, typer.Option(help="Include renders/ (manifests, PNGs, videos).")] = False,
+    include_source_assets: Annotated[bool, typer.Option(help="Include PDFs and third-party reference images.")] = False,
+    redact_paths: Annotated[
+        bool, typer.Option(help="Replace absolute paths in text files instead of failing.")
+    ] = False,
+) -> None:
+    """Write a bundle without .venv, caches, secrets, symlinks or absolute paths; omitted sources are listed."""
+    try:
+        result = export_bundle(target, output, ExportOptions(include_renders, include_source_assets, redact_paths))
+    except SpecError as exc:
+        fail(str(exc))
+    manifest = result.manifest
+    out.print(
+        f"[green]wrote[/green] {result.archive} ({len(result.members)} files, {manifest.kind} bundle '{manifest.bundle_id}')"
+    )
+    out.print(f"  projects: {', '.join(p.id for p in manifest.projects)}; styles: {', '.join(manifest.styles)}")
+    out.print(
+        f"  environment: pyproject {'yes' if manifest.environment.pyproject else 'no'}, lockfile {'yes' if manifest.environment.lockfile else 'no'}"
+    )
+    for item in manifest.omitted_sources:
+        out.print(
+            f"  [yellow]omitted[/yellow] {item.project_id}/{item.source_id} ({item.type}): {item.reason}; {item.relink}"
+        )
+    for note in manifest.notes:
+        out.print(f"  [dim]{note}[/dim]")
+
+
+@bundle_app.command("inspect")
+def bundle_inspect(archive: Annotated[Path, typer.Argument(help="Bundle archive.")]) -> None:
+    """List what a bundle contains and verify every checksum; nothing in it is executed."""
+    try:
+        report = inspect_bundle(archive)
+    except BundleError as exc:
+        fail(str(exc))
+    manifest = report.manifest
+    out.print(
+        f"{manifest.kind} bundle '{manifest.bundle_id}' from scianim {manifest.scianim_version}, created {manifest.created_at}"
+    )
+    out.print(
+        f"family: {manifest.family.id} ({manifest.family.title}); style {manifest.family.style.name}@{manifest.family.style.version}"
+    )
+    for project in manifest.projects:
+        out.print(
+            f"  project {project.id}: revisions {', '.join(project.revisions) or 'none'}; feedback {project.feedback_records}; proposals {project.applied_proposals}; renders {'yes' if project.renders_included else 'no'}"
+        )
+    out.print(
+        f"styles: {', '.join(manifest.styles) or 'none'}; components: {len(manifest.components)}; assets: {len(manifest.assets)}"
+    )
+    out.print(
+        f"environment: lockfile {'yes' if manifest.environment.lockfile else 'no'}; system requirements: {', '.join(r.name for r in manifest.environment.system_requirements) or 'none'}"
+    )
+    for item in manifest.omitted_sources:
+        out.print(f"  [yellow]omitted[/yellow] {item.project_id}/{item.source_id}: {item.reason}")
+    out.print(f"files: {len(report.files)}; checksums verified: {report.verified}")
+    for problem in report.problems:
+        out.print(f"  [red]problem[/red] {problem}")
+    raise typer.Exit(0 if report.ok else 1)
+
+
+@bundle_app.command("import")
+def bundle_import(
+    archive: Annotated[Path, typer.Argument(help="Bundle archive.")],
+    into: Annotated[Path, typer.Option("--into", help="Workspace directory.")],
+    family_id: Annotated[str | None, typer.Option(help="Import under another family id.")] = None,
+) -> None:
+    """Verify the bundle, then copy its family, styles and projects into the workspace. Imported code is not run."""
+    try:
+        report = import_bundle(archive, into, family_id)
+    except (SpecError, BundleError) as exc:
+        fail(str(exc))
+    out.print(f"[green]imported[/green] into {report.family_dir}")
+    for project_dir in report.projects:
+        out.print(f"  project {project_dir.name}")
+    if report.styles_added:
+        out.print(f"  styles added: {', '.join(report.styles_added)}")
+    out.print(f"  lockfile reused: {'yes' if report.lockfile_reused else 'no'}")
+    for warning in report.warnings:
+        out.print(f"  [yellow]note[/yellow] {warning}")
+    out.print("next steps:")
+    for step in report.next_steps:
+        out.print(f"  {step}")
 
 
 @revision_app.command("create")

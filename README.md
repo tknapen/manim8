@@ -53,6 +53,12 @@ uv run scianim serve --workspace workspace             # review UI and API on ht
 uv run scianim render $P --profile draft               # 1280x720 video, sections, SRT, sampled frames, timing report
 uv run scianim render $P --profile final               # 1920x1080 at the spec's fps, exactly duration*fps frames
 uv run scianim timing $P                               # scene durations proposed from narration, with conflicts
+uv run scianim sources probe $P                        # what each source says (columns, pages), with checksums
+uv run scianim context $P                              # CONTEXT.md + schemas for an external agent
+uv run scianim propose apply $P proposals/prop_x.yaml  # validated spec/storyboard change, diff on record
+uv run scianim inspect $P                              # self-check checkpoints against the storyboard
+uv run scianim bundle export $P -o dn.scianim.zip      # portable archive: specs, data, code, revisions, styles, lock
+uv run scianim bundle import dn.scianim.zip --into other_workspace   # verified first; env sync is the next step
 uv run pytest tests/unit -q                            # contracts, cascade, checks, isolation, workspaces, revisions
 uv run pytest tests/integration -q -m integration      # real renders in a temporary workspace; skipped without uv
 uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
@@ -77,7 +83,9 @@ probing, sampled frames at every checkpoint and a timing report against the stor
 and `scianim stale`. Milestone 5 adds the agent loop as files: source extracts, a context bundle, typed
 proposals with diffs and claims, self-inspection, and four more kinds (cited captions, populations,
 receptive-field glyphs, network graphs); a third example, `orientation_tuning`, is the output of that loop.
-Not yet built: bundles and voiceover. See `docs/IMPLEMENTATION_PLAN.md` for the checklist.
+Milestone 6 adds verified bundles (`scianim bundle export|inspect|import`) and the
+[user guide](docs/USER_GUIDE.md). Deferred: section splicing for incremental video and voiceover. See
+`docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status
 

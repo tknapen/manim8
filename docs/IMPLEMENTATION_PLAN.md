@@ -23,7 +23,8 @@ rather than append-only across jobs; approvals, feedback files and the SQLite in
 (the local review UI: API, SQLite index, feedback files, comparison, React front end) is complete (ADR-018).
 Milestone 4 (frame-exact timing, draft and final video with sections, subtitles, probes and sampled frames) is
 complete except for section splicing (ADR-019). Milestone 5 (source adapters, context bundles, proposals,
-self-inspection, four more kinds) is complete except for voiceover (ADR-020); Milestone 6 has not started.
+self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
+guide) is complete (ADR-021). Open items across milestones: section splicing (ADR-019) and voiceover (ADR-020).
 
 ## Milestone 0 — repository and contracts
 
@@ -164,12 +165,12 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 
 **Build tasks**
 
-- [ ] `bundle.yaml`, asset manifest, stable project IDs, SHA-256 checksums.
-- [ ] Export project and family bundles without `.venv`, credentials, absolute paths or unapproved copyrighted assets; include `system_requirements` in the bundle README.
-- [ ] Inspect and import bundles without executing imported Python.
-- [ ] Resolve imported dependencies from environment manifests and relink omitted assets explicitly.
-- [ ] Round-trip project and family across fresh workspaces.
-- [ ] Concise user guide: prompt-only, YAML-first, image reference, paper reference, scientific CSV, fork and revision, export and import.
+- [x] `bundle.yaml`, asset manifest, stable project IDs, SHA-256 checksums (`BundleManifest`, `MANIFEST.sha256`, ADR-021).
+- [x] Export project and family bundles without `.venv`, credentials, absolute paths or unapproved copyrighted assets; include `system_requirements` in the bundle README.
+- [x] Inspect and import bundles without executing imported Python.
+- [x] Resolve imported dependencies from environment manifests and relink omitted assets explicitly (lockfile reused at the same package offset, else `family env sync` resolves afresh; omitted sources listed with relink steps).
+- [x] Round-trip project and family across fresh workspaces (`tests/integration/test_bundles.py` reproduces a checkpoint hash after import and environment rebuild).
+- [x] Concise user guide: [`USER_GUIDE.md`](USER_GUIDE.md).
 
 **Acceptance:** A fresh-workspace bundle import validates, rebuilds its family environment on a supported platform and reproduces named snapshots. Missing licensed source files produce an explicit relinking warning, not silent substitution.
 

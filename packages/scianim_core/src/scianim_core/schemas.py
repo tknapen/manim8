@@ -8,6 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from scianim_core.animation import AnimationSpec
+from scianim_core.bundle import BundleManifest
 from scianim_core.family import FamilyManifest
 from scianim_core.feedback import FeedbackRecord
 from scianim_core.group import GroupManifest
@@ -35,6 +36,7 @@ PUBLIC_SCHEMAS: dict[str, type[BaseModel]] = {
     "proposal": Proposal,
     "applied_proposal": AppliedProposal,
     "source_extract": SourceExtract,
+    "bundle": BundleManifest,
 }
 
 

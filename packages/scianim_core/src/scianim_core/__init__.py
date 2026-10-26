@@ -12,6 +12,7 @@ from scianim_core.animation import (
     SourceRef,
     StyleSelection,
 )
+from scianim_core.bundle import BundleManifest, OmittedSource
 from scianim_core.common import SCHEMA_VERSION, RelPath, Slug, StrictModel
 from scianim_core.components import REGISTRY, REGISTRY_VERSION, ComponentDefinition, validate_params
 from scianim_core.family import FamilyManifest, SystemRequirement
@@ -51,6 +52,7 @@ __all__ = [
     "AppliedProposal",
     "ArtifactManifest",
     "BBox",
+    "BundleManifest",
     "CheckpointRecord",
     "Claim",
     "ComponentDefinition",
@@ -66,6 +68,7 @@ __all__ = [
     "ManimSettings",
     "Milestone",
     "Narration",
+    "OmittedSource",
     "OutputSpec",
     "PatchOperation",
     "Proposal",
