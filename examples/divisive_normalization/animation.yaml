@@ -1,0 +1,74 @@
+schema_version: "1.0"
+id: divisive_normalization_intro
+title: "Divisive normalization: excitation and pool"
+family: computational_neuroscience
+sources:
+  - id: responses
+    type: csv
+    path: data/synthetic_responses.csv
+    role: illustrative_data
+    citation: "Synthetic illustrative data generated for this example"
+  # A user-supplied PDF could be added here, for example:
+  # - id: actual_paper
+  #   type: pdf
+  #   path: references/source_paper.pdf
+  #   locators: ["p. 4", "Figure 2"]
+output:
+  duration_seconds: 60
+  width_px: 1920
+  height_px: 1080
+  aspect_ratio: "16:9"
+  fps: 30
+  container: mp4
+  video_codec: h264
+  audio: none
+style:
+  name: tomas_scientific
+  version: "0.1.0"
+  overrides: {}
+audience: graduate_neuroscience
+objective: >-
+  Introduce the relationship between excitatory drive and normalization
+  pool drive, and visualize how a larger denominator suppresses a
+  schematic neural response.
+scientific_constraints:
+  - id: schematic_equation
+    kind: hard
+    text: "Illustrate the schematic equation r = E / (sigma + P)."
+  - id: interpretation
+    kind: hard
+    text: "Define E as excitation, P as pool drive, and sigma as a positive stabilizer."
+  - id: synthetic_label
+    kind: hard
+    text: "Explicitly label source CSV values as synthetic, not measurements."
+  - id: controlled_comparison
+    kind: hard
+    text: "When comparing pool drive conditions, keep excitation and axis scales fixed."
+timeline:
+  - id: introduction
+    at_seconds: 0
+    tolerance_seconds: 0
+    kind: hard
+    instruction: "Show excitation-drive curve and explanatory title."
+  - id: normalization
+    at_seconds: 15
+    tolerance_seconds: 2
+    kind: preferred
+    instruction: "Introduce normalization pool visually."
+  - id: equation
+    at_seconds: 30
+    tolerance_seconds: 1
+    kind: hard
+    instruction: "Show the schematic normalization equation."
+  - id: comparison
+    at_seconds: 45
+    tolerance_seconds: 2
+    kind: preferred
+    instruction: "Compare low versus high normalization pool drive."
+direction:
+  tone: "Minimal, precise, scientific"
+  avoid:
+    - "Decorative flourishes"
+    - "Unlabeled axes"
+    - "Distracting transitions"
+extensions: {}

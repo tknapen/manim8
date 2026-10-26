@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SciAnim Studio (from agent handoff)
+.env.*
+!*.env.example
+.DS_Store
+workspace/**/.scianim/
+workspace/**/.venv/
+workspace/**/renders/

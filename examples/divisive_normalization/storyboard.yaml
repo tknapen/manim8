@@ -1,0 +1,54 @@
+schema_version: "1.0"
+project_id: divisive_normalization_intro
+based_on_animation_revision: "example_initial"
+scenes:
+  - id: excitation
+    start_seconds: 0
+    end_seconds: 15
+    purpose: "Introduce excitation as the numerator."
+    objects:
+      - id: drive_curve
+        kind: plot
+        style_role: primary_signal
+        data_source: responses
+    snapshots:
+      - id: excitation_visible
+        at_seconds: 9
+        description: "Synthetic excitation curve and clearly labeled axes."
+  - id: normalization_pool
+    start_seconds: 15
+    end_seconds: 30
+    purpose: "Establish the pool term as a denominator contribution."
+    objects:
+      - id: pool_label
+        kind: equation_label
+        style_role: normalization_pool
+    snapshots:
+      - id: pool_introduced
+        at_seconds: 24
+        description: "Pool label appears, distinct from excitation drive."
+  - id: equation
+    start_seconds: 30
+    end_seconds: 45
+    purpose: "Explain schematic r = E/(sigma+P)."
+    objects:
+      - id: normalization_equation
+        kind: equation
+        style_role: foreground
+    snapshots:
+      - id: equation_complete
+        at_seconds: 40
+        description: "The complete equation with term definitions."
+  - id: pool_comparison
+    start_seconds: 45
+    end_seconds: 60
+    purpose: "Demonstrate pool-driven suppression with constant excitation."
+    objects:
+      - id: response_comparison
+        kind: comparison_plot
+        style_role: comparison
+        data_source: responses
+    snapshots:
+      - id: comparison_complete
+        at_seconds: 55
+        description: "Two pool conditions, shared axes, and synthetic-data label."

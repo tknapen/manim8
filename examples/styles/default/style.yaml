@@ -1,0 +1,54 @@
+schema_version: "1.0"
+name: default
+version: "0.1.0"
+description: "Neutral baseline theme; replace semantic tokens with a versioned personal theme."
+inherits: null
+palette:
+  background: "#111111"
+  foreground: "#F5F5F5"
+  secondary_text: "#BFBFBF"
+  muted: "#888888"
+  primary_signal: "#66A5E3"
+  normalization_pool: "#E5AC5D"
+  emphasis: "#6BBCAC"
+  warning: "#D66A66"
+  comparison: "#B698D9"
+  neutral: "#CCCCCC"
+typography:
+  title:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 54
+    weight: semibold
+  body:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 32
+    weight: regular
+  equation:
+    engine: latex
+    size_px_at_1080p: 46
+  minimum_body_px_at_1080p: 26
+layout:
+  safe_margin_fraction: 0.05
+  baseline_grid_px_at_1080p: 16
+  panel_gap_px_at_1080p: 40
+  preferred_alignment: left
+geometry:
+  axis_stroke_px_at_1080p: 2.0
+  curve_stroke_px_at_1080p: 3.5
+  annotation_stroke_px_at_1080p: 2.5
+charts:
+  grid_visible: false
+  use_shared_scales_for_comparison: true
+  legend_position: upper_right
+  show_units_when_provided: true
+motion:
+  transition_seconds: 0.65
+  reveal_seconds: 0.85
+  easing: ease_in_out_sine
+  avoid_decorative_motion: true
+accessibility:
+  do_not_rely_on_color_alone: true
+  warn_on_low_contrast: true
+  minimum_contrast_body: 4.5

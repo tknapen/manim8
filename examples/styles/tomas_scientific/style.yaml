@@ -1,0 +1,56 @@
+schema_version: "1.0"
+name: tomas_scientific
+version: "0.1.0"
+description: >-
+  Illustrative scientific style tokens. These defaults are provisional and
+  should be redesigned with the user using two or three representative previews.
+inherits: default
+palette:
+  background: "#101820"
+  foreground: "#F2F4F5"
+  secondary_text: "#B4C0C9"
+  muted: "#6F8592"
+  primary_signal: "#56B4E9"
+  normalization_pool: "#E69F00"
+  emphasis: "#009E73"
+  warning: "#D55E00"
+  comparison: "#CC79A7"
+  neutral: "#C9D1D7"
+typography:
+  title:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 56
+    weight: semibold
+  body:
+    font_family: "DejaVu Sans"
+    font_fallbacks: ["Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 34
+    weight: regular
+  equation:
+    engine: latex
+    size_px_at_1080p: 48
+  minimum_body_px_at_1080p: 26
+layout:
+  safe_margin_fraction: 0.055
+  baseline_grid_px_at_1080p: 16
+  panel_gap_px_at_1080p: 44
+  preferred_alignment: left
+geometry:
+  axis_stroke_px_at_1080p: 2.2
+  curve_stroke_px_at_1080p: 4.0
+  annotation_stroke_px_at_1080p: 2.5
+charts:
+  grid_visible: false
+  use_shared_scales_for_comparison: true
+  legend_position: upper_right
+  show_units_when_provided: true
+motion:
+  transition_seconds: 0.65
+  reveal_seconds: 0.85
+  easing: ease_in_out_sine
+  avoid_decorative_motion: true
+accessibility:
+  do_not_rely_on_color_alone: true
+  warn_on_low_contrast: true
+  minimum_contrast_body: 4.5

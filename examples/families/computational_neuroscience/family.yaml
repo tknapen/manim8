@@ -1,0 +1,17 @@
+schema_version: "1.0"
+id: computational_neuroscience
+title: Computational Neuroscience
+style:
+  name: tomas_scientific
+  version: "0.1.0"
+environment:
+  manager: uv
+  project_root: "."
+  lockfile: "uv.lock"
+  install_policy: explicit
+shared_assets: []
+components:
+  - scientific_plot
+  - equation_highlight
+  - side_by_side_comparison
+schema_extensions: []
