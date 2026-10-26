@@ -43,6 +43,7 @@ def test_draft_and_final_video_match_the_storyboard(workspace: Path, scianim) ->
         "excitation_visible",
         "pool_introduced",
         "pool_raised",
+        "rebalanced",
         "mid_pool",
     }
     assert all(c.kind == "sampled_video_frame" and c.fidelity == "exact" for c in samples.values())
@@ -106,5 +107,5 @@ def test_video_job_through_the_api_runner(workspace: Path, scianim) -> None:
     assert final.status == "succeeded", final.error
     job = client.get(f"/api/projects/orientation_tuning/jobs/{final.job_id}").json()
     assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 24 * 30
-    assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"gaussian_visible", "widened", "halfway"}
+    assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"circuit_shown", "model_complete", "halfway"}
     assert job["timing"]["within_tolerance"], job["timing"]["problems"]
