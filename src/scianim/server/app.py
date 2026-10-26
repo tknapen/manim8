@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from scianim import __version__
+from scianim.agent.proposals import list_applied, list_pending
 from scianim.compare import compare_dir, compare_manifests
 from scianim.config.loader import SpecError, format_validation_error
 from scianim.feedback.store import build_record, list_feedback, resolve_target, write_feedback
@@ -452,6 +453,32 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
         data = record.model_dump(mode="json")
         data["path"] = path.relative_to(project.root).as_posix()
         return data
+
+    # --- proposals (read-only: applying runs through the CLI, where the agent works) -------------
+    @app.get("/api/projects/{project_id}/proposals")
+    def get_proposals(project_id: str) -> dict[str, Any]:
+        _, project = project_or_404(project_id)
+        applied = list_applied(project)
+        return {
+            "pending": [p.name for p in list_pending(project)],
+            "applied": [
+                {
+                    "id": a.proposal.id,
+                    "kind": a.proposal.kind,
+                    "author": a.proposal.author,
+                    "summary": a.proposal.summary,
+                    "rationale": a.proposal.rationale,
+                    "applied_at": a.applied_at,
+                    "latest_revision_before": a.latest_revision_before,
+                    "scientific_review_required": a.scientific_review_required,
+                    "uncertainties": a.proposal.uncertainties,
+                    "claims": [c.model_dump(mode="json") for c in a.proposal.claims],
+                    "in_response_to": a.proposal.in_response_to,
+                    "diffs": a.diffs,
+                }
+                for a in applied
+            ],
+        }
 
     # --- comparison -------------------------------------------------------------------------
     @app.get("/api/projects/{project_id}/compare")

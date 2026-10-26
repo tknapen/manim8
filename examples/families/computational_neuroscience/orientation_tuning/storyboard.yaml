@@ -1,0 +1,185 @@
+schema_version: '1.0'
+project_id: orientation_tuning
+based_on_animation_revision: working
+scenes:
+  - id: introduction
+    start_seconds: 0
+    end_seconds: 8
+    purpose: Name the phenomenon and cite the data.
+    narration:
+      text: Neurons in primary visual cortex prefer one orientation. The curves here are synthetic, built to 
+        illustrate the idea.
+    objects:
+      - id: title
+        kind: text_caption
+        style_role: foreground
+        params:
+          text: Orientation tuning in V1
+          role: title
+      - id: data_note
+        kind: caption_with_citation
+        style_role: secondary_text
+        params:
+          text: Synthetic von Mises tuning curves
+          source: tuning
+          locator: columns orientation_deg and response_hz
+          below: title
+        reveal_at_seconds: 1
+    snapshots:
+      - id: intro_cited
+        at_seconds: 5
+        description: Title with the cited data note beneath it.
+  - id: circuit
+    start_seconds: 8
+    end_seconds: 18
+    purpose: 'Where the signal comes from: a schematic circuit and a population of units.'
+    narration:
+      text: A stimulus drives a population in V1, which is read out downstream and held in check by 
+        inhibition.
+    objects:
+      - id: circuit_graph
+        kind: network_graph
+        style_role: primary_signal
+        params:
+          layout: grid
+          columns: 3
+          anchor: center_left
+          size_fraction: 0.45
+          nodes:
+            - id: stimulus
+              label: stimulus
+            - id: v1
+              label: V1
+            - id: readout
+              label: readout
+            - id: inhibition
+              label: inhibition
+              style_role: emphasis
+          edges:
+            - source: stimulus
+              target: v1
+              weight: 1.0
+            - source: v1
+              target: readout
+              weight: 1.0
+            - source: inhibition
+              target: v1
+              weight: -0.6
+              style_role: emphasis
+      - id: population
+        kind: schematic_population
+        style_role: primary_signal
+        params:
+          count: 8
+          arrangement: row
+          anchor: center_right
+          width_fraction: 0.4
+          activity:
+            - 0.1
+            - 0.3
+            - 0.7
+            - 1.0
+            - 0.8
+            - 0.4
+            - 0.2
+            - 0.05
+          label: V1 population
+          data_label: illustrative activity, not recorded
+        reveal_at_seconds: 12
+    snapshots:
+      - id: circuit_shown
+        at_seconds: 15
+        description: The three-node circuit with the inhibitory edge dashed, and the population row beside it.
+  - id: tuning_curve
+    start_seconds: 18
+    end_seconds: 28
+    purpose: 'The tuning curve: response against orientation.'
+    narration:
+      text: Plotting the response against orientation gives a bell-shaped tuning curve with a preferred 
+        orientation near ninety degrees.
+    objects:
+      - id: control_curve
+        kind: scientific_plot
+        style_role: primary_signal
+        data:
+          source: tuning
+          encoding:
+            x: orientation_deg
+            y: response_hz
+            group: condition
+          transforms:
+            - op: filter
+              column: condition
+              equals: control
+        params:
+          x_label: orientation (deg)
+          y_label: response (Hz)
+          data_label: synthetic control condition
+          width_fraction: 0.6
+      - id: model_label
+        kind: equation_label
+        style_role: emphasis
+        equation:
+          id: von_mises
+          highlight:
+            - theta_0
+        params:
+          text: von Mises model
+          anchor: top_right
+        reveal_at_seconds: 23
+    snapshots:
+      - id: curve_visible
+        at_seconds: 21
+        description: The synthetic control tuning curve with labelled axes; no model label yet.
+      - id: model_labelled
+        at_seconds: 26
+        description: The curve with the von Mises label and the highlighted preferred orientation.
+  - id: model
+    start_seconds: 28
+    end_seconds: 40
+    purpose: The model curve and the recording site's receptive field.
+    narration:
+      text: 'The von Mises function reproduces the shape: a peak at the preferred orientation, sharper for larger
+        kappa.'
+    objects:
+      - id: model_curve
+        kind: function_plot
+        style_role: primary_signal
+        params:
+          x_label: orientation (deg)
+          y_label: r (Hz)
+          x_range:
+            - 0
+            - 180
+          anchor: center_left
+          width_fraction: 0.55
+          series:
+            - label: kappa = 2
+              expression: 30 * exp(2 * (cos((x - 90) * pi / 180) - 1))
+            - label: kappa = 4
+              expression: 30 * exp(4 * (cos((x - 90) * pi / 180) - 1))
+              style_role: comparison
+          markers:
+            - x: 90
+              label: "θ₀"
+              style_role: secondary_text
+          data_label: analytic curves from the equation
+      - id: receptive_field
+        kind: receptive_field_glyph
+        style_role: primary_signal
+        params:
+          center:
+            - 2
+            - -1
+          sigma: 1.5
+          field_extent: 5
+          label: receptive field
+          anchor: center_right
+          size_fraction: 0.4
+          data_label: schematic, not mapped
+        reveal_at_seconds: 33
+    snapshots:
+      - id: model_complete
+        at_seconds: 36
+        description: Two model curves with the preferred-orientation marker, and the receptive-field glyph to 
+          the right.

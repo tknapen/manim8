@@ -1,0 +1,81 @@
+schema_version: "1.0"
+id: prop_create_spec
+kind: create_spec
+created_at: "2026-10-26T18:00:00+00:00"
+author: "agent:test-loop"
+summary: "Spec for an orientation-tuning explainer from the brief and the synthetic tuning table."
+rationale: "The brief asks for a circuit schematic, a tuning curve, the von Mises equation and the model curve; the only source is a synthetic CSV."
+based_on_revision: working
+uncertainties:
+  - "The brief does not say which orientation convention (0 = vertical or horizontal) the curves use; the storyboard labels the axis in degrees without naming a reference."
+claims:
+  - statement: "tuning.csv has columns orientation_deg, response_hz, condition and origin; condition takes the values control and adapted."
+    source_id: tuning
+    locator: "header row"
+    basis: source
+  - statement: "The von Mises tuning function r(theta) = r_max exp(kappa (cos(theta - theta_0) - 1)) is a standard parametric model of orientation tuning."
+    basis: assumption
+touches_science: true
+targets:
+  - file: animation.yaml
+    document:
+      schema_version: "1.0"
+      id: orientation_tuning
+      title: "Orientation tuning in primary visual cortex"
+      sources:
+        - id: brief
+          type: markdown
+          path: references/brief.md
+          role: explanatory_text
+          citation: "Project brief (this repository)"
+        - id: tuning
+          type: csv
+          path: data/tuning.csv
+          role: illustrative_data
+          citation: "Synthetic von Mises tuning curves computed for this example; not measurements"
+      output:
+        duration_seconds: 40
+        width_px: 1920
+        height_px: 1080
+        aspect_ratio: "16:9"
+        fps: 30
+        container: mp4
+        video_codec: h264
+        audio: none
+      style:
+        name: tomas_scientific
+        version: "0.2.0"
+        overrides: {}
+      equations:
+        - id: von_mises
+          typst: 'r(theta) = r_"max" exp(kappa (cos(theta - theta_0) - 1))'
+          latex: 'r(\theta) = r_{\max} \exp\left(\kappa (\cos(\theta - \theta_0) - 1)\right)'
+          symbols:
+            r: {meaning: "firing rate at orientation theta", units: "Hz"}
+            theta: {meaning: "stimulus orientation", units: "deg"}
+            r_max: {meaning: "peak firing rate", units: "Hz"}
+            kappa: {meaning: "tuning concentration (larger is sharper)"}
+            theta_0: {meaning: "preferred orientation", units: "deg"}
+      audience: graduate_neuroscience
+      objective: >-
+        Explain that a V1 neuron responds most to one orientation and less to others, summarise this as a
+        tuning curve, and present the von Mises function as a model of that curve, using clearly labelled
+        synthetic data.
+      scientific_constraints:
+        - id: equation_exact
+          kind: hard
+          text: "Show the von Mises equation exactly as stored and define every symbol."
+          equation: von_mises
+        - id: synthetic_label
+          kind: hard
+          text: "Label every plotted curve as synthetic; none of it is recorded data."
+      timeline:
+        - id: model_shown
+          at_seconds: 36
+          kind: preferred
+          instruction: "The model curve and its preferred-orientation marker are both visible."
+      direction:
+        tone: "plain, didactic"
+        avoid: ["decorative motion"]
+        prefer: ["one idea per scene"]
+      extensions: {}

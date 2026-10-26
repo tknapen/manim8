@@ -308,6 +308,10 @@
             "equation_block",
             "equation_label",
             "comparison_plot",
+            "caption_with_citation",
+            "schematic_population",
+            "receptive_field_glyph",
+            "network_graph",
             "custom"
           ],
           "title": "Kind",

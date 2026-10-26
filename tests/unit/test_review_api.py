@@ -191,7 +191,7 @@ def test_index_rebuild_and_refresh(rendered_project, workspace: Path) -> None:
     project, first, second = rendered_project
     index = Index(workspace)
     index.rebuild()
-    assert {p.id for p in index.projects()} == {"divisive_normalization", "prf_tuning"}
+    assert {p.id for p in index.projects()} == {"divisive_normalization", "prf_tuning", "orientation_tuning"}
     jobs = index.jobs("divisive_normalization")
     assert [j["job_id"] for j in jobs] == [second.job.job_id, first.job.job_id]
     assert jobs[0]["status"] == "succeeded" and jobs[0]["checkpoint_count"] == 2 and jobs[0]["submitted_by"] == "cli"
@@ -260,7 +260,9 @@ def test_review_api_end_to_end_without_rendering(rendered_project, workspace: Pa
     project, first, second = rendered_project
     client = TestClient(create_app(workspace))
     ws = client.get("/api/workspace").json()
-    assert {p["id"] for p in ws["projects"]} == {"divisive_normalization", "prf_tuning"} and ws["problems"] == []
+    assert {p["id"] for p in ws["projects"]} == {"divisive_normalization", "prf_tuning", "orientation_tuning"} and ws[
+        "problems"
+    ] == []
     detail = client.get("/api/projects/divisive_normalization").json()
     assert detail["validation"]["ok"] and detail["storyboard"]["scenes"][0]["id"] == "excitation"
     assert detail["latest_render"] == {"working": second.job.job_id}
@@ -360,5 +362,5 @@ def test_index_with_another_schema_version_is_rebuilt(workspace: Path) -> None:
     stale.close()
     index = Index(workspace)  # recreates the tables instead of failing on the old shape
     index.rebuild()
-    assert {p.id for p in index.projects()} == {"divisive_normalization", "prf_tuning"}
+    assert {p.id for p in index.projects()} == {"divisive_normalization", "prf_tuning", "orientation_tuning"}
     index.close()

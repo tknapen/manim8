@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api, isActive, type ProjectDetail } from "../api";
+import { api, isActive, type ProjectDetail, type Proposals } from "../api";
 import { routes } from "../router";
 import { Empty, ErrorBox, StatusChip, formatTime, seconds } from "../ui";
 
@@ -8,6 +8,8 @@ const PROFILES = ["storyboard", "snapshot", "draft", "final"];
 
 export default function Overview({ id }: { id: string }) {
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
+  const [proposals, setProposals] = useState<Proposals | null>(null);
+  const [openDiff, setOpenDiff] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState("working");
   const [profile, setProfile] = useState("snapshot");
@@ -27,7 +29,8 @@ export default function Overview({ id }: { id: string }) {
   useEffect(() => {
     setDetail(null);
     load();
-  }, [load]);
+    api.proposals(id).then(setProposals).catch(() => setProposals(null));
+  }, [id, load]);
 
   const active = detail?.jobs.some((job) => isActive(job.status)) ?? false;
   useEffect(() => {
@@ -308,6 +311,64 @@ export default function Overview({ id }: { id: string }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      <h2>Proposals</h2>
+      {!proposals || (proposals.applied.length === 0 && proposals.pending.length === 0) ? (
+        <Empty>
+          None. An agent writes proposals under <code>proposals/</code> and applies them with <code>scianim propose apply</code>; the diff and the claims stay on record here.
+        </Empty>
+      ) : (
+        <div>
+          {proposals.pending.length ? <p className="meta">pending files: {proposals.pending.join(", ")}</p> : null}
+          <table>
+            <thead>
+              <tr>
+                <th>proposal</th>
+                <th>kind</th>
+                <th>applied</th>
+                <th>author</th>
+                <th>science</th>
+                <th>summary</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {proposals.applied.map((p) => (
+                <tr key={p.id} data-testid={`proposal-${p.id}`}>
+                  <td>
+                    <code>{p.id}</code>
+                  </td>
+                  <td>{p.kind.replace("_", " ")}</td>
+                  <td>{formatTime(p.applied_at)}</td>
+                  <td>{p.author}</td>
+                  <td>{p.scientific_review_required ? <span className="chip chip-scientific_concern">sign-off needed</span> : <span className="meta">no</span>}</td>
+                  <td>
+                    {p.summary}
+                    {p.uncertainties.length ? (
+                      <div className="meta">open questions: {p.uncertainties.join(" · ")}</div>
+                    ) : null}
+                    {p.claims.length ? (
+                      <div className="meta">
+                        claims: {p.claims.map((c) => `${c.statement}${c.source_id ? ` [${c.source_id}${c.locator ? `, ${c.locator}` : ""}]` : ` [${c.basis}]`}`).join(" · ")}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>
+                    <button onClick={() => setOpenDiff(openDiff === p.id ? null : p.id)}>{openDiff === p.id ? "hide diff" : "diff"}</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {openDiff ? (
+            <pre data-testid="proposal-diff">
+              {Object.entries(proposals.applied.find((p) => p.id === openDiff)?.diffs ?? {})
+                .map(([file, diff]) => `--- ${file}\n${diff}`)
+                .join("\n")}
+            </pre>
+          ) : null}
+        </div>
       )}
 
       <h2>Recent jobs</h2>

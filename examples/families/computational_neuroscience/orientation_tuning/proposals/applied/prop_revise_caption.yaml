@@ -1,0 +1,36 @@
+schema_version: '1.0'
+proposal:
+  schema_version: '1.0'
+  id: prop_revise_caption
+  kind: revise_storyboard
+  created_at: '2026-10-26T18:30:00+00:00'
+  author: agent:test-loop
+  summary: Reword the data note and reveal it earlier, as the review asked.
+  rationale: The reviewer found the note vague; naming the data as synthetic von Mises curves is more honest 
+    and the earlier reveal pairs it with the title.
+  based_on_revision: rev_0001
+  in_response_to:
+    - fb_20261026T162602_578bcb
+  uncertainties: []
+  claims: []
+  targets:
+    - file: storyboard.yaml
+      patch:
+        - op: replace
+          path: /scenes/0/objects/1/params/text
+          value: Synthetic von Mises tuning curves
+        - op: replace
+          path: /scenes/0/objects/1/reveal_at_seconds
+          value: 1
+  touches_science: false
+applied_at: '2026-10-26T16:27:36+00:00'
+applied_to_revision: working
+latest_revision_before: rev_0001
+diffs:
+  storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -20,11 +20,11 @@\n         kind: caption_with_citation\n\
+    \         style_role: secondary_text\n         params:\n-          text: Illustrative tuning curves\n+     \
+    \     text: Synthetic von Mises tuning curves\n           source: tuning\n           locator: columns orientation_deg
+    and response_hz\n           below: title\n-        reveal_at_seconds: 2\n+        reveal_at_seconds: 1\n   \
+    \  snapshots:\n       - id: intro_cited\n         at_seconds: 5"
+scientific_review_required: false
+validation_warnings: []

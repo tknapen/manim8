@@ -778,7 +778,7 @@ The registry is the contract shared by the storyboard author (human or agent), t
 - an implementation in `scianim-bridge` that builds Manim mobjects from the resolved style, the bound data and the parameters, registers them under the object ID for the layout report, and exposes deterministic reveal animations;
 - a version, included in cache keys.
 
-Initial kinds (V1): `scientific_plot` (axes, curves, optional bands and legend), `function_plot` (analytic curves from arithmetic expressions in `x`, with labelled vertical markers; no data file), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
+Initial kinds (V1, extended in Milestone 5 with `caption_with_citation`, `schematic_population`, `receptive_field_glyph` and `network_graph`): `scientific_plot` (axes, curves, optional bands and legend), `function_plot` (analytic curves from arithmetic expressions in `x`, with labelled vertical markers; no data file), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
 
 `scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code. The only computed values a storyboard may carry are the `function_plot` expressions, which `scianim_core.expressions` parses and checks against a whitelist of arithmetic operators, named constants and elementary functions before the renderer compiles them; anything else (names, attributes, calls outside the whitelist) is rejected at validation. `scianim registry [kind]` prints the registered kinds and, for one kind, its parameter model, so an author or agent never has to read the Python models.
 
@@ -904,7 +904,11 @@ scianim feedback status path/to/project --revision rev_0002 --snapshot pool_intr
 scianim feedback list path/to/project
 scianim index rebuild [--workspace DIR]     # Recreate the SQLite cache from the files
 scianim schemas export schemas/
-scianim plan path/to/project             # Create/refresh storyboard proposal
+scianim sources probe path/to/project    # What each source says, with checksums (.scianim/sources/)
+scianim context path/to/project [--out DIR]  # Provider-neutral bundle for an external agent
+scianim propose validate path/to/project proposals/prop_x.yaml   # Check a proposal; writes nothing
+scianim propose apply path/to/project proposals/prop_x.yaml      # Apply it; diff and claims on record
+scianim inspect path/to/project [--job ID] [--record]  # Self-check checkpoints against the storyboard
 scianim snapshot path/to/project --all   # Named checkpoint stills
 scianim snapshot path/to/project --id equation_complete
 scianim render path/to/project --profile draft     # 2/3 resolution, sections, SRT, sampled checkpoint frames
@@ -921,7 +925,7 @@ scianim bundle import bundle.scianim.zip --into /path/to/workspace
 scianim serve --host 127.0.0.1 --port 8765
 ```
 
-Commands that require LLM reasoning (e.g. `plan`) must be able to call an installed/configured adapter *or* cleanly export a prompt/context package for an external coding agent. Do not require cloud API keys merely to validate or render a fully specified animation.
+Commands that require LLM reasoning must be able to call an installed/configured adapter *or* cleanly export a prompt/context package for an external coding agent. Do not require cloud API keys merely to validate or render a fully specified animation. In the implementation the reasoning happens outside the tool: `scianim context` exports the package and the agent answers with proposal files that `scianim propose` validates and applies (ADR-020); a `plan` command that calls an adapter can be layered on top of the same two files.
 
 ### 14.1 Essential HTTP resources
 

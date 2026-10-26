@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "Inference": {
+      "additionalProperties": false,
+      "description": "An interpretation of a source, attributed; never produced by an adapter.",
+      "properties": {
+        "by": {
+          "minLength": 1,
+          "title": "By",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "by",
+        "statement"
+      ],
+      "title": "Inference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {
+      "title": "Adapter",
+      "type": "string"
+    },
+    "extracted_at": {
+      "title": "Extracted At",
+      "type": "string"
+    },
+    "inferred": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Inference"
+      },
+      "title": "Inferred",
+      "type": "array"
+    },
+    "notes": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "path": {
+      "title": "Path",
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "illustrative_data",
+        "empirical_data",
+        "composition_reference",
+        "style_reference",
+        "scientific_reference",
+        "target_keyframe",
+        "explanatory_text"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "says": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Says",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "size_bytes": {
+      "minimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    },
+    "source_id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "csv",
+        "pdf",
+        "image",
+        "markdown",
+        "text",
+        "project"
+      ],
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "type",
+    "role",
+    "path",
+    "sha256",
+    "size_bytes",
+    "extracted_at",
+    "adapter"
+  ],
+  "title": "SourceExtract",
+  "type": "object"
+}

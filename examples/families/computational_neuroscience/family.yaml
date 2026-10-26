@@ -25,4 +25,8 @@ components:
   - equation_label
   - equation_block
   - comparison_plot
+  - caption_with_citation
+  - schematic_population
+  - receptive_field_glyph
+  - network_graph
 schema_extensions: []

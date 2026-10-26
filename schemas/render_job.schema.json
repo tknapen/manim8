@@ -742,6 +742,16 @@
       "title": "Cache Key",
       "type": "string"
     },
+    "citations": {
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]{0,63}$": {
+          "type": "string"
+        }
+      },
+      "title": "Citations",
+      "type": "object"
+    },
     "data_files": {
       "default": {},
       "patternProperties": {

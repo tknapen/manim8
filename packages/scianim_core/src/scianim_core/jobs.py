@@ -73,6 +73,8 @@ class RenderJob(StrictModel):
     resolved_style: ResolvedStyle
     data_files: dict[Slug, RelPath] = {}
     equations: dict[Slug, Equation] = {}
+    citations: dict[Slug, str] = {}
+    """Citation text per source id (the source's `citation`, else its path), for captions that cite."""
     manim: ManimSettings
     output_dir: RelPath
     cache_key: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")

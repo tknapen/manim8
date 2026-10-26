@@ -268,8 +268,26 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.text()) as unknown as T;
 }
 
+export type AppliedProposal = {
+  id: string;
+  kind: string;
+  author: string;
+  summary: string;
+  rationale: string;
+  applied_at: string;
+  latest_revision_before: string | null;
+  scientific_review_required: boolean;
+  uncertainties: string[];
+  claims: { statement: string; source_id: string | null; locator: string | null; basis: string }[];
+  in_response_to: string[];
+  diffs: Record<string, string>;
+};
+
+export type Proposals = { pending: string[]; applied: AppliedProposal[] };
+
 export const api = {
   workspace: () => request<Workspace>("/api/workspace"),
+  proposals: (id: string) => request<Proposals>(`/api/projects/${id}/proposals`),
   project: (id: string) => request<ProjectDetail>(`/api/projects/${id}`),
   jobs: (id: string) => request<Job[]>(`/api/projects/${id}/jobs`),
   job: (id: string, jobId: string) => request<Job>(`/api/projects/${id}/jobs/${jobId}`),

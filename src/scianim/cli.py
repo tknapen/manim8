@@ -12,6 +12,9 @@ from rich.console import Console
 from rich.table import Table
 from rich.tree import Tree
 
+from scianim.agent.context import export_context
+from scianim.agent.inspect import inspect_manifest, record_findings
+from scianim.agent.proposals import apply_proposal, list_applied, list_pending, load_proposal, resolve_proposal
 from scianim.clean import clean_project
 from scianim.codegen.generate import write_scene_module
 from scianim.compare import compare_dir, compare_manifests
@@ -36,6 +39,7 @@ from scianim.render.jobs import (
 from scianim.render.manifests import manifest_for_ref
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import create_revision, latest_revision, list_revisions, load_revision
+from scianim.sources.adapters import load_extracts, probe_all
 from scianim.styles.resolve import list_styles
 from scianim.workspace import (
     DEFAULT_STYLE_REF,
@@ -61,6 +65,8 @@ project_app = typer.Typer(no_args_is_help=True, help="Projects (animations).")
 revision_app = typer.Typer(no_args_is_help=True, help="Immutable project revisions.")
 feedback_app = typer.Typer(no_args_is_help=True, help="Review feedback records (feedback/*.yaml).")
 index_app = typer.Typer(no_args_is_help=True, help="The workspace SQLite index (a cache of the files).")
+sources_app = typer.Typer(no_args_is_help=True, help="Source adapters: what supplied files say.")
+propose_app = typer.Typer(no_args_is_help=True, help="Agent proposals: validate and apply spec or storyboard changes.")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(workspace_app, name="workspace")
@@ -70,6 +76,8 @@ app.add_typer(project_app, name="project")
 app.add_typer(revision_app, name="revision")
 app.add_typer(feedback_app, name="feedback")
 app.add_typer(index_app, name="index")
+app.add_typer(sources_app, name="sources")
+app.add_typer(propose_app, name="propose")
 
 out = Console()
 err = Console(stderr=True)
@@ -731,6 +739,187 @@ def stale(
         out.print(f"  {scene_id}: [red]removed[/red]")
     for note in dependency.notes:
         out.print(f"  [dim]{note}[/dim]")
+
+
+# --- agent operations: sources, context, proposals, inspection ----------------------------------
+
+
+@sources_app.command("probe")
+def sources_probe(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+) -> None:
+    """Extract what each declared source says (columns, pages, dimensions) into .scianim/sources/."""
+    proj, report = _prepare(project, require_family=False)
+    if report.animation is None:
+        print_report(report, str(project))
+        fail("animation.yaml does not load")
+    try:
+        extracts = probe_all(proj, report)
+    except SpecError as exc:
+        fail(str(exc))
+    table = Table(show_header=True, header_style="bold")
+    for column in ("source", "type", "role", "sha256", "says"):
+        table.add_column(column)
+    for extract in extracts:
+        says = extract.says
+        if extract.type == "csv":
+            summary = f"{says['rows']} rows; " + ", ".join(f"{c['name']} ({c['dtype']})" for c in says["columns"])
+        elif extract.type == "pdf":
+            summary = f"{says['page_count']} pages"
+        elif extract.type in ("markdown", "text"):
+            summary = f"{says['words']} words; headings {says['headings'][:3]}"
+        elif extract.type == "image":
+            summary = f"{says['width_px']}x{says['height_px']}"
+        else:
+            summary = ", ".join(f"{k}={v}" for k, v in list(says.items())[:3])
+        table.add_row(extract.source_id, extract.type, extract.role, extract.sha256[:12], summary[:90])
+    out.print(table)
+    for message in report.errors:
+        out.print(f"  [red]error[/red] {message}")
+    out.print(f"wrote {len(extracts)} extract(s) under {proj.root / '.scianim' / 'sources'}")
+
+
+@app.command()
+def context(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    out_dir: Annotated[
+        Path | None, typer.Option("--out", help="Where to write the bundle (default .scianim/context).")
+    ] = None,
+) -> None:
+    """Export a provider-neutral context bundle (CONTEXT.md, schemas, source extracts) for an external agent."""
+    proj, report = _prepare(project, require_family=False)
+    if report.animation is not None and not load_extracts(proj):
+        try:
+            probe_all(proj, report)
+        except SpecError as exc:
+            out.print(f"  [yellow]warning[/yellow] sources not probed: {exc}")
+    target = export_context(proj, report, out_dir)
+    out.print(f"wrote {target / 'CONTEXT.md'} (+ context.json, schemas/, sources/, proposal.template.yaml)")
+
+
+def _proposal_project(project: Path, proposal_path: Path):
+    """A proposal that creates animation.yaml may target a directory that is not a project yet."""
+    proposal = load_proposal(proposal_path)
+    creates_spec = any(t.file == "animation.yaml" and t.document is not None for t in proposal.targets)
+    root = project.resolve()
+    if creates_spec:
+        root.mkdir(parents=True, exist_ok=True)
+        return Project(root), proposal
+    return find_project(root), proposal
+
+
+@propose_app.command("validate")
+def propose_validate(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    proposal: Annotated[Path, typer.Argument(help="Proposal YAML file.")],
+) -> None:
+    """Check what a proposal would produce against the contracts and cross-file rules; writes nothing."""
+    try:
+        proj, loaded = _proposal_project(project, proposal)
+        resolved = resolve_proposal(proj, loaded)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"{loaded.id} ({loaded.kind}) by {loaded.author}: {loaded.summary}")
+    for file in resolved.documents:
+        out.print(f"  target {file}: {'patched' if resolved.before.get(file) is not None else 'created'}")
+    for message in resolved.errors:
+        out.print(f"  [red]error[/red]   {message}")
+    for message in resolved.warnings:
+        out.print(f"  [yellow]warning[/yellow] {message}")
+    for question in loaded.uncertainties:
+        out.print(f"  [cyan]uncertainty[/cyan] {question}")
+    if resolved.touches_science:
+        out.print("  [magenta]touches scientific content: human sign-off required after applying[/magenta]")
+    out.print("valid" if resolved.ok else "invalid")
+    raise typer.Exit(0 if resolved.ok else 1)
+
+
+@propose_app.command("apply")
+def propose_apply(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    proposal: Annotated[Path, typer.Argument(help="Proposal YAML file.")],
+) -> None:
+    """Validate, then write the proposed documents to the working copy and record the proposal with its diff."""
+    try:
+        proj, loaded = _proposal_project(project, proposal)
+        applied = apply_proposal(proj, loaded)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"[green]applied[/green] {loaded.id} ({loaded.kind}): {loaded.summary}")
+    for file, diff in applied.diffs.items():
+        changed = sum(
+            1 for line in diff.splitlines() if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
+        )
+        out.print(f"  {file}: {changed} changed line(s)")
+    for message in applied.validation_warnings:
+        out.print(f"  [yellow]warning[/yellow] {message}")
+    if applied.scientific_review_required:
+        out.print("  [magenta]scientific content changed: this needs human sign-off; nothing is approved[/magenta]")
+    out.print(f"record: {proj.root / 'proposals' / 'applied' / (loaded.id + '.yaml')}")
+
+
+@propose_app.command("list")
+def propose_list(project: Annotated[Path, typer.Argument(help="Project directory.")]) -> None:
+    """Pending proposal files and applied proposals with their science flag."""
+    try:
+        proj = find_project(project)
+    except SpecError as exc:
+        fail(str(exc))
+    pending = list_pending(proj)
+    applied = list_applied(proj)
+    out.print(f"pending: {', '.join(p.name for p in pending) or 'none'}")
+    if not applied:
+        out.print("applied: none")
+        return
+    table = Table(show_header=True, header_style="bold")
+    for column in ("id", "kind", "applied", "author", "science", "summary"):
+        table.add_column(column)
+    for record in applied:
+        table.add_row(
+            record.proposal.id,
+            record.proposal.kind,
+            record.applied_at,
+            record.proposal.author,
+            "sign-off needed" if record.scientific_review_required else "-",
+            record.proposal.summary[:70],
+        )
+    out.print(table)
+
+
+@app.command()
+def inspect(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    job: Annotated[str | None, typer.Option(help="Job id (default: the latest succeeded render).")] = None,
+    record: Annotated[bool, typer.Option(help="Write discrepancies and warnings as feedback records.")] = False,
+) -> None:
+    """Compare rendered checkpoints and layout reports with the storyboard before asking for human review."""
+    proj, report = _prepare(project, require_family=False)
+    if report.storyboard is None:
+        fail("project has no storyboard")
+    manifest = manifest_for_ref(proj, job) if job else None
+    if manifest is None and job is None:
+        manifest = manifest_for_ref(proj, "working")
+    if manifest is None:
+        fail("no succeeded render to inspect; run `scianim snapshot` first")
+    findings = inspect_manifest(proj, manifest, report.storyboard)
+    table = Table(show_header=True, header_style="bold")
+    for column in ("snapshot", "severity", "code", "detail"):
+        table.add_column(column)
+    for finding in findings:
+        color = {"discrepancy": "red", "warning": "yellow", "note": "dim"}[finding.severity]
+        table.add_row(finding.snapshot_id, f"[{color}]{finding.severity}[/{color}]", finding.code, finding.detail)
+    out.print(
+        f"inspecting {manifest.job.job_id} ({manifest.job.revision_id}): {len(manifest.result.checkpoints)} checkpoint(s)"
+    )
+    if findings:
+        out.print(table)
+    else:
+        out.print("[green]no findings: every expected object is present and no layout warnings[/green]")
+    if record:
+        written = record_findings(proj, manifest, findings)
+        out.print(f"recorded {len(written)} feedback record(s)")
+    discrepancies = [f for f in findings if f.severity == "discrepancy"]
+    raise typer.Exit(1 if discrepancies else 0)
 
 
 @revision_app.command("create")

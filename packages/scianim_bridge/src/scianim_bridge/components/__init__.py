@@ -3,16 +3,22 @@
 from scianim_bridge.components.base import Component
 from scianim_bridge.components.custom import custom
 from scianim_bridge.components.equations import equation_block, equation_label
+from scianim_bridge.components.graph import network_graph
 from scianim_bridge.components.plots import comparison_plot, function_plot, scientific_plot
-from scianim_bridge.components.text import text_caption
+from scianim_bridge.components.schematic import receptive_field_glyph, schematic_population
+from scianim_bridge.components.text import caption_with_citation, text_caption
 
 __all__ = [
     "Component",
+    "caption_with_citation",
     "comparison_plot",
     "custom",
     "equation_block",
     "equation_label",
     "function_plot",
+    "network_graph",
+    "receptive_field_glyph",
+    "schematic_population",
     "scientific_plot",
     "text_caption",
 ]

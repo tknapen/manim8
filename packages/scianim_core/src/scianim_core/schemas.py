@@ -12,7 +12,9 @@ from scianim_core.family import FamilyManifest
 from scianim_core.feedback import FeedbackRecord
 from scianim_core.group import GroupManifest
 from scianim_core.jobs import ArtifactManifest, RenderJob, WorkerResult
+from scianim_core.proposals import AppliedProposal, Proposal
 from scianim_core.revisions import RevisionRecord
+from scianim_core.sources import SourceExtract
 from scianim_core.storyboard import Storyboard
 from scianim_core.style import ResolvedStyle, StyleSheet
 from scianim_core.workspace import WorkspaceManifest
@@ -30,6 +32,9 @@ PUBLIC_SCHEMAS: dict[str, type[BaseModel]] = {
     "worker_result": WorkerResult,
     "artifact_manifest": ArtifactManifest,
     "feedback": FeedbackRecord,
+    "proposal": Proposal,
+    "applied_proposal": AppliedProposal,
+    "source_extract": SourceExtract,
 }
 
 

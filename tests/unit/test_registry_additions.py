@@ -159,6 +159,20 @@ def test_registry_command_lists_kinds_and_describes_parameters() -> None:
     assert unknown.exit_code == 1
 
 
+def test_orientation_tuning_template_validates_in_project_mode() -> None:
+    """The Milestone 5 loop's output (cited caption, graph, population, glyph) validates as a template."""
+    example = (
+        Path(__file__).resolve().parents[2]
+        / "examples"
+        / "families"
+        / "computational_neuroscience"
+        / "orientation_tuning"
+    )
+    result = CliRunner().invoke(app, ["validate", str(example)])
+    assert result.exit_code == 0, result.stdout
+    assert "0 errors, 0 warnings" in result.stdout
+
+
 def test_prf_tuning_template_validates_in_project_mode() -> None:
     """The dry-run storyboard (function_plot, markers, `below`, `reveal_at_seconds`) validates as a read-only template."""
     example = (

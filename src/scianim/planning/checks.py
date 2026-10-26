@@ -13,7 +13,12 @@ from scianim.project import Project, scene_class_name
 from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
 from scianim_core.common import is_asset_uri
-from scianim_core.components import ComparisonPlotParams, FunctionPlotParams
+from scianim_core.components import (
+    CaptionWithCitationParams,
+    ComparisonPlotParams,
+    FunctionPlotParams,
+    NetworkGraphParams,
+)
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -178,6 +183,19 @@ def check_storyboard(
                 for role in [s.style_role for s in params.series] + [m.style_role for m in params.markers]:
                     if role is not None and role not in palette:
                         report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
+            if obj.kind == "caption_with_citation":
+                params = obj.typed_params()
+                assert isinstance(params, CaptionWithCitationParams)
+                if params.source not in sources:
+                    report.error(
+                        f"object '{obj.id}': cites source '{params.source}' which is not declared in animation.yaml sources"
+                    )
+            if obj.kind == "network_graph" and palette is not None:
+                params = obj.typed_params()
+                assert isinstance(params, NetworkGraphParams)
+                for role in [n.style_role for n in params.nodes] + [e.style_role for e in params.edges]:
+                    if role is not None and role not in palette:
+                        report.error(f"object '{obj.id}': style role '{role}' is not a palette role")
             if obj.kind == "custom":
                 module_name = obj.params["builder"].split(":")[0]
                 if not builder_module_exists(module_name, project, report.family):
@@ -232,14 +250,21 @@ def resolve_sources(project: Project, animation: AnimationSpec, report: Report) 
                 report.error(f"source '{source.id}': file {source.path} not found under {project.root}")
 
 
-def validate_project(project: Project, require_family: bool = False) -> Report:
+def validate_project(
+    project: Project,
+    require_family: bool = False,
+    animation: AnimationSpec | None = None,
+    storyboard: Storyboard | None = None,
+) -> Report:
+    """Cross-file checks. `animation` and `storyboard` override the files on disk (proposal validation)."""
     report = Report()
     report.workspace = project.workspace_root()
-    try:
-        animation = project.load_animation()
-    except SpecError as exc:
-        report.error(exc.message if exc.path is None else f"{exc.path}: {exc.message}")
-        return report
+    if animation is None:
+        try:
+            animation = project.load_animation()
+        except SpecError as exc:
+            report.error(exc.message if exc.path is None else f"{exc.path}: {exc.message}")
+            return report
     report.animation = animation
     try:
         lookup = locate_family(project.root, animation.family, project.family_search_roots())
@@ -258,11 +283,12 @@ def validate_project(project: Project, require_family: bool = False) -> Report:
         )
     except SpecError as exc:
         report.error(exc.message)
-    try:
-        storyboard = project.load_storyboard()
-    except SpecError as exc:
-        report.error(f"{exc.path}: {exc.message}")
-        return report
+    if storyboard is None:
+        try:
+            storyboard = project.load_storyboard()
+        except SpecError as exc:
+            report.error(f"{exc.path}: {exc.message}")
+            return report
     if storyboard is None:
         report.note("no storyboard.yaml yet")
         return report

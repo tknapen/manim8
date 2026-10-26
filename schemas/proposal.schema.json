@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "description": "A scientific statement the proposal relies on, tied to a source and a locator.",
+      "properties": {
+        "basis": {
+          "default": "source",
+          "enum": [
+            "source",
+            "inference",
+            "assumption"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locator"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "PatchOperation": {
+      "additionalProperties": false,
+      "description": "RFC 6902 subset: add, replace or remove at a JSON pointer.",
+      "properties": {
+        "op": {
+          "enum": [
+            "add",
+            "replace",
+            "remove"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^(/[^/]*)+$",
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "title": "PatchOperation",
+      "type": "object"
+    },
+    "ProposalTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document"
+        },
+        "file": {
+          "enum": [
+            "animation.yaml",
+            "storyboard.yaml"
+          ],
+          "title": "File",
+          "type": "string"
+        },
+        "patch": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/PatchOperation"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Patch"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "ProposalTarget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "author": {
+      "minLength": 1,
+      "title": "Author",
+      "type": "string"
+    },
+    "based_on_revision": {
+      "anyOf": [
+        {
+          "pattern": "^(working|rev_\\d{4})$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Based On Revision"
+    },
+    "claims": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^prop_[a-z0-9][a-z0-9_]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "in_response_to": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "In Response To",
+      "type": "array"
+    },
+    "kind": {
+      "enum": [
+        "create_spec",
+        "revise_spec",
+        "create_storyboard",
+        "revise_storyboard",
+        "analyze_feedback"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/ProposalTarget"
+      },
+      "minItems": 1,
+      "title": "Targets",
+      "type": "array"
+    },
+    "touches_science": {
+      "default": false,
+      "title": "Touches Science",
+      "type": "boolean"
+    },
+    "uncertainties": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "created_at",
+    "author",
+    "summary",
+    "targets"
+  ],
+  "title": "Proposal",
+  "type": "object"
+}

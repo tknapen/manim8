@@ -17,7 +17,7 @@ from scianim_core.common import Slug, StrictModel
 from scianim_core.expressions import validate_expression
 from scianim_core.style import Anchor
 
-REGISTRY_VERSION = "0.2.0"
+REGISTRY_VERSION = "0.3.0"
 
 ComponentKind = Literal[
     "text_caption",
@@ -26,6 +26,10 @@ ComponentKind = Literal[
     "equation_block",
     "equation_label",
     "comparison_plot",
+    "caption_with_citation",
+    "schematic_population",
+    "receptive_field_glyph",
+    "network_graph",
     "custom",
 ]
 TextRole = Literal["title", "body", "caption"]
@@ -150,6 +154,102 @@ class CustomParams(StrictModel):
     arguments: dict[str, Any] = {}
 
 
+class CaptionWithCitationParams(Placement):
+    """A caption whose second line cites a declared source, so a scientific claim stays traceable."""
+
+    text: str = Field(min_length=1)
+    source: Slug
+    """Id of a source in animation.yaml; its citation (or path) is typeset under the text."""
+    locator: str | None = None
+    """Page, figure or table reference appended to the citation."""
+    role: TextRole = "caption"
+
+
+class SchematicPopulationParams(StrictModel):
+    """A row or grid of unit glyphs whose fill encodes activity; a schematic, never a measurement."""
+
+    count: int = Field(ge=1, le=64)
+    arrangement: Literal["row", "grid"] = "row"
+    columns: int | None = Field(default=None, ge=1)
+    activity: list[float] | None = None
+    """One value in [0, 1] per unit; requires `data_label` because the values are illustrative."""
+    data_label: str | None = None
+    label: str | None = None
+    unit_radius_px_at_1080p: float = Field(default=18, gt=0)
+    anchor: Anchor = "center"
+    width_fraction: float = Field(default=0.6, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def _activity_shape(self) -> SchematicPopulationParams:
+        if self.activity is not None:
+            if len(self.activity) != self.count:
+                raise ValueError(f"activity has {len(self.activity)} values for {self.count} units")
+            if any(not 0 <= value <= 1 for value in self.activity):
+                raise ValueError("activity values must lie in [0, 1]")
+            if not self.data_label:
+                raise ValueError("activity values are illustrative; give a data_label that says so")
+        return self
+
+
+class ReceptiveFieldGlyphParams(StrictModel):
+    """A Gaussian receptive field drawn as contour rings inside a square visual-field box."""
+
+    center: tuple[float, float] = (0.0, 0.0)
+    sigma: float = Field(gt=0)
+    field_extent: float = Field(default=10.0, gt=0)
+    """Half-width of the visual field box, in the same units as `center` and `sigma`."""
+    label: str | None = None
+    show_axes: bool = True
+    data_label: str | None = None
+    anchor: Anchor = "center"
+    size_fraction: float = Field(default=0.5, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def _inside_the_field(self) -> ReceptiveFieldGlyphParams:
+        if any(abs(c) > self.field_extent for c in self.center):
+            raise ValueError("center lies outside the field box; enlarge field_extent")
+        return self
+
+
+class GraphNode(StrictModel):
+    id: Slug
+    label: str | None = None
+    style_role: Slug | None = None
+
+
+class GraphEdge(StrictModel):
+    source: Slug
+    target: Slug
+    weight: float = 1.0
+    """Sign and magnitude: negative weights are drawn dashed (inhibitory), thickness scales with |weight|."""
+    style_role: Slug | None = None
+    directed: bool = True
+
+
+class NetworkGraphParams(StrictModel):
+    """A small network: nodes on a circle, a row or a grid with weighted, optionally directed edges."""
+
+    nodes: list[GraphNode] = Field(min_length=1, max_length=32)
+    edges: list[GraphEdge] = []
+    layout: Literal["circle", "row", "grid"] = "circle"
+    columns: int | None = Field(default=None, ge=1)
+    node_radius_px_at_1080p: float = Field(default=28, gt=0)
+    anchor: Anchor = "center"
+    size_fraction: float = Field(default=0.6, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def _consistent(self) -> NetworkGraphParams:
+        ids = [n.id for n in self.nodes]
+        if len(ids) != len(set(ids)):
+            raise ValueError("node ids must be unique")
+        known = set(ids)
+        for edge in self.edges:
+            for end in (edge.source, edge.target):
+                if end not in known:
+                    raise ValueError(f"edge {edge.source}->{edge.target} references unknown node '{end}'")
+        return self
+
+
 @dataclass(frozen=True)
 class ComponentDefinition:
     kind: str
@@ -224,6 +324,45 @@ REGISTRY: dict[str, ComponentDefinition] = {
         requires_equation=False,
         text_like=False,
         consumes=("palette.*", "typography.body", "geometry", "charts", "layout"),
+    ),
+    "caption_with_citation": ComponentDefinition(
+        kind="caption_with_citation",
+        params_model=CaptionWithCitationParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=True,
+        consumes=("palette.<style_role>", "palette.secondary_text", "typography.caption", "typography.body"),
+    ),
+    "schematic_population": ComponentDefinition(
+        kind="schematic_population",
+        params_model=SchematicPopulationParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=("palette.<style_role>", "palette.neutral", "typography.annotation", "typography.caption", "geometry"),
+    ),
+    "receptive_field_glyph": ComponentDefinition(
+        kind="receptive_field_glyph",
+        params_model=ReceptiveFieldGlyphParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=(
+            "palette.<style_role>",
+            "palette.*_soft",
+            "palette.secondary_text",
+            "typography.tick_label",
+            "typography.annotation",
+            "geometry",
+        ),
+    ),
+    "network_graph": ComponentDefinition(
+        kind="network_graph",
+        params_model=NetworkGraphParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=("palette.<style_role>", "palette.*", "typography.annotation", "geometry"),
     ),
     "custom": ComponentDefinition(
         kind="custom",

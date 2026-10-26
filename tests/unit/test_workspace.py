@@ -108,7 +108,8 @@ def test_groups_layer_into_the_cascade(workspace: Path) -> None:
     assert report.style.tokens.palette["emphasis"] == "#ABCDEF"
     scan = scan_workspace(workspace)
     assert scan.problems == []
-    assert scan.families[0].projects[0].groups == ["perception"]
+    moved = next(node for node in scan.families[0].projects if node.id == "divisive_normalization")
+    assert moved.groups == ["perception"]
 
 
 def test_duplicate_project_ids_are_reported(workspace: Path) -> None:

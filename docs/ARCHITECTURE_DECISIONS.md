@@ -278,3 +278,44 @@ not to suffice.
 rounding paths differ by one frame per play, which accumulated to nine frames over a 60 s example before this
 change; requesting half-frame offsets is the smallest intervention that makes both paths exact without
 patching Manim.
+
+## ADR-020: Agents work through files: extracts, context bundles and proposals
+
+**Status:** accepted, 26 October 2026 (Milestone 5)
+
+**Decision.** No model is called from the control plane. The agent-facing surface is three kinds of file:
+
+- *Source extracts* (`.scianim/sources/<id>.json`, `scianim sources probe`): what a declared source says, read
+  by an adapter per type (csv columns, dtypes, ranges and counts; markdown and text headings and words; pdf
+  page texts with page anchors; image dimensions; another project's ids and revisions), with the file's
+  sha256. Adapters never fill `inferred`; an interpretation carries who made it.
+- *Context bundles* (`.scianim/context/`, `scianim context`): `CONTEXT.md` with the agent instruction contract
+  (spec 7.2), the brief, equations, what each source says, the current storyboard, the style roles and type
+  scale, the registry with every parameter, open feedback and the latest layout reports; plus `context.json`,
+  the JSON Schemas and a proposal template. Any coding agent, hosted model behind an adapter, or person can
+  work from it.
+- *Proposals* (`proposals/<id>.yaml`, `scianim propose validate|apply|list`): a typed `Proposal` with
+  summary, rationale, `uncertainties` (the questions the sources did not answer), `claims` with source ids
+  and locators, and per target file either a whole `document` or a JSON-pointer `patch`. The control plane
+  validates the resulting documents against the contracts and the cross-file rules before writing anything,
+  applies them to the working copy, and keeps the proposal with a unified diff under `proposals/applied/`.
+  A proposal that changes equations, sources, scientific constraints, or data and equation bindings (a new
+  storyboard included) is recorded as requiring scientific sign-off; the tool never approves it.
+
+`scianim inspect` is the agent's self-check before asking for review: for every checkpoint it lists objects
+the storyboard reveals by that time but the layout report lacks, objects present that are not expected,
+descriptions naming missing objects, layout warnings, approximate fidelity and blank frames, and can record the
+discrepancies as feedback authored `agent:inspect`.
+
+The registry gains `caption_with_citation` (a caption whose second line is a declared source's citation and
+locator; the job carries citations), `schematic_population` (unit glyphs with labelled illustrative activity),
+`receptive_field_glyph` (a Gaussian field as contour rings in a visual-field box) and `network_graph` (nodes on
+a row, circle or grid with weighted, directed edges; negative weights dashed). Registry version 0.3.0.
+
+**Deferred.** Voiceover through manim-voiceover bookmarks needs a speech service and is not wired; narration
+marks already exist in the storyboard for it. Figure extraction from PDFs is page text only.
+
+**Why.** Files keep the loop reproducible and vendor-neutral: the acceptance test replays a complete loop
+(brief and synthetic CSV to spec, storyboard, real snapshots, inspection, a review comment, a targeted patch
+and a revision comparison) with fixture proposals and no network. Separating what a source says from what
+anyone inferred, and binding claims to locators, is the concrete form of spec section 6.2.

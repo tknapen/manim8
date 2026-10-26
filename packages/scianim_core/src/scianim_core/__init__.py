@@ -33,7 +33,9 @@ from scianim_core.jobs import (
     VideoRecord,
     WorkerResult,
 )
+from scianim_core.proposals import AppliedProposal, Claim, PatchOperation, Proposal, ProposalTarget
 from scianim_core.revisions import RevisionHashes, RevisionRecord
+from scianim_core.sources import Inference, SourceExtract
 from scianim_core.storyboard import Narration, Scene, SceneObject, Snapshot, Storyboard
 from scianim_core.style import ResolvedStyle, StyleSheet, StyleTokens, split_style_ref
 from scianim_core.timing import SceneTiming, TimingReport, frames_for, verify_timing
@@ -46,15 +48,18 @@ __all__ = [
     "REGISTRY_VERSION",
     "SCHEMA_VERSION",
     "AnimationSpec",
+    "AppliedProposal",
     "ArtifactManifest",
     "BBox",
     "CheckpointRecord",
+    "Claim",
     "ComponentDefinition",
     "Constraint",
     "Equation",
     "FamilyManifest",
     "FeedbackRecord",
     "GroupManifest",
+    "Inference",
     "InputHashes",
     "LayoutItem",
     "LayoutWarning",
@@ -62,6 +67,9 @@ __all__ = [
     "Milestone",
     "Narration",
     "OutputSpec",
+    "PatchOperation",
+    "Proposal",
+    "ProposalTarget",
     "Region",
     "RelPath",
     "RenderJob",
@@ -76,6 +84,7 @@ __all__ = [
     "Slug",
     "Snapshot",
     "SnapshotTarget",
+    "SourceExtract",
     "SourceRef",
     "Storyboard",
     "StrictModel",

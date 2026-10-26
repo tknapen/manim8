@@ -22,7 +22,8 @@ rather than append-only across jobs; approvals, feedback files and the SQLite in
 (the agent dry run) is complete and documented in [`FRICTION_LOG_M2_5.md`](FRICTION_LOG_M2_5.md). Milestone 3
 (the local review UI: API, SQLite index, feedback files, comparison, React front end) is complete (ADR-018).
 Milestone 4 (frame-exact timing, draft and final video with sections, subtitles, probes and sampled frames) is
-complete except for section splicing (ADR-019); Milestone 5 onward has not started.
+complete except for section splicing (ADR-019). Milestone 5 (source adapters, context bundles, proposals,
+self-inspection, four more kinds) is complete except for voiceover (ADR-020); Milestone 6 has not started.
 
 ## Milestone 0 — repository and contracts
 
@@ -145,15 +146,19 @@ table, sampled frames, timestamped comments).
 
 **Build tasks**
 
-- [ ] PDF, CSV, image and Markdown adapters with provenance and checksums.
-- [ ] Structured `create_spec`, `create_storyboard`, `revise_spec`, `generate_custom_builder` and targeted revision proposals; narration drafting.
-- [ ] Provider-neutral context bundles usable by external coding agents without an integrated LLM API.
-- [ ] Agent self-inspection: compare checkpoint images and layout reports with snapshot descriptions before requesting review.
-- [ ] Scientific invariants, unsupported inferences and ambiguous citations visible in review; proposal diffs preserved; no auto-approval of scientific changes.
-- [ ] Additional registered kinds: `schematic_population`, receptive-field glyphs, small network graphs, captions with citations.
-- [ ] Optional voiceover through manim-voiceover bookmarks mapped from narration marks.
+- [x] PDF, CSV, image and Markdown adapters with provenance and checksums (`scianim sources probe`, extracts separate what a source says from what anyone inferred).
+- [x] Structured `create_spec`, `create_storyboard`, `revise_spec`, `revise_storyboard` and targeted revision proposals as typed files (`scianim propose validate|apply|list`); narration is drafted inside storyboard proposals and checked by `scianim timing`. `generate_custom_builder` is not a tool operation: a builder is ordinary code in `code/` that `kind: custom` names.
+- [x] Provider-neutral context bundles usable by external coding agents without an integrated LLM API (`scianim context`).
+- [x] Agent self-inspection: compare checkpoint images and layout reports with snapshot descriptions before requesting review (`scianim inspect [--record]`).
+- [x] Scientific invariants, unsupported inferences and ambiguous citations visible in review (uncertainties and claims on every applied proposal, shown in the overview); proposal diffs preserved; no auto-approval of scientific changes (sign-off flag).
+- [x] Additional registered kinds: `schematic_population`, `receptive_field_glyph`, `network_graph`, `caption_with_citation`.
+- [ ] Optional voiceover through manim-voiceover bookmarks mapped from narration marks (deferred: needs a speech service; ADR-020).
 
 **Acceptance:** A plain-language brief and synthetic CSV lead to a valid proposed spec, storyboard, generated code, actual Manim snapshots, a review comment, a targeted update and a revision comparison. Source provenance survives the loop.
+
+**Result:** `tests/integration/test_agent_loop.py` replays the loop from `tests/fixtures/agent_loop/` (brief,
+synthetic CSV, three proposals) through the CLI alone, and the resulting project is the third example,
+`examples/families/computational_neuroscience/orientation_tuning`.
 
 ## Milestone 6 — portable families, bundles and documentation
 
