@@ -26,17 +26,28 @@ style:
   name: tomas_scientific
   version: "0.1.0"
   overrides: {}
+equations:
+  - id: schematic_equation
+    typst: "r = E / (sigma + P)"
+    latex: "r = \\frac{E}{\\sigma + P}"
+    symbols:
+      r: {meaning: "schematic response"}
+      E: {meaning: "excitatory drive"}
+      P: {meaning: "normalization pool drive"}
+      sigma: {meaning: "positive stabilizing constant"}
 audience: graduate_neuroscience
 objective: >-
   Introduce the relationship between excitatory drive and normalization
   pool drive, and visualize how a larger denominator suppresses a
   schematic neural response.
 scientific_constraints:
-  - id: schematic_equation
+  - id: schematic_equation_shown
     kind: hard
-    text: "Illustrate the schematic equation r = E / (sigma + P)."
+    equation: schematic_equation
+    text: "Illustrate the schematic equation exactly as stored."
   - id: interpretation
     kind: hard
+    equation: schematic_equation
     text: "Define E as excitation, P as pool drive, and sigma as a positive stabilizer."
   - id: synthetic_label
     kind: hard

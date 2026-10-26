@@ -2,6 +2,7 @@
 
 **Status:** review notes, 26 October 2026
 **Reviewed:** `docs/PROJECT_SPEC.md` 0.1, `docs/IMPLEMENTATION_PLAN.md`, `AGENTS.md`, and the `examples/` fixtures
+**Disposition:** incorporated into `PROJECT_SPEC.md` 0.2, `IMPLEMENTATION_PLAN.md`, `AGENTS.md`, `ARCHITECTURE_DECISIONS.md` and the examples on 26 October 2026. Kept as the rationale record.
 **Method:** every claim below about what Manim can do was checked against the source of manim 0.22.0 and manim-voiceover 0.4.0 (wheels downloaded from PyPI; the documentation site was unreachable from the review environment). Line references are to those versions.
 
 ## Summary

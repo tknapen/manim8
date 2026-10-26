@@ -9,9 +9,19 @@ environment:
   project_root: "."
   lockfile: "uv.lock"
   install_policy: explicit
+system_requirements:
+  - kind: library
+    name: cairo
+    note: "pycairo links against the system Cairo library on Linux."
+  - kind: font
+    name: "DejaVu Sans"
+    optional: true
+    note: "Falls back to the style's font_fallbacks when absent."
 shared_assets: []
 components:
+  - text_caption
   - scientific_plot
-  - equation_highlight
-  - side_by_side_comparison
+  - equation_label
+  - equation_block
+  - comparison_plot
 schema_extensions: []

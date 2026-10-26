@@ -1,7 +1,7 @@
 # SciAnim Studio: agent-ready project specification
 
 **Status:** Proposed architecture / implementation handoff  
-**Version:** 0.1 (26 October 2026)  
+**Version:** 0.2 (26 October 2026; revised after [`PLAN_REVIEW.md`](PLAN_REVIEW.md))  
 **Working name:** SciAnim Studio (`scianim` CLI and Python package; name can be changed before publication)  
 **Primary audience:** Coding agents and developers implementing a personal scientific-animation system  
 **Source of truth:** This specification. `AGENTS.md` describes how an agent should implement it; `docs/IMPLEMENTATION_PLAN.md` breaks it into milestones.
@@ -21,6 +21,8 @@ A lightweight **web interface** is central, not an afterthought. Its primary rol
 ### Governing principle
 
 > Natural language expresses intent; validated YAML records the contract; a storyboard records the proposed visual implementation; versioned Python and artifacts make the result reproducible; the web interface makes iterative review efficient.
+
+Most of an animation is composed from a **registry of typed components** (section 10.4) and previewed through **named checkpoints reached by the real animation flow** (section 8.2). Bespoke Manim code is the escape hatch, not the norm.
 
 ### Non-goals
 
@@ -54,6 +56,7 @@ The agent should synthesize these into a structured brief and editable YAML, *no
 - Pin exact technical output constraints: duration, resolution, aspect ratio, frame rate, file format, audio options, and safe zones.
 - Declare scientific invariants: exact equations, expected axes, variable definitions, labels, numerical transformations, and source-attribution obligations.
 - Specify milestones at approximate or exact timestamps; optionally provide hard positional constraints and reference stills.
+- Write or edit the narration script per scene; scene durations are proposed from it and subtitles are derived from it.
 - Ask for storyboards and targeted snapshots before producing a full animation.
 - Comment directly on a snapshot or select a rectangle/element and ask for a revision.
 - Compare revisions side-by-side, retain previous work, and roll back.
@@ -68,7 +71,7 @@ The agent should synthesize these into a structured brief and editable YAML, *no
 2. **Interpret.** Agent extracts and summarizes sources, identifies assumptions and unresolved decisions.
 3. **Specify.** Agent creates or updates `animation.yaml`. A validation pass distinguishes hard requirements from preferences.
 4. **Storyboard.** Agent creates `storyboard.yaml` and explanatory thumbnail cards. User accepts or revises narrative order.
-5. **Still previews.** A preview worker renders explicit checkpoints (not an accidental final frame). User annotates images and approves visual language/scientific content.
+5. **Still previews.** A preview worker renders named checkpoints reached by the real animation flow, each with a layout report. User annotates images or objects and approves visual language/scientific content.
 6. **Draft video.** Worker renders a fast, lower-cost complete animation. User revises timing, continuity, and dynamics.
 7. **Final render.** Worker produces requested deliverables; project stores a provenance manifest and version lineage.
 8. **Reuse / export.** User can fork, package, or share the animation.
@@ -84,6 +87,10 @@ These are default decisions for the implementation, not irrevocable product cons
 | Area | Initial choice | Reason |
 |---|---|---|
 | Rendering | Manim Community Edition | Programmatic, suitable for scientific 2D animation, equations, plots, and reusable scenes |
+| Equations | Typst through Manim's `MathTypst` by default; LaTeX opt-in per family | Typst installs from PyPI inside the family lockfile; LaTeX needs a system TeX distribution and `dvisvgm` that no lockfile can pin |
+| Video encoding | Manim's built-in PyAV encoder | No system `ffmpeg` is needed to render; Manim encodes through `av` |
+| Scene segmentation | One Manim section per storyboard scene (`next_section`, `--save_sections`) | Per-scene videos and a JSON index give incremental rendering and duration verification |
+| Components | Registry of typed kinds shared by validator, code generator and renderer | Most storyboards render without bespoke code; parameters are validated; cache keys are precise |
 | Control plane | Python 3.12+ with Pydantic v2 | Typed contracts, validation, CLI, manageable testing |
 | YAML | `ruamel.yaml` or PyYAML for parsing; Pydantic for validation | Human-editable specifications with explicit schema versions |
 | CLI | Typer | Clear scriptable agent interface |
@@ -91,12 +98,12 @@ These are default decisions for the implementation, not irrevocable product cons
 | Web frontend | React + TypeScript + Vite | Fine-grained image annotation and side-by-side version review |
 | Local metadata | SQLite, accessed via SQLAlchemy or equivalent | Reliable revision/job records without running extra services |
 | Render job runner | Local subprocess worker and process group management | Isolates dependency-heavy rendering from control/API processes |
-| Family environments | `uv`-managed project environment and `uv.lock` per declared family | Fast reproducible installs and sharing; no base-environment contamination |
+| Family environments | `uv`-managed project environment and `uv.lock` per declared family, plus declared `system_requirements` | Fast reproducible installs and sharing; no base-environment contamination; system-level prerequisites are explicit |
 | Source control | Git | Human-readable specs, code, themes, reusable components, documentation |
 | Render cache | Content-addressed keys plus artifact manifests | Reuse unchanged scenes and preview assets |
 | LLM integration | Adapter interface, provider-agnostic | Works with different coding agents or model APIs |
 
-**Boundary:** The orchestration server must not import Manim or arbitrary per-family scientific packages. It invokes a renderer in a *separate process* using the selected family environment. This boundary is essential to isolation.
+**Boundary:** The orchestration server must not import Manim or arbitrary per-family scientific packages. It invokes a renderer in a *separate process* using the selected family environment. This boundary is essential to isolation. The code is split into three distributions: `scianim-core` (Pydantic contracts only), `scianim` (control plane: CLI, validation, jobs, API) and `scianim-bridge` (render-side helpers that import Manim). Families depend on `scianim-bridge`; nothing in a family environment depends on `scianim`.
 
 **Core in V1:** One primary Manim rendering backend. Later adapters may support Matplotlib, VTK, PyVista, Blender, or other specialized visualizations, but that is not required to ship the first useful version.
 
@@ -109,70 +116,70 @@ A recommended layout for the implementation repository:
 ```text
 scianim-studio/
 ├── README.md
-├── AGENTS.md                        # Top-level agent operating contract
-├── pyproject.toml                    # Control-plane dependencies only
+├── AGENTS.md                         # Top-level agent operating contract
+├── pyproject.toml                    # uv workspace root and the `scianim` control-plane package
 ├── uv.lock
 ├── .gitignore
-├── docs/
-│   ├── PROJECT_SPEC.md              # This complete specification
-│   ├── IMPLEMENTATION_PLAN.md       # Milestones and test gates
-│   ├── ARCHITECTURE_DECISIONS.md     # Optional architecture decision records
-│   └── user-guide/                  # Created later
-├── schemas/
-│   ├── animation.schema.json        # Exported from Pydantic
-│   ├── storyboard.schema.json
-│   ├── style.schema.json
-│   ├── family.schema.json
-│   └── bundle.schema.json
-├── src/scianim/
+├── packages/
+│   ├── scianim_core/                 # `scianim-core`: Pydantic contracts only (specs, component
+│   │                                 #   parameter models, job payloads, manifests). Depends on pydantic.
+│   └── scianim_bridge/               # `scianim-bridge`: render-side helpers (style tokens, components,
+│                                     #   checkpoint(), layout report, worker). Depends on manim + core.
+├── src/scianim/                      # Control plane. Never imports manim or scianim_bridge.
 │   ├── __init__.py
 │   ├── cli.py
-│   ├── config/                    # YAML parsing, inheritance and validation
-│   ├── models/                    # Typed schema models and migrations
-│   ├── sources/                   # PDF, CSV, image, and text ingestion
-│   ├── planning/                  # Storyboard contracts, scheduling
-│   ├── styles/                    # Resolved tokens, validation, inheritance
-│   ├── components/                # Reusable visual primitives/recipes
-│   ├── render/                    # Job protocols, worker entrypoints, snapshots
-│   ├── revisions/                 # Immutable snapshots, diffs, lineage
-│   ├── storage/                   # Project manifests, artifact store, cache
-│   ├── bundles/                   # Export, import, checksums, portability
-│   ├── agents/                    # Provider-neutral context and patch contracts
-│   ├── api/                       # FastAPI server, schemas, routes
-│   └── security/                  # Path control, trust, process constraints
-├── web/                           # React + TypeScript UI
+│   ├── config/                       # YAML parsing and validation
+│   ├── styles/                       # Token cascade resolution and export
+│   ├── families/                     # Family discovery, uv environment sync, system requirements
+│   ├── planning/                     # Storyboard timing, narration estimates, cross-file checks
+│   ├── codegen/                      # Deterministic scene code from registered components
+│   ├── render/                       # Job payloads, worker launch, cache keys, manifests
+│   ├── revisions/                    # Immutable snapshots, diffs, lineage
+│   ├── review/                       # Static review sheets, comparisons, feedback files
+│   ├── storage/                      # Project manifests, artifact store
+│   ├── bundles/                      # Export, import, checksums, portability
+│   ├── agents/                       # Provider-neutral context and patch contracts
+│   ├── api/                          # FastAPI server (Milestone 3)
+│   └── security/                     # Path control, trust, process constraints
+├── web/                              # React + TypeScript UI (Milestone 3)
 ├── styles/
 │   ├── default/style.yaml
 │   └── tomas_scientific/style.yaml
-├── recipes/                        # Built-in scene and plotting patterns
+├── schemas/                          # JSON Schemas exported from scianim-core
+├── docs/
+│   ├── PROJECT_SPEC.md               # This complete specification
+│   ├── IMPLEMENTATION_PLAN.md        # Milestones and test gates
+│   ├── PLAN_REVIEW.md                # Rationale for the 0.2 revisions
+│   └── ARCHITECTURE_DECISIONS.md     # Architecture decision records
 ├── tests/
 │   ├── unit/
 │   ├── integration/
-│   ├── golden/                    # Visually compared test snapshots
+│   ├── golden/                       # Visually compared test snapshots
 │   └── fixtures/
 ├── examples/
-│   └── divisive_normalization/
-└── workspace/                       # User data; configurable, normally ignored
-    ├── assets/                     # Explicitly managed global assets
+│   ├── divisive_normalization/
+│   └── families/computational_neuroscience/   # family.yaml, pyproject.toml, uv.lock
+└── workspace/                        # User data; configurable, normally ignored
+    ├── assets/                       # Explicitly managed global assets
     └── families/
         └── computational_neuroscience/
-            ├── family.yaml        # Family ID, style, environment, shared components
-            ├── pyproject.toml     # Family render dependencies
-            ├── uv.lock            # Committed / shareable dependency lock
-            ├── .venv/             # Local only; never export/commit
+            ├── family.yaml           # Family ID, style, environment, system requirements
+            ├── pyproject.toml        # Family render dependencies: manim, scianim-bridge, science packages
+            ├── uv.lock               # Committed / shareable dependency lock
+            ├── .venv/                # Local only; never export/commit
             ├── assets/
             ├── components/
-            ├── group.yaml         # Optional group-level preferences
+            ├── group.yaml            # Optional group-level preferences
             ├── divisive_normalization/
             │   ├── animation.yaml
             │   ├── storyboard.yaml
             │   ├── references/
             │   ├── data/
-            │   ├── code/          # Generated, reviewable Python
-            │   ├── feedback/      # Human annotations and requests
-            │   ├── revisions/     # Revision snapshots and manifests
-            │   ├── renders/       # Previews, drafts and finals
-            │   └── .scianim/      # Local cache, current revision, transient jobs
+            │   ├── code/             # Generated, reviewable Python (scene module, custom builders)
+            │   ├── feedback/         # Canonical annotation records (*.yaml); the UI edits these
+            │   ├── revisions/        # Revision snapshots and manifest.json files
+            │   ├── renders/          # Previews, drafts, finals, review sheets
+            │   └── .scianim/         # Local cache, current revision, transient jobs, Manim media_dir
             └── perception/
                 └── retinotopy/
                     └── animation_example/
@@ -195,7 +202,7 @@ The workspace can reside outside the package repository (`SCIANIM_WORKSPACE=/pat
 
 A rendering family has:
 
-- `pyproject.toml`: explicit `manim`, family visualization/data packages, and the `scianim` rendering bridge version.
+- `pyproject.toml`: explicit `manim`, family visualization/data packages, and the `scianim-bridge` version (never `scianim` itself).
 - `uv.lock`: full resolved dependency graph, preferably including platform constraints where needed.
 - `.venv/`: generated from the lock on the local machine; not part of the portable project.
 
@@ -204,6 +211,8 @@ A child animation reuses its family's environment unless it explicitly belongs t
 For local development, the family may use an editable/path dependency for the `scianim` package. For portable export, replace development-only absolute paths with a published package reference, a relative vendored source, or a documented install step. The bundle validator must flag unresolved absolute paths.
 
 In the first implementation, **one environment per family** is sufficient. A content-addressed shared environment cache across families can be added later if identical locks make duplication costly. Avoid optimizing that before the lockfile workflow works reliably.
+
+`uv` pins Python packages only. Fonts, Pango and Cairo libraries, SoX for voiceover, and a TeX distribution where a family opts into LaTeX are system-level. `family.yaml` therefore declares `system_requirements` (binaries with minimum versions, font files with hashes, optionally a container image digest); `scianim doctor` checks them per family and bundles list them for recipients. `environment.manager` may be `uv` (default), `docker` or `apptainer`; the container managers are the route to full reproducibility for families that keep LaTeX.
 
 ---
 
@@ -223,6 +232,7 @@ Required conceptual sections:
 | `sources` | References to PDF, image, data and other inputs with optional locator and intended role |
 | `output` | Exact delivery specification (duration, width/height, aspect ratio, fps, format, codec) |
 | `style` | Theme name, pinned theme version and allowed overrides |
+| `equations` | Typed equations: `id`, `typst` and/or `latex` source, `symbols` with meanings and optional units, optional source locator. The renderer typesets the stored string exactly; constraints and storyboard objects reference equations by `id` |
 | `audience` | Optional target audience and background knowledge |
 | `objective` | Concise explanatory goal |
 | `scientific_constraints` | Hard content facts, required equations, conventions, and prohibitions |
@@ -267,6 +277,16 @@ style:
   version: "0.1.0"
   overrides: {}
 
+equations:
+  - id: schematic_equation
+    typst: "r = E / (sigma + P)"
+    latex: "r = \\frac{E}{\\sigma + P}"
+    symbols:
+      r: {meaning: "schematic response"}
+      E: {meaning: "excitatory drive"}
+      P: {meaning: "normalization pool drive"}
+      sigma: {meaning: "positive stabilizing constant"}
+
 audience: graduate_neuroscience
 objective: >-
   Introduce the logic of a normalization pool and show how
@@ -274,7 +294,8 @@ objective: >-
 scientific_constraints:
   - id: eq1
     kind: hard
-    text: "Use schematic r = E / (sigma + P), defining E, P and sigma."
+    equation: schematic_equation
+    text: "Show the schematic equation exactly as stored and define E, P and sigma."
   - id: eq2
     kind: hard
     text: "Do not imply the supplied synthetic data are empirical observations."
@@ -315,12 +336,12 @@ Paths inside animation bundles are project-relative. Shared assets use explicit 
 
 Storyboard revisions are distinct from intent revisions. The storyboard adds implementation details that should **not** be forced into the primary scientific brief:
 
-- Ordered `scenes` or `shots` with stable IDs, start/end times, titles, pedagogical purposes.
-- Visual objects/equations/charts and their roles, bound to style tokens.
-- Source bindings for data-driven elements.
+- Ordered `scenes` with stable IDs, start/end times, titles, pedagogical purposes. Each scene becomes one Manim section.
+- `narration` per scene: the script, optionally with named marks (`<mark name="pool"/>`). It anchors pacing, produces subtitles, and later aligns voiceover.
+- `objects`: instances of registered component kinds (section 10.4) with typed `params`. Data-driven objects carry an explicit `data` binding (`source`, `encoding`, `transforms`); equation objects reference `equations[].id` from the animation spec and may name terms to `highlight`. Every object is bound to style roles, never to literal colors.
 - Layout constraints such as anchors, grids, safe zones, target positions.
 - Transitions, camera movements, emphasis actions, animation timing.
-- **Snapshot checkpoints** at explicit moments, naming expected visual states.
+- **Snapshot checkpoints** at explicit moments, naming expected visual states. Each becomes a `checkpoint()` marker in the generated code.
 - Conditions/acceptance notes for visual and scientific review.
 
 Example:
@@ -335,11 +356,23 @@ scenes:
     start_seconds: 0
     end_seconds: 15
     purpose: "Establish what excitatory drive represents"
+    narration:
+      text: >-
+        A neuron's response begins with its excitatory drive. Here the drive
+        grows along the horizontal axis, and the response grows with it.
     objects:
       - id: drive_curve
-        kind: plot
+        kind: scientific_plot
         style_role: primary_signal
-        data_source: responses
+        data:
+          source: responses
+          encoding: {x: excitation_E, y: response_r, group: condition}
+          transforms:
+            - {op: filter, column: condition, equals: low_pool}
+        params:
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          data_label: "synthetic data"
     snapshots:
       - id: excitation_visible
         at_seconds: 9
@@ -348,11 +381,17 @@ scenes:
   - id: normalization_pool
     start_seconds: 15
     end_seconds: 30
-    purpose: "Introduce the inhibitory/divisive pool term"
+    purpose: "Introduce the divisive pool term"
+    narration:
+      text: >-
+        The response is divided by a normalization pool, the summed activity
+        of neighboring neurons, <mark name="pool"/> which we label P.
     objects:
       - id: pool_label
         kind: equation_label
         style_role: normalization_pool
+        equation: {id: schematic_equation, highlight: [P]}
+        params: {text: "normalization pool P"}
     snapshots:
       - id: pool_introduced
         at_seconds: 24
@@ -361,7 +400,15 @@ scenes:
   - id: equation
     start_seconds: 30
     end_seconds: 45
-    purpose: "Explain schematic r = E/(sigma+P)"
+    purpose: "Explain the schematic equation"
+    narration:
+      text: "The response equals excitation divided by sigma plus the pool."
+    objects:
+      - id: normalization_equation
+        kind: equation_block
+        style_role: foreground
+        equation: {id: schematic_equation}
+        params: {define_symbols: true}
     snapshots:
       - id: equation_complete
         at_seconds: 40
@@ -370,24 +417,37 @@ scenes:
   - id: pool_comparison
     start_seconds: 45
     end_seconds: 60
-    purpose: "Show effect of increasing P with E held constant"
+    purpose: "Show the effect of increasing P with E held constant"
+    narration:
+      text: "With identical excitation, a stronger pool compresses the response."
+    objects:
+      - id: response_comparison
+        kind: comparison_plot
+        style_role: comparison
+        data:
+          source: responses
+          encoding: {x: excitation_E, y: response_r, group: condition}
+        params:
+          condition_roles: {low_pool: primary_signal, high_pool: normalization_pool}
+          shared_axes: true
+          data_label: "synthetic data"
     snapshots:
       - id: comparison_complete
         at_seconds: 55
         description: "Two conditions displayed with identical axes"
 ```
 
-The storyboard is a **contract and planning format**, not a full substitute for generated Python. Its syntax must remain compact enough for LLMs to create and humans to inspect. Allow an optional explicit `layout`/`timing` substructure when finer control is requested.
+The storyboard is a **contract and planning format**, not a full substitute for generated Python. Its syntax must remain compact enough for LLMs to create and humans to inspect. `scianim validate` checks each object's `params` against its kind's parameter model, each `data.source` against the animation's sources, each `equation.id` against `equations`, each `style_role` against the resolved palette, and each snapshot ID against the `checkpoint()` markers in generated code once code exists. A storyboard made only of registered kinds is rendered without hand-written code (`scianim codegen`); an object with `kind: custom` names a builder function in `code/` and is the explicit escape hatch. Allow an optional explicit `layout`/`timing` substructure when finer control is requested.
 
 ### 5.3 Style files and design tokens
 
 A stylesheet defines an artistic signature **semantically**, not merely through a handful of global color variables. Required categories:
 
 - **Palette roles:** foreground, background, secondary text, highlight, muted, neutral, excitatory, suppressive, uncertainty, selection, error; tokens map to hex/RGB values.
-- **Typography:** font family preferences and fallbacks; title/body/math styles; minimum sizes; weight, line-height and wrapping rules; font licensing checks for export.
+- **Typography:** font family preferences and fallbacks; title/body/math styles; minimum sizes; weight, line-height and wrapping rules; the equation engine (`typst` by default, `latex` opt-in); font licensing checks for export.
 - **Geometry:** standard canvas padding, safe-zone rules, gaps, graph line widths, marker sizes, grid and panel conventions.
 - **Charts:** axes, tick density, background grid, legend positions, color order and scientific plotting defaults.
-- **Motion:** duration defaults, easing, stagger, transition style, pacing and camera movement policies.
+- **Motion:** duration defaults, easing, stagger, transition style, pacing (including `narration_words_per_minute` for duration proposals) and camera movement policies.
 - **Components:** equations, labels, plots, neural fields, activation maps, annotation arrows, progress/timeline indicators.
 - **Accessibility:** contrast thresholds, non-color discriminators, smallest permitted text at final delivery size.
 
@@ -409,11 +469,13 @@ scene overrides (allowlisted)
 
 Reject missing/unknown design tokens rather than using unexplained defaults. Avoid hardcoded colors in generated Python except for documented escape hatches.
 
+Resolution produces a `ResolvedStyle` document with every token, a provenance map naming the layer that set each token, and a content hash. The renderer receives this document, never the YAML chain, and the hash enters cache keys.
+
 Theme changes must be **versioned**. Re-rendering an old animation uses its pinned theme by default; adopting a newer theme is an explicit revision, not a silent side effect.
 
 ### 5.4 `family.yaml`: scope and environment
 
-Each family declares a unique ID, display name, environment root/lockfile, style selection, shared assets, and optional schema extensions. Nested children inherit a parent family only when no new family declaration exists. Dependencies are never inferred from `requirements.txt` files found at arbitrary depths.
+Each family declares a unique ID, display name, environment root/lockfile and manager, `system_requirements` (binaries, fonts, libraries or a container image that `uv` cannot pin), style selection, shared assets, the component kinds it expects, and optional schema extensions. Nested children inherit a parent family only when no new family declaration exists. Dependencies are never inferred from `requirements.txt` files found at arbitrary depths.
 
 ### 5.5 Revision and artifact manifests
 
@@ -426,6 +488,10 @@ Every accepted change produces a revision ID, a timestamp, a change description,
 - Source asset checksum list, with source provenance.
 - Snapshot names and frame indices actually rendered.
 - Errors, warnings, elapsed time and cache-hit information.
+- Checkpoint records with kind (`manim_checkpoint`, `sampled_video_frame`, `storyboard_schematic`), layout report and fidelity warnings.
+- Renderer configuration: renderer backend, equation engine, pixel format, codec and encoder options, seed.
+
+Manifests are JSON files named `manifest.json`. Never use a bare `.manifest` extension: the common Python `.gitignore` template ignores `*.manifest`, `*.spec`, `*.log` and `lib/`.
 
 A revision is immutable. The *working copy* may evolve, but approval and render actions operate on revision snapshots; this avoids stale renders or confusing feedback attached to the wrong code version.
 
@@ -494,13 +560,14 @@ An agent must:
 1. Read `AGENTS.md`, this specification, the active style, the family manifest, and the relevant animation spec.
 2. Inspect supplied inputs before claiming what they contain.
 3. List unresolved scientific assumptions and conflicting constraints before code generation.
-4. Prefer reusable components over bespoke scene code where possible.
+4. Prefer registered components over bespoke scene code; declare any bespoke object explicitly as `kind: custom`.
 5. Generate and validate `animation.yaml` and `storyboard.yaml` before Manim code.
 6. Keep all generated files within the assigned project, save source provenance, and avoid uncontrolled external commands.
 7. Produce named snapshot checkpoints, not just a full video.
 8. After feedback, modify the smallest affected scope; do not rewrite unrelated scenes.
 9. Run appropriate validation/tests before claiming work is complete.
-10. Report exactly which outputs were created, what was actually rendered, any warnings, and what still needs scientific approval.
+10. Inspect the rendered checkpoint images and layout reports against each snapshot's description, and list discrepancies, before requesting human review.
+11. Report exactly which outputs were created, what was actually rendered, any warnings, and what still needs scientific approval.
 
 ### 7.3 Structured agent operations
 
@@ -525,32 +592,36 @@ Allow a user to provide as little as a goal and source material. The interface s
 
 ## 8. Preview rendering: the technical centerpiece
 
-**Important:** A Manim still/last-frame render does not, by itself, solve arbitrary checkpoint extraction. V1 must support **explicitly defined snapshot states** that are generated and rendered intentionally.
+**Important:** Checkpoints must be named, deliberate and traceable to the storyboard. Manim's fast-forward mode (the mechanism behind its `-s` flag) makes it cheap to reach them from the real animation code; what it does not provide on its own are names, layout reports and fidelity warnings. The render bridge adds those.
 
-### 8.1 Two kinds of previews
+### 8.1 Three kinds of previews
 
-1. **Storyboard image:** A quick, optionally schematic still generated from scene/object layout, without running a full animation. Useful for narrative approval, but may not be pixel-identical to final Manim frames.
-2. **Manim checkpoint:** An actual rendered frame representing a *known state* at a named moment. Produced from deliberate scene checkpoints or deterministic mini-scene constructors.
+1. **Storyboard image** (`storyboard_schematic`): a quick, optionally schematic still generated from scene/object layout, without running a full animation. Useful for narrative approval, but may not be pixel-identical to final Manim frames.
+2. **Manim checkpoint** (`manim_checkpoint`): an actual rendered frame at a named marker reached by the real animation flow in fast-forward mode (section 8.2).
+3. **Sampled video frame** (`sampled_video_frame`): a frame extracted from a rendered draft or final video at a requested time. More expensive, but exact for motion-dependent states and for checkpoints that fast-forward cannot reproduce faithfully.
 
-Never label a schematic storyboard image as an exact rendered keyframe. The UI must identify which kind is being shown.
+Never label a schematic storyboard image as an exact rendered keyframe. The UI and manifests always identify which kind is being shown.
 
 ### 8.2 Checkpoint implementation
 
-Provide a contract that generated scene code can implement, for example:
+Checkpoints are **named markers reached by the real animation flow**, not states rebuilt by a parallel constructor. Generated scene code calls a helper from the render bridge at each named moment:
 
 ```python
-# Illustrative interface, not committed API syntax.
-class SnapshotCapableScene:
-    snapshot_states = ["excitation_visible", "pool_introduced"]
+# Illustrative; the committed API lives in scianim_bridge.
+from scianim_bridge import SnapshotScene, checkpoint
 
-    def build_snapshot(self, state_id: str):
-        """Construct a deterministic state for a named snapshot."""
-        ...
+class DivisiveNormalizationIntro(SnapshotScene):
+    def construct(self):
+        self.next_section("excitation")
+        ...  # components build and register their mobjects under storyboard object IDs
+        checkpoint(self, "excitation_visible", expected_time=9.0)
 ```
 
-A code-generation helper can create short Manim scenes that construct these checkpoint states. This is preferable to skipping ahead through arbitrary `play()` sequences and assuming all mobject updaters, randomness, and stateful transitions behave exactly as in a full video.
+In snapshot mode the worker runs the scene in Manim's fast-forward mode: every `play()` advances in a single time step, no frames are encoded, and the whole scene is traversed in one pass. Each time `checkpoint()` is reached the helper redraws the frame (`renderer.update_frame`), captures it (`renderer.get_frame()`), writes a PNG, and records the animation index, the expected scene time, the layout report (section 8.5) and any fidelity warnings. In video mode the same call records the frame index and otherwise does nothing. One code path therefore produces both the stills and the video, and the storyboard's `snapshots[].id` list must match the markers present in the code; `scianim validate` checks this parity statically by parsing the code for `checkpoint(...)` calls with literal IDs.
 
-Where exact video-frame sampling is desired, **render a draft segment and extract frames** using a video tool (e.g. FFmpeg). Mark those as *sampled video frames*. This is more expensive but valid for checking motion-dependent states and cross-scene continuity.
+**Fidelity caveat.** In fast-forward each `play()` advances with one `dt` equal to its run time, and Manim skips its trailing zero-`dt` update. Content driven by `ValueTracker` and `always_redraw` ends in the correct state; updaters that integrate `dt` do not. The bridge checks the scene's mobjects for time-based updaters at each checkpoint and marks the record `fidelity: approximate`; such checkpoints should be confirmed from a **sampled video frame** of the section. Generated code from registered components never uses `dt`-integrating updaters.
+
+Manim's `-n a,b` option combined with `-s` yields the frame at any animation boundary without extra code. It is a debugging aid, not the checkpoint mechanism, because it cannot name states or emit layout reports.
 
 ### 8.3 Preview budget
 
@@ -559,11 +630,19 @@ Where exact video-frame sampling is desired, **render a draft segment and extrac
 - Third pass: optional low-resolution draft, initially 720p and reduced quality settings.
 - Final: exact requested output. No unapproved resolution/time substitutions.
 
-Checkpoint caches must include: scene code hash, source/data hash, style version, checkpoint definition, renderer version and relevant environment lock hash. A time-only key is insufficient.
+Checkpoint caches must include: scene code hash, source/data hash, resolved style hash, checkpoint definition, component registry version, bridge and Manim versions, the environment lock hash, and the renderer configuration that changes pixels or bytes (renderer backend, equation engine and template, pixel format, codec and encoder options, seed, quality) together with the resolved font files. A time-only key is insufficient.
 
 ### 8.4 Timing fidelity
 
 The planner should map seconds to frame indices at the chosen fps; internal shot timing can remain in seconds. If a requested timestamp falls between frames, use a documented rounding policy. Validate exact total frame count for hard-duration outputs. A storyboard boundary may be moved within stated tolerances, but not past an immutable hard milestone.
+
+Scene durations are **proposed from narration**: the planner estimates speaking time from each scene's `narration.text` at `motion.narration_words_per_minute`, then reconciles the proposal with hard milestones and the output duration. Conflicts are validation errors, not silent compression. Each storyboard scene is one Manim section (`next_section(scene_id)`), so a `--save_sections` render yields per-scene videos and a JSON index whose probed durations verify the storyboard timing frame by frame.
+
+### 8.5 Layout report
+
+Every checkpoint record carries a layout report: for each storyboard-named object present in the scene, its bounding box in normalized frame coordinates (origin top-left, [0, 1] on both axes), its kind, and for text-like objects the text content and rendered height in pixels at output resolution. The bridge computes this from Manim's own geometry (`get_corner`, `width`, `height`) without any image analysis.
+
+The report powers deterministic visual QA in the worker: `outside_safe_zone` (bounding box beyond `layout.safe_margin_fraction`), `text_too_small` (text height below `typography.minimum_body_px_at_1080p` scaled to the output height), and `overlap` between text-like objects. Warnings go into the manifest; they are advice for the reviewer and the agent, not hard failures. Downstream, the UI resolves a click to an object ID, feedback records carry `object_id`, `scianim compare` lists objects that moved or changed between revisions, and the agent inspects the report and the image against each snapshot's `description` before requesting review.
 
 ---
 
@@ -604,6 +683,9 @@ The browser interface is a **first-class feature**. It runs locally initially; r
 - Queue, running job, error, elapsed time, worker logs, retry/cancel.
 - Clearly show when previews are schematic vs Manim-derived.
 
+**G. Review sheet (static)**
+- A per-revision HTML contact sheet of checkpoints with storyboard text, narration and layout warnings, generated by the CLI without the server. It is the first review surface (Milestone 2) and ships inside bundles.
+
 ### 9.2 Feedback model
 
 Use explicit typed records:
@@ -614,6 +696,7 @@ Use explicit typed records:
   "revision_id": "rev_0004",
   "scene_id": "normalization_pool",
   "snapshot_id": "pool_introduced",
+  "object_id": "pool_label",
   "kind": "region_comment",
   "region": {"x": 0.20, "y": 0.36, "width": 0.25, "height": 0.14},
   "text": "Increase spacing between the pool label and the curve.",
@@ -622,6 +705,8 @@ Use explicit typed records:
 ```
 
 Coordinates are normalized to [0, 1], independent of preview pixel dimensions. Store resolved image dimensions and transform if the UI uses a cropped/letterboxed view. A video comment may instead identify a time range.
+
+Feedback records are files in the project's `feedback/` directory (`*.yaml`), created by the CLI or by the UI; the UI is an editor for the same records, so an agent can read and write feedback without a browser. `object_id` is optional and resolved from the layout report when the reviewer clicks an object; a region is always stored as well.
 
 ### 9.3 Approval and invalidation
 
@@ -653,18 +738,26 @@ Rendering is performed via an isolated worker command with a structured job payl
   "revision_id": "rev_0004",
   "family_id": "computational_neuroscience",
   "operation": "render_snapshots",
+  "scene_module": "code/scene_divisive_normalization_intro.py",
+  "scene_class": "DivisiveNormalizationIntro",
   "snapshot_ids": ["excitation_visible", "pool_introduced"],
-  "quality_profile": "preview"
+  "quality_profile": "snapshot",
+  "output": {"width_px": 1920, "height_px": 1080, "fps": 30, "duration_seconds": 60},
+  "resolved_style": {"hash": "sha256:...", "tokens": {"palette": {"primary_signal": "#56B4E9"}}},
+  "data_files": {"responses": "data/synthetic_responses.csv"},
+  "manim": {"renderer": "cairo", "pixel_width": 960, "pixel_height": 540, "media_dir": ".scianim/media/rev_0004"},
+  "output_dir": ".scianim/jobs/job_0042",
+  "cache_key": "sha256:..."
 }
 ```
 
-The control plane resolves the family, checks its lock/environment, validates allowed paths and job arguments, and launches the worker in that environment. The worker emits JSON status/log messages and returns an artifact manifest.
+The control plane resolves the family, checks its lock/environment, validates allowed paths and job arguments, and launches the worker in that environment. The worker emits JSON status/log messages and returns an artifact manifest. The payload is self-contained: the worker needs no access to YAML, style chains or control-plane code. Give each revision a stable Manim `media_dir` under `.scianim/` so Manim's own per-`play()` cache works beneath the scene-level cache; do not disable it.
 
 ### 10.2 Reproducibility and isolation
 
 - Local renderer process with explicit cwd, environment variables and bounded resource settings where supported.
 - No importing arbitrary user-generated Manim code into the HTTP server process.
-- Explicit `ffmpeg`, LaTeX, font and Manim toolchain versions where feasible; verify required executables.
+- Record Manim, PyAV, Typst or LaTeX toolchain and font versions in the manifest; `doctor` verifies executables and libraries against each family's `system_requirements`. Manim encodes through PyAV, so a system `ffmpeg` is not required to render.
 - Store seed values for stochastic scenes. Prefer deterministic data transforms and stable object ordering.
 - Do not promise byte-identical MP4 files across OS/GPU/toolchain combinations; record enough to explain differences and reproduce visual intent.
 - Cancel jobs by terminating the worker process group safely, preserving logs and failed-job metadata.
@@ -675,26 +768,24 @@ The control plane resolves the family, checks its lock/environment, validates al
 | Profile | Typical use | Constraints |
 |---|---|---|
 | `storyboard` | Fast conceptual stills | May be schematic; not final-appearance evidence |
-| `snapshot` | Actual checkpoint stills | Must be exact deliberate visual states |
+| `snapshot` | Actual checkpoint stills | Named markers reached by the real animation flow in fast-forward; fidelity warnings recorded |
 | `draft` | Motion review | Reduced resolution/quality permitted, but preserve relative timing |
 | `final` | Presentation/publication | Enforce requested dimensions, fps, duration, codec, file checks |
 
 Define fast preview profiles separately from exact delivery settings. Never let a preview override persist into the final spec.
 
-### 10.4 Reusable animation primitives
+### 10.4 Component registry
 
-Initial library should include stable components with style-token interfaces:
+The registry is the contract shared by the storyboard author (human or agent), the validator, the code generator and the renderer. Each registered `kind` has:
 
-- LaTeX equation block and term-by-term highlighting.
-- Axes with plot curves, uncertainty bands, legend and labels.
-- Parameter-driven equation + plot coupling.
-- Side-by-side comparisons with shared axes/scales.
-- Spatial receptive-field glyphs (1D/2D) and topographic maps.
-- Small network graphs, arrows and activation/weight encodings.
-- Figure caption, inline citations, source acknowledgment.
-- Transformations/stepwise reveals with predictable checkpoint constructors.
+- a Pydantic parameter model in `scianim-core`, so `scianim validate` checks `params` and not only the presence of a kind;
+- a declared list of the style roles and tokens it consumes, and whether it requires a `data` binding or an `equation` reference;
+- an implementation in `scianim-bridge` that builds Manim mobjects from the resolved style, the bound data and the parameters, registers them under the object ID for the layout report, and exposes deterministic reveal animations;
+- a version, included in cache keys.
 
-Make components optional conveniences, not restrictions on novel Manim code. **A generated scene can use other APIs**, but it must remain style-compliant, traceable and snapshot-capable.
+Initial kinds (V1): `scientific_plot` (axes, curves, optional bands and legend), `equation_block` (typeset equation with optional symbol definitions and term highlighting), `equation_label`, `comparison_plot` (side-by-side panels with shared scales), `text_caption`. Planned next: `schematic_population`, receptive-field glyphs and topographic maps, small network graphs, figure captions with citations, stepwise reveals.
+
+`scianim codegen` turns a storyboard composed entirely of registered kinds into a scene module deterministically, with one section per scene, components revealed in order, and one `checkpoint()` per snapshot at its requested time. This is the normal path. Bespoke Manim code is the escape hatch: an object declared `kind: custom` names a builder function in the project's `code/` directory (`params.builder: "custom:build_pool_schematic"`); the builder receives the scene, the resolved style and the object parameters, must register its mobjects for the layout report, and must not hardcode colors or fonts. YAML never contains executable code.
 
 ---
 
@@ -721,9 +812,9 @@ Every revision must answer:
 
 ### 11.3 Efficient regeneration
 
-Start with **scene-level invalidation** and conservative dependency tracking. The agent records which scenes use which source files and style tokens. If dependency resolution is uncertain, rerender more rather than serve falsely current previews.
+Start with **scene-level invalidation** built on Manim sections. The code generator emits one section per storyboard scene. When a revision changes, the dependency graph (scene to objects to data sources, equations, style tokens and custom builders) marks affected scenes; the worker re-renders with `skip_animations=True` on unchanged sections and concatenates their cached section videos with the fresh ones. The section index gives the per-scene durations needed to verify hard milestones after the splice. If dependency resolution is uncertain, rerender more rather than serve falsely current previews.
 
-Future optimization may be object-level caching or reusable shots. Neither should block a functional first version.
+Beneath this, Manim's own per-`play()` cache (keyed on scene, camera, animations, mobjects, backend and encoder state) stays enabled through a stable `media_dir` per revision. Object-level caching and reusable shots are future optimizations; neither should block a functional first version.
 
 ---
 
@@ -805,6 +896,13 @@ scianim family init computational_neuroscience --style tomas_scientific
 scianim family env sync computational_neuroscience
 scianim project init divisive_normalization_intro --family computational_neuroscience
 scianim validate path/to/animation.yaml
+scianim validate path/to/project          # Cross-file checks: storyboard, style roles, markers
+scianim style resolve path/to/project     # Resolved tokens with provenance and hash
+scianim codegen path/to/project           # Scene module from registered components
+scianim review-sheet path/to/project      # Static HTML contact sheet of checkpoints
+scianim compare path/to/project revA revB # Image diffs and moved/changed objects
+scianim feedback add path/to/project --snapshot pool_introduced --object pool_label --text "..."
+scianim schemas export schemas/
 scianim plan path/to/project             # Create/refresh storyboard proposal
 scianim snapshot path/to/project --all   # Named checkpoint stills
 scianim snapshot path/to/project --id equation_complete
@@ -848,11 +946,11 @@ For jobs, return IDs and status; long-running render work must not block an HTTP
 
 ### 15.2 Visual QA
 
-- No clipping outside declared safe zones, except intentionally full-bleed elements.
+- No clipping outside declared safe zones, except intentionally full-bleed elements (machine-checked from the layout report: `outside_safe_zone`).
 - Fonts load or explicit fallback reported; mathematical glyphs render correctly.
-- Axis labels and legends are legible in final and draft views.
+- Axis labels and legends are legible in final and draft views (machine-checked: `text_too_small`, `overlap`).
 - Roles from the stylesheet are consistently applied.
-- At least one simple scene has golden-reference snapshot tests (platform-tolerant image comparison rather than byte-identical pixels).
+- At least one simple scene has golden-reference snapshot tests. Compare with a stated metric and threshold (SSIM, or a perceptual-hash distance) rather than byte-identical pixels, and record the platform and font stack on which the goldens were generated.
 
 ### 15.3 Render QA
 
@@ -900,8 +998,17 @@ Implementation order is intentionally chosen to de-risk source-of-truth, environ
 - Produce artifact manifests, logs, and reproducible IDs.
 - Add basic stylesheet tokens and a minimal component (plot + labels).
 - Wire `scianim snapshot` to family environment resolution.
+- Emit a layout report per checkpoint and a static review sheet per revision.
+- `scianim codegen` for storyboards made of registered kinds.
 
 **Gate:** An edited theme token changes the intended objects in new checkpoint PNGs; no complete MP4 is required.
+
+### Phase 1.5: Agent dry run
+
+- Have a coding agent take the example from brief to storyboard to rendered checkpoints through the CLI alone, and record every point where the YAML vocabulary or the CLI was awkward.
+- Adjust the schemas before the UI hardens around them.
+
+**Gate:** A storyboard written by an agent for the example validates and renders without schema changes made during the run.
 
 ### Phase 2: Browser-based review
 
@@ -960,8 +1067,10 @@ The implementing agent should put considered decisions in an ADR or issue, not s
 5. **Agent execution security:** how much local filesystem and network access the chosen coding agent gets, and what it must ask before executing.
 6. **Narrative authoring:** whether initial UI storyboard edits directly change YAML or produce validated patch proposals.
 7. **Bundle defaults:** export only source manifests unless assets are redistributable and specifically selected.
-8. **Audio:** V1 `audio: none`; narration/subtitles should have their own explicit schema when introduced.
+8. **Audio:** V1 `audio: none`, but `narration` is in the storyboard schema from the start; subtitles come from it through Manim subcaptions, and voiceover alignment through manim-voiceover bookmarks is the later addition.
 9. **Frame sampling:** how scene checkpoint states and full-video time samples are reconciled, with no claims of frame equivalence unless verified.
+10. **Revision store:** whether project revisions use Git plumbing (one commit per revision, tags for approvals) or the file-plus-SQLite design in section 11; the trade is free diffs and lineage against coupling the workspace to Git.
+11. **Typst coverage:** which notation the default Typst engine cannot express, and the per-family opt-in path to LaTeX.
 
 ---
 

@@ -28,7 +28,7 @@ typography:
     size_px_at_1080p: 34
     weight: regular
   equation:
-    engine: latex
+    engine: typst
     size_px_at_1080p: 48
   minimum_body_px_at_1080p: 26
 layout:
@@ -50,6 +50,7 @@ motion:
   reveal_seconds: 0.85
   easing: ease_in_out_sine
   avoid_decorative_motion: true
+  narration_words_per_minute: 150
 accessibility:
   do_not_rely_on_color_alone: true
   warn_on_low_contrast: true

@@ -6,11 +6,28 @@ scenes:
     start_seconds: 0
     end_seconds: 15
     purpose: "Introduce excitation as the numerator."
+    narration:
+      text: >-
+        A neuron's response begins with its excitatory drive. Here the drive
+        grows along the horizontal axis, and the schematic response grows
+        with it. These values are synthetic, chosen to illustrate the idea.
     objects:
+      - id: scene_title
+        kind: text_caption
+        style_role: foreground
+        params: {text: "Excitatory drive", role: title}
       - id: drive_curve
-        kind: plot
+        kind: scientific_plot
         style_role: primary_signal
-        data_source: responses
+        data:
+          source: responses
+          encoding: {x: excitation_E, y: response_r, group: condition}
+          transforms:
+            - {op: filter, column: condition, equals: low_pool}
+        params:
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          data_label: "synthetic data"
     snapshots:
       - id: excitation_visible
         at_seconds: 9
@@ -19,10 +36,16 @@ scenes:
     start_seconds: 15
     end_seconds: 30
     purpose: "Establish the pool term as a denominator contribution."
+    narration:
+      text: >-
+        The response is divided by a normalization pool, the summed activity
+        of neighboring neurons, <mark name="pool"/> which we label P.
     objects:
       - id: pool_label
         kind: equation_label
         style_role: normalization_pool
+        equation: {id: schematic_equation, highlight: [P]}
+        params: {text: "normalization pool P"}
     snapshots:
       - id: pool_introduced
         at_seconds: 24
@@ -30,11 +53,17 @@ scenes:
   - id: equation
     start_seconds: 30
     end_seconds: 45
-    purpose: "Explain schematic r = E/(sigma+P)."
+    purpose: "Explain the schematic equation."
+    narration:
+      text: >-
+        The response equals excitation divided by sigma plus the pool.
+        Sigma keeps the denominator positive when the pool is silent.
     objects:
       - id: normalization_equation
-        kind: equation
+        kind: equation_block
         style_role: foreground
+        equation: {id: schematic_equation}
+        params: {define_symbols: true}
     snapshots:
       - id: equation_complete
         at_seconds: 40
@@ -43,11 +72,23 @@ scenes:
     start_seconds: 45
     end_seconds: 60
     purpose: "Demonstrate pool-driven suppression with constant excitation."
+    narration:
+      text: >-
+        With identical excitation, a stronger pool compresses the response.
+        Both panels share the same axes.
     objects:
       - id: response_comparison
         kind: comparison_plot
         style_role: comparison
-        data_source: responses
+        data:
+          source: responses
+          encoding: {x: excitation_E, y: response_r, group: condition}
+        params:
+          condition_roles: {low_pool: primary_signal, high_pool: normalization_pool}
+          shared_axes: true
+          x_label: "excitatory drive E"
+          y_label: "response r"
+          data_label: "synthetic data"
     snapshots:
       - id: comparison_complete
         at_seconds: 55
