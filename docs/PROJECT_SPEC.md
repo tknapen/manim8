@@ -455,7 +455,7 @@ Reject missing/unknown design tokens rather than using unexplained defaults. Avo
 
 Resolution produces a `ResolvedStyle` document with every token, a provenance map naming the layer that set each token, and a content hash. The renderer receives this document, never the YAML chain, and the hash enters cache keys.
 
-The bundled baseline is `default@0.2.0`, **Twin Ink**: a white page, one blue ink for signal, one red ink for attention, Helvetica for text with open-font fallbacks (TeX Gyre Heros, Nimbus Sans) and a Palatino-lineage math face (TeX Gyre Pagella Math) for equations. Its philosophy and a specimen plate live beside the sheet (`styles/default/0.2.0/PHILOSOPHY.md`, `specimen.pdf`); personal themes inherit it and record only what differs.
+The bundled baseline is `default@0.3.0`, **line and wash**: a white page, every edge drawn in one thin dark-blue line, flat pale washes under it, blue as the working colour and orange as the accent, Helvetica for text with open-font fallbacks (TeX Gyre Heros, Nimbus Sans) and a Palatino-lineage math face (TeX Gyre Pagella Math) for equations, after the look of Keenan Crane's geometry figures. Its philosophy and a specimen composed from real checkpoint renders of the examples live beside the sheet (`styles/default/0.3.0/PHILOSOPHY.md`, `specimen.pdf`); personal themes inherit it and record only what differs. `default@0.2.0` (Twin Ink) remains as a published version and is not edited.
 
 Theme changes must be **versioned**: a new version is a new directory `styles/<name>/<version>/`, never an edit of a published one. Re-rendering an old animation uses its pinned theme by default; adopting a newer theme is an explicit revision, not a silent side effect. Inheritance is pinned (`inherits: default@0.1.0`) so a theme's resolved tokens do not drift when its parent gains a version.
 
@@ -1064,7 +1064,7 @@ A smaller task-by-task implementation checklist is in `docs/IMPLEMENTATION_PLAN.
 
 The implementing agent should put considered decisions in an ADR or issue, not silently improvise:
 
-1. **Style signature:** the baseline is now `default@0.2.0` (Twin Ink, with its philosophy and specimen plate); the personal layer `tomas_scientific@0.2.0` is deliberately thin. Which tokens the personal signature should change, and alternative sample stills for approval, remain to be decided.
+1. **Style signature:** the baseline is now `default@0.3.0` (line and wash, with its philosophy and a specimen rendered from the examples; ADR-025); the personal layer `tomas_scientific@0.3.0` is deliberately thin. Which tokens the personal signature should change, and alternative sample stills for approval, remain to be decided.
 2. **Version strategy:** Pydantic schemas and themes need a migration policy before community sharing.
 3. **Supported platforms:** prioritize macOS/Linux, optionally Windows; test LaTeX/FFmpeg/Manim prerequisites explicitly.
 4. **PDF ingestion:** acceptable local extraction fidelity and when visual/manual inspection is needed.

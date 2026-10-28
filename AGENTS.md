@@ -24,7 +24,7 @@ Do not start by building a complex UI or LLM integration. Prove the rendering/en
 3. `docs/ARCHITECTURE_DECISIONS.md` — recorded decisions; add one when you change a contract.
 4. `examples/families/computational_neuroscience/divisive_normalization/animation.yaml` — sample input requirements, including typed `equations`.
 5. `examples/families/computational_neuroscience/divisive_normalization/storyboard.yaml` — sample scenes with narration, registered component objects, data bindings and checkpoints.
-6. `styles/default/0.2.0/style.yaml` — the Twin Ink baseline (white page, blue and red inks, Helvetica text, Palatino math) with `PHILOSOPHY.md` and `specimen.pdf` beside it; `styles/tomas_scientific/0.2.0/style.yaml` is the thin personal layer on top.
+6. `styles/default/0.3.0/style.yaml` — the line-and-wash baseline (white page, a thin dark-blue line with pale washes, blue and orange as the working pair, Helvetica text, Palatino math; after the look of Keenan Crane's geometry figures) with `PHILOSOPHY.md` and a specimen rendered from the examples beside it; `styles/tomas_scientific/0.3.0/style.yaml` is the thin personal layer on top. `default@0.2.0` (Twin Ink) remains as history.
 7. `examples/families/computational_neuroscience/family.yaml` — family, environment and system-requirement metadata.
 
 Resolve contradictions by favoring scientific correctness, reproducible contracts, explicit style inheritance and small testable increments. If requirements remain ambiguous, state assumptions and record an architecture decision. Never silently reinterpret a hard constraint.

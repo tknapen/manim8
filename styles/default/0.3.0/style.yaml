@@ -1,0 +1,100 @@
+schema_version: "1.0"
+name: default
+version: "0.3.0"
+description: >-
+  Line and wash: a white page, objects drawn with a thin dark-blue line and a flat pastel
+  wash, blue and orange as the working pair, everything else in grey-blues, and a lot of
+  air around each object. After the look of Keenan Crane's geometry figures. Helvetica for
+  text, a Palatino-lineage math face for equations. Personal themes inherit it; the
+  philosophy and a specimen rendered from the examples sit beside this file.
+inherits: null
+palette:
+  background: "#FFFFFF"
+  foreground: "#22304A"
+  secondary_text: "#6E7B8F"
+  muted: "#A7B1BF"
+  neutral: "#D9DFE7"
+  grid: "#EEF1F5"
+  primary_signal: "#4E86C6"
+  primary_signal_soft: "#BBD2EC"
+  uncertainty: "#DCE7F4"
+  selection: "#EAF1FA"
+  emphasis: "#E8872A"
+  comparison: "#D4702B"
+  comparison_soft: "#F3CDAA"
+  warning: "#C9A227"
+  normalization_pool: "#D4702B"
+typography:
+  title:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 50
+    weight: bold
+  body:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 34
+    weight: regular
+  annotation:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 30
+    weight: regular
+  axis_label:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 30
+    weight: regular
+  tick_label:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
+    weight: regular
+  caption:
+    font_family: "Helvetica"
+    font_fallbacks: ["Helvetica Neue", "TeX Gyre Heros", "Nimbus Sans", "Arial", "Liberation Sans", "sans-serif"]
+    size_px_at_1080p: 26
+    weight: regular
+  equation:
+    engine: typst
+    size_px_at_1080p: 46
+    label_size_px_at_1080p: 38
+    math_font: "TeX Gyre Pagella Math"
+    math_font_fallbacks: ["Asana Math", "New Computer Modern Math"]
+    latex_packages: ["newpxmath"]
+  minimum_text_px_at_1080p: 26
+layout:
+  safe_margin_fraction: 0.06
+  baseline_grid_px_at_1080p: 16
+  panel_gap_px_at_1080p: 48
+  preferred_alignment: left
+geometry:
+  axis_stroke_px_at_1080p: 1.5
+  curve_stroke_px_at_1080p: 2.8
+  annotation_stroke_px_at_1080p: 1.6
+  marker_radius_px_at_1080p: 4.5
+  tick_length_px_at_1080p: 7
+charts:
+  spines: [left, bottom]
+  spine_offset_px_at_1080p: 0
+  grid_visible: false
+  use_shared_scales_for_comparison: true
+  legend_position: upper_right
+  show_units_when_provided: true
+motion:
+  transition_seconds: 0.65
+  reveal_seconds: 0.85
+  easing: ease_in_out_sine
+  emphasis_scale: 1.3
+  emphasis_seconds: 0.8
+  avoid_decorative_motion: true
+  narration_words_per_minute: 150
+three_d:
+  camera_phi_degrees: 58
+  camera_theta_degrees: -45
+  mesh_stroke_px_at_1080p: 0.6
+  surface_opacity: 0.6
+accessibility:
+  do_not_rely_on_color_alone: true
+  warn_on_low_contrast: true
+  minimum_contrast_body: 4.5

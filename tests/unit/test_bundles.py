@@ -43,7 +43,7 @@ def test_export_inspect_and_import_round_trip(project_copy: Project, tmp_path: P
     assert "projects/divisive_normalization/animation.yaml" in names
     assert "projects/divisive_normalization/revisions/rev_0001/revision.json" in names
     assert "projects/divisive_normalization/data/synthetic_responses.csv" in names
-    assert "styles/default/0.2.0/style.yaml" in names and "styles/tomas_scientific/0.2.0/style.yaml" in names
+    assert "styles/default/0.3.0/style.yaml" in names and "styles/tomas_scientific/0.3.0/style.yaml" in names
     assert not any(
         ".scianim" in n or ".venv" in n or n.startswith("projects/divisive_normalization/renders") for n in names
     )
@@ -67,7 +67,7 @@ def test_export_inspect_and_import_round_trip(project_copy: Project, tmp_path: P
     report = import_bundle(archive, other)
     project = other / "families" / "computational_neuroscience" / "divisive_normalization"
     assert report.projects == [project] and (project / "revisions" / "rev_0001" / "revision.json").exists()
-    assert (other / "styles" / "default" / "0.2.0" / "style.yaml").exists()
+    assert (other / "styles" / "default" / "0.3.0" / "style.yaml").exists()
     assert (report.family_dir / "pyproject.toml").exists() and (report.family_dir / "family.yaml").exists()
     assert validate_project(Project(project), require_family=True).ok
     assert any("family env sync" in step for step in report.next_steps)

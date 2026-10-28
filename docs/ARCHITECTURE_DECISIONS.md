@@ -445,3 +445,31 @@ checkpoint a marker in the flow, while letting the camera, the surface and the r
 Cairo renderer draws a surface as thousands of small polygons, which is slow for long videos but exact and
 deterministic; the OpenGL renderer would be faster and is not adopted, because the whole pipeline (sections,
 frame-exact timing, checkpoint capture) is verified on Cairo.
+
+## ADR-025: The baseline theme is line and wash (`default@0.3.0`)
+
+**Status:** accepted, 28 October 2026
+
+**Context.** The baseline `default@0.2.0` (Twin Ink) set a white page with a near-black ink, a saturated
+blue and a saturated red. With surfaces, meshes and orbiting cameras in the examples, the red read as an
+alarm rather than an accent, the black lines were heavier than the mesh they framed, and the washes were
+too strong for a surface to show its mesh through. The look asked for is the one in Keenan Crane's geometry
+figures: an object on a white page drawn with a thin dark line, filled with a flat pale wash, one warm
+accent, and air around it.
+
+**Decision.** A new published version, `default@0.3.0` (line and wash), with its own tokens: the line ink is
+a dark indigo rather than black; the working blue is lighter and less saturated; red gives way to orange as
+the accent and as the second condition; soft and uncertainty washes are paler; axes, annotation strokes and
+mesh lines are thinner, a surface is laid at sixty percent opacity, and the camera starts a little lower and
+closer to the diagonal. Text sizes, the type scale, despined axes and the motion tokens are unchanged. The
+tokens are our own values chosen for that feeling, not a copy of any figure's colours. `default@0.2.0` is
+not edited and remains resolvable; `tomas_scientific@0.3.0` pins the new baseline and changes nothing yet.
+The examples, the scaffold and the agent-loop fixture pin `0.3.0`. The specimen beside the sheet is no
+longer a plate drawn in Typst: `tools/specimen_line_and_wash.py` composes it from real checkpoint renders
+of the four examples, so it shows what the renderer does, labelled with the fonts that were actually
+resolved.
+
+**Why.** A theme is a published version, so a change of taste is a new directory, never an edit (ADR-010);
+an old animation re-rendered under its pinned theme still looks as it did. Components read every colour,
+weight and size from tokens, so the whole change is one sheet and no code. A specimen composed from renders
+cannot drift from the renderer, which a hand-drawn plate could.

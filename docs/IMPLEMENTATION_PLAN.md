@@ -26,7 +26,7 @@ complete except for section splicing (ADR-019). Milestone 5 (source adapters, co
 self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
 guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
 readouts) is complete (ADR-022), and Milestone 8 (surfaces, the orbiting camera, concurrent tracks; four examples) is
-complete (ADR-024). Open items across milestones: section splicing
+complete (ADR-024); the baseline theme is `default@0.3.0`, line and wash, with a specimen composed from real renders (ADR-025). Open items across milestones: section splicing
 (ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
 
 ## Milestone 0 — repository and contracts
@@ -65,7 +65,7 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 - [x] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
 - [x] Family discovery: nearest `family.yaml` is authoritative, `family:` optional, `group.yaml` layers, explicit child families, duplicate ids rejected.
 - [x] Versioned style directories (`<name>/<version>/style.yaml`) with pinned inheritance; `scianim style list`.
-- [x] Baseline theme `default@0.2.0` (Twin Ink) with philosophy and specimen plate; font fallback resolution reported in the manifest; Typst math font and LaTeX packages from tokens.
+- [x] Baseline theme `default@0.2.0` (Twin Ink) with philosophy and specimen plate, superseded by `default@0.3.0` (line and wash, ADR-025) with a specimen composed from real renders; font fallback resolution reported in the manifest; Typst math font and LaTeX packages from tokens.
 - [x] Workspaces: `workspace init|list`, `family init`, `project init`, read-only examples as templates.
 - [x] `asset://` sources from family and workspace `assets/`; family `components/` on the worker path.
 - [x] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.
