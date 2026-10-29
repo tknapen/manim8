@@ -7,7 +7,7 @@ output:
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
-  fps: 30
+  fps: 60
   container: mp4
   video_codec: h264
   audio: none

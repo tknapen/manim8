@@ -28,10 +28,11 @@ scenes:
             + (-(x - x_0) * sin(theta * pi / 180) + (y - y_0) * cos(theta * pi / 180))^2) / (2 * sigma^2))
             * cos(2 * pi * f * ((x - x_0) * cos(theta * pi / 180) + (y - y_0) * sin(theta * pi / 180)) + phi)
           parameters: {theta: 0, f: 0.6, x_0: 0, y_0: 0, sigma: 1.2, phi: 0}
-          resolution: 48
+          resolution: 80
           fill: by_sign
           data_label: "analytic surface from the equation"
-          size_fraction: 0.6
+          size_fraction: 0.85
+          lift_fraction: 0.08
       - id: gabor_label
         kind: equation_label
         style_role: emphasis
