@@ -202,7 +202,7 @@ def test_gabor_filter_renders_in_segments(workspace: Path, scianim) -> None:
         > final["frequency"].bbox.y
         > final["rotate"].bbox.y
     )
-    # The labelled box is taller than the bare surface once the axes have gone, and the camera has moved on.
+    # The camera moved on between the first and a later checkpoint. (That the axes group leaves the surface's
+    # group once faded is asserted directly by the bridge test on the AxesFade track.)
     first = next(i for i in records["with_axes"].layout if i.object_id == "gabor_surface")
-    bare = next(i for i in records["theta_emphasized"].layout if i.object_id == "gabor_surface")
-    assert first.bbox.height > bare.bbox.height and first.bbox != surface.bbox
+    assert first.bbox != surface.bbox
