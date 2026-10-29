@@ -6,7 +6,7 @@ import math
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from manim import ORIGIN, Group, ImageMobject, Line, Rectangle, Surface, Text, ThreeDAxes, VGroup
+from manim import ORIGIN, OUT, Group, ImageMobject, Line, Rectangle, Surface, Text, ThreeDAxes, VGroup
 
 from scianim_bridge.components.base import ParametricComponent, params_for, register
 from scianim_bridge.components.plots import _caption, _fmt, nice_range
@@ -168,6 +168,10 @@ def surface_plot(
     axes_group = VGroup(frame, labels)
     group = VGroup(axes, surface, axes_group)
     group.move_to(ORIGIN)
+    if p.lift_fraction:
+        # A world-z shift rises on the page by sin(phi) of its length, whatever the azimuth, so the orbit is unchanged.
+        elevation = max(math.sin(math.radians(t3.camera_phi_degrees)), 1e-6)
+        group.shift(OUT * (sy1 - sy0) * p.lift_fraction / elevation)
     # Labels follow their anchors in the world but keep facing the viewer; the caption belongs to the page.
     scene.renderer.camera.add_fixed_orientation_mobjects(*labels)
     if p.data_label:

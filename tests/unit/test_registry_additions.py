@@ -189,3 +189,21 @@ def test_prf_tuning_template_validates_in_project_mode() -> None:
     result = CliRunner().invoke(app, ["validate", str(example)])
     assert result.exit_code == 0, result.stdout
     assert "0 errors, 0 warnings" in result.stdout
+
+
+def test_surface_lift_fraction_is_bounded() -> None:
+    from scianim_core.components import validate_params
+
+    params = {
+        "x_label": "x",
+        "y_label": "y",
+        "z_label": "g",
+        "x_range": [-1, 1],
+        "y_range": [-1, 1],
+        "z_range": [-1, 1],
+        "expression": "x * y",
+    }
+    assert validate_params("surface_plot", params).lift_fraction == 0.0  # type: ignore[attr-defined]
+    assert validate_params("surface_plot", {**params, "lift_fraction": 0.08}).lift_fraction == 0.08  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="lift_fraction"):
+        validate_params("surface_plot", {**params, "lift_fraction": 0.7})

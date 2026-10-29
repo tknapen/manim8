@@ -179,3 +179,31 @@ def test_projected_bbox_measures_ink_only() -> None:
         assert bbox.height == pytest.approx(2.0 / config.frame_height, abs=1e-6)
         alone = projected_bbox(scene.renderer.camera, VGroup(helper))
         assert alone.width == pytest.approx(6.0 / config.frame_width, abs=1e-6)  # nothing visible: fall back to all
+
+
+def test_surface_lift_raises_the_box_without_moving_it_sideways() -> None:
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    sys_path_helper = __import__("sys").path
+    sys_path_helper.insert(0, str(__import__("pathlib").Path(__file__).parent))
+    from test_sweeps import _scene
+
+    params = {
+        "x_label": "x",
+        "y_label": "y",
+        "z_label": "g",
+        "x_range": [-1, 1],
+        "y_range": [-1, 1],
+        "z_range": [-1, 1],
+        "expression": "x * y",
+        "resolution": 4,
+    }
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        flat = C.surface_plot(scene, "flat", params=params)
+        lifted = C.surface_plot(scene, "lifted", params={**params, "lift_fraction": 0.1})
+        a, b = flat.group[1].get_center(), lifted.group[1].get_center()
+        assert b[2] > a[2] + 0.5 and abs(b[0] - a[0]) < 1e-6 and abs(b[1] - a[1]) < 1e-6

@@ -164,8 +164,11 @@ When `frequency` begins, θ gives the colour up and f takes it, and θ's readout
 fixed on the page while the surface turns; a surface's axis labels follow their anchors but keep facing you
 until they fade. Only two actions that drive the same parameter of the same object, two orbits, or two axes
 fades of the same object may not overlap. The `three_d` style tokens set the camera's starting angles, the
-mesh weight and the surface opacity (nearly solid under `default@0.3.1`). Surfaces render through Cairo as
-thousands of small cells: snapshots are quick, a draft video of a 48-cell mesh takes ten to twenty minutes.
+mesh weight and the surface opacity (nearly solid since `default@0.3.1`). A surface's `size_fraction` sets its
+footprint and `lift_fraction` raises it above the page's centre, so a large surface can sit behind the text
+(text is always drawn on top) while the floor frame, which hangs below the surface, keeps its labels on the
+page. Surfaces render through Cairo as thousands of small cells: snapshots are quick, a draft video takes
+tens of minutes, and the 80-cell Gabor mesh at 60 fps takes about two hours.
 
 ## Revisions, forks and comparison
 

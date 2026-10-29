@@ -209,6 +209,10 @@ class SurfacePlotParams(StrictModel):
     data_label: str | None = None
     size_fraction: float = Field(default=0.6, gt=0, le=1)
     """Footprint of the box as a fraction of the safe height."""
+    lift_fraction: float = Field(default=0.0, ge=-0.5, le=0.5)
+    """How far above the page's centre the box sits, as a fraction of the safe height (negative lowers it). A
+    large surface drawn behind the text may use the upper part of the page; the floor frame hangs below the
+    surface's mid-plane, so lifting keeps its labels on the page while the axes are shown."""
 
     @model_validator(mode="after")
     def _checks(self) -> SurfacePlotParams:
