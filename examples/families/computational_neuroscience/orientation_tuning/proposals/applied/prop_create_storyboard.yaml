@@ -258,7 +258,7 @@ proposal:
                 description: The sharpened model curve (kappa = 8) with both markers, the grating at 180 deg, 
                   the label with its readouts.
   touches_science: false
-applied_at: '2026-10-29T10:32:40+00:00'
+applied_at: '2026-10-29T11:15:23+00:00'
 applied_to_revision: working
 diffs:
   storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,234 @@\n+schema_version: '1.0'\n+project_id:
@@ -317,10 +317,10 @@ diffs:
     +        equation:\n+          id: von_mises\n+          highlight:\n+            - kappa\n+            - theta\n\
     +        params:\n+          text: von Mises model\n+          anchor: top_left\n+        reveal_at_seconds:
     13\n+    actions:\n+      - id: rotate_stimulus\n+        kind: vary_parameter\n+        target: grating\n+\
-    \        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds: 6\n+      \
-    \  emphasize:\n+          - kappa_label\n+      - id: track_stimulus\n+        kind: vary_parameter\n+     \
-    \   target: model_curve\n+        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds:
-    6\n+        show_value: false\n+      - id: sharpen\n+        kind: vary_parameter\n+        target: model_curve\n\
+    \        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds: 5.7\n+    \
+    \    emphasize:\n+          - kappa_label\n+      - id: track_stimulus\n+        kind: vary_parameter\n+   \
+    \     target: model_curve\n+        parameter: theta\n+        to: 180\n+        at_seconds: 14\n+        duration_seconds:
+    5.7\n+        show_value: false\n+      - id: sharpen\n+        kind: vary_parameter\n+        target: model_curve\n\
     +        parameter: kappa\n+        to: 8\n+        at_seconds: 20.3\n+        duration_seconds: 3\n+      \
     \  emphasize:\n+          - kappa_label\n+    snapshots:\n+      - id: stimulus_mid\n+        at_seconds: 17\n\
     +        description: 'Halfway through the turn: the grating near 90 deg and the stimulus marker near the peak

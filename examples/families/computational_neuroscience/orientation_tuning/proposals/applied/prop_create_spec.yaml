@@ -96,7 +96,7 @@ proposal:
             - one idea per scene
         extensions: {}
   touches_science: true
-applied_at: '2026-10-29T10:32:37+00:00'
+applied_at: '2026-10-29T11:15:20+00:00'
 applied_to_revision: working
 diffs:
   animation.yaml: "--- a/animation.yaml\n+++ b/animation.yaml\n@@ -1,25 +1,70 @@\n-schema_version: \"1.0\"\n+schema_version:
