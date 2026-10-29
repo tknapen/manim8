@@ -95,9 +95,9 @@ def test_video_job_through_the_api_runner(workspace: Path, scianim) -> None:
     client = TestClient(create_app(workspace))
     runner = client.app.state.runner
     rejected = client.post(
-        "/api/projects/orientation_tuning/jobs", json={"operation": "render_video", "profile": "snapshot"}
+        "/api/projects/orientation_tuning/jobs", json={"operation": "render_video", "profile": "bogus"}
     )
-    assert rejected.status_code == 422
+    assert rejected.status_code == 422  # any of the four profiles is accepted for a video; an unknown one is not
     accepted = client.post(
         "/api/projects/orientation_tuning/jobs",
         json={"operation": "render_video", "profile": "draft", "samples": {"halfway": 12.0}},
