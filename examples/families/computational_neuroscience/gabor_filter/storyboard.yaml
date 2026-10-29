@@ -29,7 +29,7 @@ scenes:
             * cos(2 * pi * f * ((x - x_0) * cos(theta * pi / 180) + (y - y_0) * sin(theta * pi / 180)) + phi)
           parameters: {theta: 0, f: 0.6, x_0: 0, y_0: 0, sigma: 1.2, phi: 0}
           resolution: 80
-          fill: by_sign
+          fill: diverging
           data_label: "analytic surface from the equation"
           size_fraction: 0.85
           lift_fraction: 0.08
@@ -97,7 +97,7 @@ scenes:
     snapshots:
       - id: with_axes
         at_seconds: 2
-        description: "The filter at rest inside its labelled box: theta 0, f 0.6, the envelope centred, sigma 1.2; every term of the equation in the line ink; the camera near its starting angle."
+        description: "The filter at rest inside its labelled box: theta 0, f 0.6, the envelope centred, sigma 1.2; the flat field in the muted grey and the lobes in blue and apricot growing with their height; every term of the equation in the line ink; the camera near its starting angle."
       - id: theta_emphasized
         at_seconds: 4.6
         description: "Inside the lead-in of the first segment: the box and its labels have gone, theta is the only term in the accent colour and still enlarged by the pulse, the readout shows theta = 0.0 deg, and the surface has not moved."

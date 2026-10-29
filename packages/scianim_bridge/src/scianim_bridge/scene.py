@@ -115,15 +115,27 @@ class Track:
 
 
 class TrackSegment(Animation):
-    """Plays the part [f0, f1] of a track's window. The rate profile lives in the track, so split segments
-    continue the same curve; in fast-forward mode Manim evaluates alpha = 1 once, which lands on f1."""
+    """Plays the part [f0, f1] of a track's window over `frames` frames. The rate profile lives in the track,
+    so split segments continue the same curve.
 
-    def __init__(self, track: Track, f0: float, f1: float) -> None:
+    Manim renders frame k of a play as alpha = k / (frames - 0.5), the half frame that makes the frame count
+    exact (see `play_frames`); mapped back to k / frames, every rendered frame is one full step and the last
+    frame of a segment sits one step short of the breakpoint, where the next segment's first frame lands, so
+    motion crosses breakpoints without a hitch. Alpha 1 (the finish, and the single step of fast-forward mode)
+    lands exactly on f1, which is what a checkpoint at the breakpoint captures.
+    """
+
+    def __init__(self, track: Track, f0: float, f1: float, frames: int = 0) -> None:
         super().__init__(track.mobject, rate_func=linear, introducer=True)
-        self.track, self.f0, self.f1 = track, f0, f1
+        self.track, self.f0, self.f1, self.frames = track, f0, f1, frames
+
+    def progress(self, alpha: float) -> float:
+        if alpha >= 1.0 or self.frames <= 0:
+            return min(1.0, max(0.0, alpha))
+        return alpha * (self.frames - 0.5) / self.frames
 
     def interpolate_mobject(self, alpha: float) -> None:
-        self.track.apply(self.f0 + (self.f1 - self.f0) * self.rate_func(alpha))
+        self.track.apply(self.f0 + (self.f1 - self.f0) * self.progress(alpha))
 
 
 @dataclass
@@ -219,7 +231,13 @@ class Sweep(Track):
 
 @dataclass
 class CameraOrbit(Track):
-    """One `orbit_camera` action: the azimuth and elevation move from where they were to the targets."""
+    """One `orbit_camera` action: the azimuth and elevation move from where they were to the targets.
+
+    The track animates a pointless mobject that sits at the back of the scene: Manim re-draws only the
+    mobjects from the first animated one onward and repeats a cached frame for the rest, so without it a
+    segment in which only the camera moves would show a frozen picture while the angle silently advanced,
+    and the surface would jump to catch up when the next sweep began.
+    """
 
     to_theta: float | None = field(kw_only=True)
     to_phi: float | None = field(kw_only=True)
@@ -657,6 +675,8 @@ class SnapshotScene(ThreeDScene):
                 easing or motion.camera_easing or motion.easing, duration_seconds, motion.ramp_seconds
             ),
         )
+        self.add(orbit.dummy)
+        self.bring_to_back(orbit.dummy)  # everything after it in draw order, which is everything, re-draws per frame
         orbit.apply(0.0)
         return orbit
 
@@ -665,7 +685,7 @@ class SnapshotScene(ThreeDScene):
         targets = [(track, track.target_fraction(seconds)) for track in tracks]
         frames = self.frames(seconds - self.clock)
         if frames >= 1:
-            self.play_frames(frames, *[TrackSegment(track, track.fraction, f1) for track, f1 in targets])
+            self.play_frames(frames, *[TrackSegment(track, track.fraction, f1, frames) for track, f1 in targets])
         else:
             if seconds < self.clock - self.frame_seconds:
                 names = ", ".join(track.track_id for track in tracks)

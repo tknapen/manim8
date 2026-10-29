@@ -32,7 +32,8 @@ def surface_plot(
     """z = f(x, y) over a box as a fine mesh, with a despined floor frame and one vertical edge for z.
 
     The box is centred on the world origin, which the camera orbits. Cells are filled by the sign or the
-    height of the value; the mesh lines carry the secondary ink. `set_parameters` rebuilds the mesh in place.
+    height of the value, or on a diverging scale from the muted ink at zero; the mesh lines carry the
+    secondary ink. `set_parameters` rebuilds the mesh in place.
     The frame, ticks and labels form the component's `axes` group, which a `fade_axes` action can fade and
     take away, leaving the surface alone.
     """
@@ -61,6 +62,8 @@ def surface_plot(
     function = compile_expression(p.expression, ("x", "y", *p.parameters))
     ink = tokens.color(style_role)
     other = tokens.color("comparison")
+    zero_ink = tokens.color("muted")
+    reach = max(abs(low), abs(high)) or 1.0  # a diverging scale saturates at the larger edge of the z range
     mesh = tokens.color("secondary_text")
     fg = tokens.color("foreground")
     opacity = t3.surface_opacity if p.fill != "none" else 0.0
@@ -107,6 +110,9 @@ def surface_plot(
                 z = value((face.u1 + face.u2) / 2, (face.v1 + face.v2) / 2)
                 if p.fill == "by_sign":
                     face.set_fill(ink if z >= 0 else other, opacity=opacity)
+                elif p.fill == "diverging":
+                    strength = min(1.0, abs(z) / reach)
+                    face.set_fill(zero_ink.interpolate(ink if z >= 0 else other, strength), opacity=opacity)
                 else:
                     face.set_fill(ink, opacity=opacity * min(1.0, max(0.0, (z - low) / span)))
         if out_of_range and not clipped:

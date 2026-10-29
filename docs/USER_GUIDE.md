@@ -136,7 +136,7 @@ lead-in shorter than the pulse or a shorter rest. The rules behind the tokens ar
 
 ## Surfaces, the camera, and things moving together
 
-A `surface_plot` draws z = f(x, y) over a fixed box as a fine mesh; an `orbit_camera` action turns the camera
+A `surface_plot` draws z = f(x, y) over a fixed box as a fine mesh (`fill: diverging` keeps a flat field in the muted grey and lets only the excursions carry colour, growing with their height); an `orbit_camera` action turns the camera
 around it; a `function_image` samples a field to pixels (a grating under a disc, say). Actions run at the
 same time when they drive different things, so the camera can keep turning while the filter changes. A clip
 that changes several parameters in turn is written as segments: the equation reference takes

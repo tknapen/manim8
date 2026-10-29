@@ -204,8 +204,11 @@ class SurfacePlotParams(StrictModel):
     parameters: dict[str, float] = {}
     resolution: int = Field(default=40, ge=4, le=120)
     """Mesh cells per axis."""
-    fill: Literal["by_sign", "by_height", "none"] = "by_sign"
-    """`by_sign`: positive cells in the style role, negative cells in the comparison ink; `by_height`: opacity rises with height."""
+    fill: Literal["by_sign", "by_height", "diverging", "none"] = "by_sign"
+    """`by_sign`: positive cells in the style role, negative cells in the comparison ink; `by_height`: opacity rises
+    with height; `diverging`: a cell's colour grows with its value from the muted ink at zero towards the style role
+    for positive values and the comparison ink for negative ones, so a flat region stays grey and only excursions
+    carry colour."""
     data_label: str | None = None
     size_fraction: float = Field(default=0.6, gt=0, le=1)
     """Footprint of the box as a fraction of the safe height."""

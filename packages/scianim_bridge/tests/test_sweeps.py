@@ -19,6 +19,7 @@ PALETTE = {
     "emphasis": "#C8102E",
     "warning": "#D08000",
     "comparison": "#8B1A1A",
+    "primary_signal_soft": "#9FBDE6",
 }
 TYPEFACE = {"font_family": "DejaVu Sans", "font_fallbacks": [], "size_px_at_1080p": 32, "weight": "regular"}
 
@@ -479,3 +480,96 @@ def test_a_segment_that_ends_on_the_breakpoint_completes_the_track() -> None:
     assert track.target_fraction(3.8) == 1.0
     assert track.target_fraction(3.4) == pytest.approx(0.5)
     assert track.target_fraction(2.0) == 0.0
+
+
+def test_orbit_keeps_the_whole_scene_redrawing_and_segments_step_evenly() -> None:
+    from manim import config
+
+    from scianim_bridge import components as C
+    from scianim_bridge.scene import TrackSegment
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        surface = C.surface_plot(
+            scene,
+            "surface",
+            params={
+                "x_label": "x",
+                "y_label": "y",
+                "z_label": "g",
+                "x_range": [-1, 1],
+                "y_range": [-1, 1],
+                "z_range": [-1, 1],
+                "expression": "x * y",
+                "resolution": 4,
+            },
+        )
+        scene.add(surface.group)
+        note = C.text_caption(scene, "note", params={"text": "note"})
+        scene.add(note.group)
+        orbit = scene.begin_orbit(
+            to_theta_degrees=40, to_phi_degrees=None, at_seconds=0, duration_seconds=10, action_id="orbit"
+        )
+        # The orbit's animated mobject is first in draw order, so Manim treats every mobject as moving.
+        assert scene.mobjects[0] is orbit.dummy
+        moving = scene.get_moving_mobjects(TrackSegment(orbit, 0.0, 0.5, 30))
+        assert set(map(id, moving)) >= set(map(id, scene.get_mobject_family_members()))
+        # Manim renders frame k of n at alpha k / (n - 0.5); the segment maps that to k / n, so steps are even
+        # within a segment and across the breakpoint into the next one.
+        seen: list[float] = []
+        orbit.apply = lambda fraction: seen.append(fraction)  # type: ignore[method-assign]
+        first = TrackSegment(orbit, 0.0, 0.4, 4)
+        for k in range(4):
+            first.interpolate_mobject(k / 3.5)
+        first.interpolate_mobject(1.0)  # the finish, not a rendered frame
+        second = TrackSegment(orbit, 0.4, 0.8, 4)
+        for k in range(4):
+            second.interpolate_mobject(k / 3.5)
+        rendered = seen[:4] + seen[5:]
+        assert rendered == pytest.approx([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+        assert seen[4] == pytest.approx(0.4)
+
+
+def test_diverging_fill_is_grey_at_zero_and_coloured_at_the_extremes() -> None:
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        surface = C.surface_plot(
+            scene,
+            "ridge",
+            params={
+                "x_label": "x",
+                "y_label": "y",
+                "z_label": "g",
+                "x_range": [-1, 1],
+                "y_range": [-1, 1],
+                "z_range": [-1, 1],
+                "expression": "x",  # a plane from -1 to 1 along x: zero in the middle
+                "resolution": 8,
+                "fill": "diverging",
+            },
+        )
+        faces = surface.group[1].submobjects
+
+        def ink(face) -> str:
+            return face.get_fill_color().to_hex().upper()
+
+        def distance(face, role: str) -> float:
+            a, b = face.get_fill_color().to_rgb(), manim.ManimColor(PALETTE[role]).to_rgb()
+            return max(abs(x - y) for x, y in zip(a, b, strict=True))
+
+        by_x = sorted(faces, key=lambda f: f.get_center()[0])
+        # The extremes (cell centres at x = -0.875 and 0.875) are nearly the two inks; the middle is nearly grey.
+        assert distance(by_x[0], "comparison") < 0.1 < distance(by_x[0], "muted")
+        assert distance(by_x[-1], "primary_signal") < 0.1 < distance(by_x[-1], "muted")
+        middle = sorted(faces, key=lambda f: abs(f.get_center()[0]))[0]
+        assert distance(middle, "muted") < 0.15
+        # Colour grows with |x|: the distance from the grey never shrinks as the cells move away from zero.
+        strengths = [distance(f, "muted") for f in sorted(faces, key=lambda f: abs(f.get_center()[0]))]
+        assert all(b >= a - 1e-6 for a, b in pairwise(strengths))
+        assert ink(by_x[0]) != ink(by_x[-1])
