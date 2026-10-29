@@ -10,9 +10,9 @@ package:
     uv run --project workspace/families/computational_neuroscience python tools/specimen_line_and_wash.py
 
 Options: ``--workspace DIR`` (default ``workspace``), ``--family ID`` (default
-``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.3.1``; manifests whose
+``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.4.0``; manifests whose
 resolved style does not carry that layer are refused) and ``--out DIR`` (default
-``styles/default/0.3.1``).
+``styles/default/0.4.0``).
 """
 
 from __future__ import annotations
@@ -175,8 +175,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--workspace", type=Path, default=Path("workspace"))
     parser.add_argument("--family", default="computational_neuroscience")
-    parser.add_argument("--theme", default="default@0.3.1")
-    parser.add_argument("--out", type=Path, default=Path("styles/default/0.3.1"))
+    parser.add_argument("--theme", default="default@0.4.0")
+    parser.add_argument("--out", type=Path, default=Path("styles/default/0.4.0"))
     args = parser.parse_args()
 
     theme_layer = f"theme:{args.theme}"

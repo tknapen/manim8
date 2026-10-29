@@ -131,18 +131,32 @@ class Charts(StrictModel):
     show_units_when_provided: bool = True
 
 
-Easing = Literal["linear", "ease_in_out_sine", "smooth", "ease_out_cubic"]
+Easing = Literal["linear", "ease_in_out_sine", "smooth", "ease_out_cubic", "eased_linear"]
+"""Rate profiles. `smooth` and `ease_in_out_sine` ease over the whole window; `eased_linear` is constant speed
+with a slow-in and a slow-out of `motion.ramp_seconds` each, for long continuous motions such as a camera orbit;
+`linear` moves at constant speed from the first frame to the last and reads as mechanical."""
 
 
 class Motion(StrictModel):
     transition_seconds: float = Field(gt=0)
     reveal_seconds: float = Field(gt=0)
     easing: Easing = "smooth"
-    """Rate profile of reveals and of parameter sweeps that do not choose their own."""
+    """Rate profile of everything that moves between two states and does not choose its own: parameter sweeps,
+    axes fades, the colour of a term. Slow in, slow out: motion begins and ends at rest."""
+    camera_easing: Easing | None = None
+    """Rate profile of camera orbits; None means `easing`. A long orbit wants `eased_linear`: it ramps up over
+    `ramp_seconds`, turns at constant speed and ramps down, where an orbit eased over its whole length would
+    race in the middle."""
+    ramp_seconds: float = Field(default=1.5, gt=0)
+    """Length of the slow-in and of the slow-out of an `eased_linear` motion; a motion shorter than two ramps
+    eases over its whole length."""
+    hold_seconds: float = Field(default=0.0, ge=0)
+    """Rest asked for between the end of one motion of an object and the start of the next, so an end state is
+    seen before it changes again; `scianim validate` warns when a storyboard allows less. Zero asks nothing."""
     emphasis_scale: float = Field(default=1.3, gt=1, le=2)
     """How much an emphasized equation term grows, once, as a parameter sweep begins."""
     emphasis_seconds: float = Field(default=0.8, gt=0)
-    """Duration of that pulse; the term is back at its size when it ends."""
+    """Duration of that pulse, a raised cosine: the term grows and settles without a kick at either end."""
     avoid_decorative_motion: bool = True
     narration_words_per_minute: float = Field(default=150, gt=0)
 

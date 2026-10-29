@@ -26,8 +26,8 @@ def write_sheet(styles: Path, name: str, version: str, body: str) -> Path:
 def test_versioned_layout_is_listed(styles_copy: Path) -> None:
     found = list_styles([styles_copy])
     assert set(found) == {"default", "tomas_scientific"}
-    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1"}
-    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1"}
+    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0"}
+    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0"}
 
 
 def test_theme_chain_and_provenance(styles_copy: Path) -> None:
@@ -124,7 +124,7 @@ def test_missing_required_palette_role_fails(styles_copy: Path) -> None:
 def test_unknown_version_lists_available_ones(styles_copy: Path) -> None:
     with pytest.raises(
         StyleResolutionError,
-        match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1'\]",
+        match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1', '0\.4\.0'\]",
     ):
         resolve_style(StyleSelection(name="tomas_scientific", version="9.9.9"), [styles_copy])
 
@@ -155,3 +155,21 @@ def test_every_text_role_is_a_token_at_or_above_the_minimum(styles_copy: Path) -
     too_small["typography"]["tick_label"]["size_px_at_1080p"] = minimum - 1
     with pytest.raises(ValidationError, match="below minimum_text_px_at_1080p"):
         StyleTokens.model_validate(too_small)
+
+
+def test_motion_tokens_resolve_with_provenance(styles_copy: Path) -> None:
+    """`default@0.4.0` sets the motion rules on top of 0.3.1's surfaces on top of 0.3.0's palette; an older
+    sheet resolves with the new tokens at their backwards-compatible defaults."""
+    style = resolve_style(StyleSelection(name="tomas_scientific", version="0.4.0"), [styles_copy])
+    motion = style.tokens.motion
+    assert (motion.easing, motion.camera_easing, motion.ramp_seconds, motion.hold_seconds) == (
+        "smooth",
+        "eased_linear",
+        1.5,
+        0.5,
+    )
+    assert style.provenance["motion.camera_easing"] == "theme:default@0.4.0"
+    assert style.provenance["three_d.surface_opacity"] == "theme:default@0.3.1"
+    assert style.provenance["palette.primary_signal"] == "theme:default@0.3.0"
+    older = resolve_style(StyleSelection(name="tomas_scientific", version="0.3.1"), [styles_copy])
+    assert older.tokens.motion.camera_easing is None and older.tokens.motion.hold_seconds == 0

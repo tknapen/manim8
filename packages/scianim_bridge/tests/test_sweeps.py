@@ -374,3 +374,95 @@ def test_lead_in_active_highlight_handover_and_axes_fade() -> None:
         assert ink(sigma) == accent and ink(theta) == base
         assert size.readout is not None
         assert rotate.readout.color.to_hex().upper() == secondary and size.readout.color.to_hex().upper() == accent
+
+
+def test_eased_linear_profile_camera_ramps_and_raised_cosine_pulse() -> None:
+    from types import SimpleNamespace
+
+    from manim import config
+
+    from scianim_bridge import components as C
+    from scianim_bridge.scene import eased_linear, rate_function
+    from scianim_core.animation import Equation
+
+    # Ramps of a quarter of the window: at rest at both ends, constant speed in between, symmetric.
+    f = eased_linear(0.25)
+    assert f(0.0) == 0.0 and f(1.0) == 1.0 and f(0.5) == pytest.approx(0.5)
+    assert f(0.01) < 1e-3  # starts from rest, with no kick
+    assert f(0.4) - f(0.3) == pytest.approx(f(0.7) - f(0.6))  # the constant part
+    assert f(0.4) - f(0.3) > f(0.1) - f(0.0)  # faster than the ramp
+    values = [f(i / 50) for i in range(51)]
+    assert all(b >= a for a, b in pairwise(values))
+    # Ramps of half the window or more leave no constant part: a plain ease, still symmetric.
+    g = eased_linear(0.9)
+    assert g(0.5) == pytest.approx(0.5) and g(0.25) < 0.25 and g(0.25) == pytest.approx(1 - g(0.75))
+    assert rate_function("eased_linear", 26.0, 1.5)(0.5) == pytest.approx(0.5)
+    assert rate_function("smooth", 1.0, 1.5)(0.5) == pytest.approx(0.5)
+
+    equation = Equation.model_validate(
+        {"id": "e", "typst": "r = exp(theta)", "symbols": {"theta": {"meaning": "angle", "units": "deg"}}}
+    )
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        scene.ctx = SimpleNamespace(equations={"e": equation})
+        surface = C.surface_plot(
+            scene,
+            "surface",
+            params={
+                "x_label": "x",
+                "y_label": "y",
+                "z_label": "g",
+                "x_range": [-1, 1],
+                "y_range": [-1, 1],
+                "z_range": [-1, 1],
+                "expression": "cos(theta * pi / 180 + x)",
+                "parameters": {"theta": 0},
+                "resolution": 4,
+            },
+        )
+        # The camera ramps: equal steps in the constant part, a smaller one at the start.
+        scene.ensure_camera()
+        camera = scene.renderer.camera
+        start = math.degrees(camera.get_theta())
+        orbit = scene.begin_orbit(
+            to_theta_degrees=start + 100,
+            to_phi_degrees=None,
+            at_seconds=0,
+            duration_seconds=10,
+            action_id="o",
+            easing="eased_linear",
+        )
+
+        def theta_at(fraction: float) -> float:
+            orbit.apply(fraction)
+            return math.degrees(camera.get_theta()) - start
+
+        assert theta_at(0.5) == pytest.approx(50.0, abs=1e-6)
+        middle = theta_at(0.4) - theta_at(0.3)
+        assert middle == pytest.approx(theta_at(0.7) - theta_at(0.6), abs=1e-6)
+        assert theta_at(0.1) - theta_at(0.0) < middle and theta_at(1.0) == pytest.approx(100.0, abs=1e-6)
+
+        # The pulse is a raised cosine: almost no growth just after it begins, the full scale at its peak.
+        label = C.equation_label(
+            scene, "label", style_role="emphasis", equation={"id": "e", "highlight": ["theta"]}, params={"text": "t"}
+        )
+        glyph = label.highlights["theta"].submobjects[0]
+        height = glyph.height
+        sweep = scene.begin_vary(
+            surface,
+            "theta",
+            to=90.0,
+            at_seconds=0,
+            duration_seconds=8,
+            action_id="s",
+            easing="linear",
+            emphasize=[label],
+        )
+        pulse = sweep.pulse_fraction
+        sweep.apply(0.05 * pulse)
+        assert glyph.height / height < 1.02
+        sweep.apply(0.5 * pulse)
+        assert glyph.height / height == pytest.approx(1.3, abs=0.02)
+        sweep.apply(1.0 * pulse)
+        assert glyph.height / height == pytest.approx(1.0, abs=1e-3)

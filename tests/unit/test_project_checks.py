@@ -139,3 +139,37 @@ def test_removed_marker_is_detected(project_copy: Project) -> None:
     rewrite(target, 'checkpoint(self, "pool_introduced", expected_time=8)', "pass")
     after = validate_project(project_copy)
     assert any("without a checkpoint() marker: ['pool_introduced']" in e for e in after.errors)
+
+
+def test_motion_rules_are_warnings(project_copy: Project) -> None:
+    """The theme's rules of smoothness: linear easing, a lead-in shorter than the pulse, and a rest shorter than
+    `motion.hold_seconds` between two motions of one object each draw a warning; the example draws none."""
+    from scianim_core import Storyboard
+
+    report = validate_project(project_copy)
+    assert report.ok and not report.warnings, report.warnings
+    assert report.storyboard is not None and report.style is not None
+    motion = report.style.tokens.motion
+    assert motion.hold_seconds > 0 and motion.camera_easing == "eased_linear"
+
+    def action(storyboard: Storyboard, action_id: str):
+        return next(a for s in storyboard.scenes for a in s.actions if a.id == action_id)
+
+    def warnings_after(change) -> list[str]:
+        storyboard = report.storyboard.model_copy(deep=True)
+        change(storyboard)
+        again = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
+        return again.warnings
+
+    def linear(storyboard: Storyboard) -> None:
+        action(storyboard, "raise_pool").easing = "linear"
+
+    def short_lead_in(storyboard: Storyboard) -> None:
+        action(storyboard, "raise_pool").lead_in_seconds = 0.3  # the pulse lasts 0.8 s
+
+    def no_rest(storyboard: Storyboard) -> None:
+        action(storyboard, "stabilize").at_seconds = 12.7  # raise_pool ends at 12.5 s
+
+    assert any("constant speed" in w for w in warnings_after(linear))
+    assert any("shorter than the term's pulse" in w for w in warnings_after(short_lead_in))
+    assert any("the style asks for a rest" in w for w in warnings_after(no_rest))

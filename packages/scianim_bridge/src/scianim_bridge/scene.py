@@ -41,6 +41,50 @@ EASINGS: dict[str, Callable[[float], float]] = {
 }
 
 
+def eased_linear(ramp_fraction: float) -> Callable[[float], float]:
+    """Constant speed with a slow-in and a slow-out of `ramp_fraction` of the window each.
+
+    The position is the integral of a trapezoidal velocity whose ramps are smoothstep-shaped, so both velocity
+    and acceleration are continuous: no kick at the start, no jolt at the stop, and no racing in the middle,
+    which is what an ease over the whole window does to a long motion. Ramps of half the window or more leave
+    no constant part, and the profile becomes a plain symmetric ease.
+    """
+    r = min(0.5, max(1e-6, ramp_fraction))
+
+    def ramp_area(u: float) -> float:  # integral of smoothstep 3u^2 - 2u^3 from 0 to u
+        return u**3 - u**4 / 2
+
+    def area(t: float) -> float:
+        if t <= r:
+            return r * ramp_area(t / r)
+        if t <= 1.0 - r:
+            return r / 2 + (t - r)
+        return (1.0 - r) - r * ramp_area((1.0 - t) / r)
+
+    total = 1.0 - r
+
+    def profile(t: float) -> float:
+        if t <= 0.0:
+            return 0.0
+        if t >= 1.0:
+            return 1.0
+        return area(t) / total
+
+    return profile
+
+
+def rate_function(name: str, duration_seconds: float, ramp_seconds: float) -> Callable[[float], float]:
+    """The rate profile named by a token or an action, as a function of the window fraction."""
+    if name == "eased_linear":
+        return eased_linear(ramp_seconds / duration_seconds if duration_seconds > 0 else 0.5)
+    return EASINGS[name]
+
+
+def state_easing(name: str) -> Callable[[float], float]:
+    """The profile for a change of state (a colour, an opacity) that has no speed to keep constant."""
+    return EASINGS.get(name, smooth)
+
+
 @dataclass
 class Track:
     """Something that unfolds over the storyboard window [at_seconds, at_seconds + duration_seconds]."""
@@ -107,8 +151,13 @@ class Sweep(Track):
     readout_text: Callable[[float], str] | None = field(kw_only=True)
     lead_fraction: float = field(default=0.0, kw_only=True)
     released: list[tuple[Mobject, Mobject]] = field(default_factory=list, kw_only=True)
+    released_readouts: list[tuple[Readout, ManimColor, ManimColor]] = field(default_factory=list, kw_only=True)
+    """Readouts of released terms, each with the ink it leaves and the ink it settles into."""
     base_color: ManimColor | None = field(default=None, kw_only=True)
     active_color: ManimColor | None = field(default=None, kw_only=True)
+    blend: Callable[[float], float] = field(default=smooth, kw_only=True)
+    """Profile of the colour hand-over during the pulse's rise."""
+    readouts_settled: bool = field(default=False, kw_only=True)
 
     @property
     def mobject(self) -> Mobject:
@@ -138,11 +187,16 @@ class Sweep(Track):
             self.scene.fix_in_frame(self.readout.component.group)
         if self.emphasized or self.released:
             progress = fraction / self.pulse_fraction if self.pulse_fraction > 0 else 1.0
-            scale = 1.0 + (self.pulse_scale - 1.0) * math.sin(math.pi * progress) if 0.0 < progress < 1.0 else 1.0
-            rise = min(
-                1.0, max(0.0, 2.0 * progress)
-            )  # the colour arrives, and leaves the released term, as the pulse rises
+            # A raised cosine: the term grows and settles with zero speed at both ends of the pulse.
+            lift = math.sin(math.pi * progress) ** 2 if 0.0 < progress < 1.0 else 0.0
+            scale = 1.0 + (self.pulse_scale - 1.0) * lift
+            # The colour arrives, and leaves the released term, as the pulse rises; a readout fades the same way.
+            rise = self.blend(min(1.0, max(0.0, 2.0 * progress)))
             recolor = self.base_color is not None and self.active_color is not None
+            if self.released_readouts and not self.readouts_settled:
+                for readout, leaving, settling in self.released_readouts:
+                    self.scene.recolor_readout(readout, leaving.interpolate(settling, rise))
+                self.readouts_settled = rise >= 1.0
             for part, pristine in self.emphasized:
                 part.become(pristine)
                 if recolor:
@@ -427,6 +481,7 @@ class SnapshotScene(ThreeDScene):
         total = lead_in_seconds + duration_seconds
         emphasized: list[tuple[Mobject, Mobject]] = []
         released: list[tuple[Mobject, Mobject]] = []
+        released_readouts: list[tuple[Readout, ManimColor, ManimColor]] = []
         base_color: ManimColor | None = None
         active_color: ManimColor | None = None
         units: str | None = None
@@ -453,7 +508,7 @@ class SnapshotScene(ThreeDScene):
                         prior = eq.highlights[symbol]
                         released.append((prior, prior.copy().set_color(eq.base_color)))
                     if earlier is not None:
-                        self._recolor_readout(earlier, tokens.color("secondary_text"))
+                        released_readouts.append((earlier, earlier.color, tokens.color("secondary_text")))
         readout: Readout | None = None
         readout_text: Callable[[float], str] | None = None
         if show_value:
@@ -513,7 +568,7 @@ class SnapshotScene(ThreeDScene):
             parameter=parameter,
             start_value=component.parameters[parameter],
             end_value=float(to),
-            easing=EASINGS[easing or motion.easing],
+            easing=rate_function(easing or motion.easing, duration_seconds, motion.ramp_seconds),
             emphasized=emphasized,
             pulse_fraction=pulse_seconds / total,
             pulse_scale=motion.emphasis_scale,
@@ -521,13 +576,15 @@ class SnapshotScene(ThreeDScene):
             readout_text=readout_text,
             lead_fraction=lead_in_seconds / total,
             released=released,
+            released_readouts=released_readouts,
             base_color=base_color,
             active_color=active_color,
+            blend=state_easing(motion.easing),
         )
         sweep.apply(0.0)
         return sweep
 
-    def _recolor_readout(self, readout: Readout, color: ManimColor) -> None:
+    def recolor_readout(self, readout: Readout, color: ManimColor) -> None:
         """Redraw a readout in another ink, in place."""
         readout.color = color
         inner = readout.component.group[0]
@@ -561,7 +618,9 @@ class SnapshotScene(ThreeDScene):
             component=component,
             visible=visible,
             start_opacity=self._axes_opacity.get(component.object_id, 1.0),
-            easing=EASINGS[easing or self.tokens.t.motion.easing],
+            easing=rate_function(
+                easing or self.tokens.t.motion.easing, duration_seconds, self.tokens.t.motion.ramp_seconds
+            ),
         )
         fade.apply(0.0)
         return fade
@@ -576,9 +635,10 @@ class SnapshotScene(ThreeDScene):
         action_id: str,
         easing: Easing | None = None,
     ) -> CameraOrbit:
-        """Start an `orbit_camera` action from the camera's current angles."""
+        """Start an `orbit_camera` action from the camera's current angles, with the style's camera profile."""
         self.ensure_camera()
         camera = self.renderer.camera
+        motion = self.tokens.t.motion
         orbit = CameraOrbit(
             scene=self,
             track_id=action_id,
@@ -588,7 +648,9 @@ class SnapshotScene(ThreeDScene):
             to_phi=math.radians(to_phi_degrees) if to_phi_degrees is not None else None,
             start_theta=float(camera.get_theta()),
             start_phi=float(camera.get_phi()),
-            easing=EASINGS[easing or self.tokens.t.motion.easing],
+            easing=rate_function(
+                easing or motion.camera_easing or motion.easing, duration_seconds, motion.ramp_seconds
+            ),
         )
         orbit.apply(0.0)
         return orbit

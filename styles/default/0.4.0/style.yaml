@@ -1,0 +1,16 @@
+schema_version: "1.0"
+name: default
+version: "0.4.0"
+description: >-
+  Line and wash, slow in and slow out: every token of default@0.3.1, with the motion rules
+  that make a clip feel smooth. Sweeps, fades and colour changes ease over their whole
+  length; the camera ramps up, turns at constant speed and ramps down; a lead-in is at least
+  as long as the pulse, and an end state rests for half a second before it changes again.
+  The philosophy, with the rules written out, and a specimen rendered from the examples sit
+  beside this file.
+inherits: default@0.3.1
+motion:
+  easing: smooth
+  camera_easing: eased_linear
+  ramp_seconds: 1.5
+  hold_seconds: 0.5

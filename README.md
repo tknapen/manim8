@@ -11,7 +11,7 @@ The repository started as a documentation-first handoff and is being implemented
 3. **[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)** — prioritized milestones, acceptance criteria and suggested first three pull requests.
 4. **[`docs/ARCHITECTURE_DECISIONS.md`](docs/ARCHITECTURE_DECISIONS.md)** — decisions that shape the contracts.
 5. **[`docs/PLAN_REVIEW.md`](docs/PLAN_REVIEW.md)** — the review, checked against the Manim 0.22 source, that produced spec 0.2.
-6. **[`examples/`](examples/)** and **[`styles/`](styles/)** — read-only templates: an example family with three nested projects (animation, storyboard, synthetic CSV); the second, `prf_tuning`, is the storyboard an agent wrote in the Milestone 2.5 dry run ([friction log](docs/FRICTION_LOG_M2_5.md)) and the third, `orientation_tuning`, came out of the Milestone 5 proposal loop; and the versioned themes. The baseline `default@0.3.1` (line and wash with solid surfaces, after the look of Keenan Crane's geometry figures) ships with its [philosophy](styles/default/0.3.1/PHILOSOPHY.md) and a [specimen](styles/default/0.3.1/specimen.pdf) composed from real checkpoint renders of the examples by `tools/specimen_line_and_wash.py`; `default@0.3.0` and `default@0.2.0` (Twin Ink) stay as history.
+6. **[`examples/`](examples/)** and **[`styles/`](styles/)** — read-only templates: an example family with three nested projects (animation, storyboard, synthetic CSV); the second, `prf_tuning`, is the storyboard an agent wrote in the Milestone 2.5 dry run ([friction log](docs/FRICTION_LOG_M2_5.md)) and the third, `orientation_tuning`, came out of the Milestone 5 proposal loop; and the versioned themes. The baseline `default@0.4.0` (line and wash with solid surfaces and slow-in, slow-out motion, after the look of Keenan Crane's geometry figures) ships with its [philosophy](styles/default/0.4.0/PHILOSOPHY.md), which writes out the rules of smooth motion, and a [specimen](styles/default/0.4.0/specimen.pdf) composed from real checkpoint renders of the examples by `tools/specimen_line_and_wash.py`; the earlier versions stay as history.
 
 ## Key architectural choices
 
@@ -89,8 +89,9 @@ parameter of a `function_plot` while the equation term pulses and a readout coun
 sweep captured frame-exactly. Milestone 8 adds surfaces as fine meshes in three dimensions, a camera that
 orbits them, fields sampled to images, actions that run concurrently, and segmented clips: a lead-in before
 each parameter moves, an active highlight mode in which only the term at work carries the accent, and axes
-that fade once the box is read; the four examples are brief clips (16 to 26 s) built around such motion
-rather than decks of static scenes. Deferred: section
+that fade once the box is read; the rules of smooth motion are style tokens (a profile for sweeps and one for
+the camera, ramps, a minimum rest) that `scianim validate` checks a storyboard against; the four examples are
+brief clips (16 to 26 s) built around such motion rather than decks of static scenes. Deferred: section
 splicing for incremental video, voiceover and further action kinds. See `docs/IMPLEMENTATION_PLAN.md` for the
 checklist.
 

@@ -20,7 +20,7 @@ from scianim_core.components import (
     FunctionPlotParams,
     NetworkGraphParams,
 )
-from scianim_core.storyboard import Scene
+from scianim_core.storyboard import Scene, VaryParameter
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -225,8 +225,10 @@ def check_storyboard(
 
 
 def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report) -> None:
-    """Warn about a checkpoint that falls while an object is still fading in, and about a track that the
-    scene's fade-out would cut short. Tracks run concurrently, so nothing starts late because of a reveal."""
+    """Warn about a checkpoint that falls while an object is still fading in, about a track that the scene's
+    fade-out would cut short, and about motion that breaks the style's rules of smoothness: a linear profile,
+    a lead-in shorter than the pulse, or a rest shorter than `motion.hold_seconds` between two motions of one
+    object. Tracks run concurrently, so nothing starts late because of a reveal."""
     motion = style.tokens.motion
     fade_start = scene.end_seconds - motion.transition_seconds
     frame = 1.0 / fps
@@ -250,6 +252,36 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
                 f"action '{action.id}' ends at {action.end_seconds:g}s, inside the fade-out of scene "
                 f"'{scene.id}' that begins at {fade_start:.2f}s"
             )
+        if getattr(action, "easing", None) == "linear":
+            preferred = (motion.camera_easing or motion.easing) if action.kind == "orbit_camera" else motion.easing
+            report.warn(
+                f"action '{action.id}' moves at constant speed from its first frame to its last (easing: linear); "
+                f"the style asks for slow in, slow out: omit `easing` to use `{preferred}`, or keep linear only "
+                "for a motion that should read as mechanical"
+            )
+        if (
+            isinstance(action, VaryParameter)
+            and action.emphasize
+            and 0 < action.lead_in_seconds < motion.emphasis_seconds - 1e-9
+        ):
+            report.warn(
+                f"action '{action.id}': its lead-in ({action.lead_in_seconds:g}s) is shorter than the term's pulse "
+                f"({motion.emphasis_seconds:g}s), so the value starts moving while the term is still growing; "
+                "give the lead-in at least the pulse"
+            )
+    if motion.hold_seconds > 0:
+        sweeps = [a for a in scene.actions if isinstance(a, VaryParameter)]
+        for earlier in sweeps:
+            for later in sweeps:
+                if later is earlier or later.target != earlier.target:
+                    continue
+                rest = later.moves_at_seconds - earlier.end_seconds
+                if -1e-9 <= rest < motion.hold_seconds - 1e-9:
+                    report.warn(
+                        f"action '{later.id}' moves '{later.target}' {rest:.2f}s after '{earlier.id}' has finished; "
+                        f"the style asks for a rest of {motion.hold_seconds:g}s so the end state is seen before it "
+                        "changes again: start it later or lengthen its lead-in"
+                    )
 
 
 def check_markers(storyboard: Storyboard, scene_module: Path, report: Report) -> None:

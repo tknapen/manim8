@@ -659,13 +659,33 @@
           "title": "Avoid Decorative Motion",
           "type": "boolean"
         },
+        "camera_easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic",
+                "eased_linear"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Easing"
+        },
         "easing": {
           "default": "smooth",
           "enum": [
             "linear",
             "ease_in_out_sine",
             "smooth",
-            "ease_out_cubic"
+            "ease_out_cubic",
+            "eased_linear"
           ],
           "title": "Easing",
           "type": "string"
@@ -683,10 +703,22 @@
           "title": "Emphasis Seconds",
           "type": "number"
         },
+        "hold_seconds": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Hold Seconds",
+          "type": "number"
+        },
         "narration_words_per_minute": {
           "default": 150,
           "exclusiveMinimum": 0,
           "title": "Narration Words Per Minute",
+          "type": "number"
+        },
+        "ramp_seconds": {
+          "default": 1.5,
+          "exclusiveMinimum": 0,
+          "title": "Ramp Seconds",
           "type": "number"
         },
         "reveal_seconds": {

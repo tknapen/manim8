@@ -143,7 +143,8 @@
                 "linear",
                 "ease_in_out_sine",
                 "smooth",
-                "ease_out_cubic"
+                "ease_out_cubic",
+                "eased_linear"
               ],
               "type": "string"
             },
@@ -291,7 +292,8 @@
                 "linear",
                 "ease_in_out_sine",
                 "smooth",
-                "ease_out_cubic"
+                "ease_out_cubic",
+                "eased_linear"
               ],
               "type": "string"
             },
@@ -618,7 +620,8 @@
                 "linear",
                 "ease_in_out_sine",
                 "smooth",
-                "ease_out_cubic"
+                "ease_out_cubic",
+                "eased_linear"
               ],
               "type": "string"
             },

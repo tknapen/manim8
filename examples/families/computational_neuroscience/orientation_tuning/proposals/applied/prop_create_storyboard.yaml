@@ -221,7 +221,7 @@ proposal:
                 parameter: theta
                 to: 180
                 at_seconds: 14
-                duration_seconds: 6
+                duration_seconds: 5.7
                 emphasize:
                   - kappa_label
               - id: track_stimulus
@@ -230,7 +230,7 @@ proposal:
                 parameter: theta
                 to: 180
                 at_seconds: 14
-                duration_seconds: 6
+                duration_seconds: 5.7
                 show_value: false
               - id: sharpen
                 kind: vary_parameter

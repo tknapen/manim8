@@ -43,7 +43,6 @@ scenes:
         to_theta_degrees: 255
         at_seconds: 0
         duration_seconds: 26
-        easing: linear
       - id: axes_away
         kind: fade_axes
         target: gabor_surface

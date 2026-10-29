@@ -38,7 +38,6 @@ scenes:
         to_theta_degrees: 40
         at_seconds: 0
         duration_seconds: 16
-        easing: linear
       - id: move_x
         kind: vary_parameter
         target: prf_surface

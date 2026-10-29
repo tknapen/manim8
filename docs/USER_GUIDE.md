@@ -127,8 +127,12 @@ The σ in the equation pulses as the sweep begins, a readout under the label cou
 curve widens and the marker moves with it. A checkpoint placed inside the window captures that exact frame.
 Give the action a `lead_in_seconds` and the term lights up first, with the readout at its starting value; the
 curve moves only when the lead-in is over. Actions that drive different things may overlap; `scianim
-validate` says when one would end during the scene's fade-out. The style's `motion` tokens set the easing and
-the size and length of the pulse.
+validate` says when one would end during the scene's fade-out. The style's `motion` tokens set the rate
+profiles (`easing` for sweeps, fades and colour; `camera_easing` for orbits, where `eased_linear` ramps up over
+`ramp_seconds`, holds its speed and ramps down), the size and length of the pulse, and the rest an object keeps
+between two motions (`hold_seconds`); `scianim validate` warns when a storyboard asks for linear motion, a
+lead-in shorter than the pulse or a shorter rest. The rules behind the tokens are written out in the theme's
+`PHILOSOPHY.md`.
 
 ## Surfaces, the camera, and things moving together
 
@@ -147,7 +151,7 @@ objects:
     equation: {id: gabor, highlight: [theta, f, x_0, y_0, sigma], highlight_mode: active}
     params: {text: "Gabor filter", anchor: top_left}
 actions:
-  - {id: orbit, kind: orbit_camera, to_theta_degrees: 255, at_seconds: 0, duration_seconds: 26, easing: linear}
+  - {id: orbit, kind: orbit_camera, to_theta_degrees: 255, at_seconds: 0, duration_seconds: 26}
   - {id: axes_away, kind: fade_axes, target: gabor_surface, at_seconds: 3, duration_seconds: 0.8}
   - {id: rotate, kind: vary_parameter, target: gabor_surface, parameter: theta, to: 90, at_seconds: 4, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}
   - {id: frequency, kind: vary_parameter, target: gabor_surface, parameter: f, to: 1.4, at_seconds: 9.5, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}

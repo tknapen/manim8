@@ -523,3 +523,35 @@ under it. `default@0.3.0` is not edited.
 **Why.** Opacity is a property of every surface, so it is a theme token rather than a per-object parameter,
 and a theme is a published version (ADR-010): a change of taste is a new directory. A patch version that
 inherits its parent records exactly what changed, and the resolved style's provenance shows it.
+
+## ADR-028: Motion rules are style tokens (`default@0.4.0`, slow in and slow out)
+
+**Status:** accepted, 29 October 2026
+
+**Context.** The segmented clips read as mechanical. The camera turned at constant speed from the first
+frame to the last because the storyboards said `easing: linear`; the sine profile of the sweeps starts with
+its acceleration at full strength; the pulse of a term began with a kick and the colour of a term and of a
+readout changed linearly or snapped. None of this was a property of the style sheet, so a theme could not
+make a clip smooth.
+
+**Decision.** Smoothness is a set of `motion` tokens. `easing` (now `smooth`) is the profile of everything
+that moves between two states and does not choose its own: sweeps, axes fades, the colour of a term and of a
+readout. `camera_easing` (new; `None` means `easing`) is the profile of orbits, and the new profile
+`eased_linear` ramps up over `ramp_seconds` (new, 1.5 s), turns at constant speed and ramps down, with
+smoothstep ramps so velocity and acceleration are continuous; a motion shorter than two ramps becomes a plain
+ease. `hold_seconds` (new, 0.5 s) is the rest asked for between the end of one motion of an object and the
+moment the next moves its value. The pulse is a raised cosine. `scianim validate` warns when an action asks
+for `easing: linear`, when a lead-in is shorter than the pulse, or when two motions of one object rest less
+than `hold_seconds`. The rules are written out in the theme's philosophy. `default@0.4.0` inherits
+`default@0.3.1` and sets the four tokens; `tomas_scientific@0.4.0` pins it; the examples, the family, the
+fixtures and the specimen tool pin `0.4.0`, and the two camera orbits in the examples no longer override the
+profile. The orientation-tuning stimulus turns for 5.7 s instead of 6 so the curve rests before it sharpens.
+Older sheets resolve as before: the new tokens default to the previous behaviour (`camera_easing` follows
+`easing`, `hold_seconds` is zero), only the pulse profile and the eased colour change apply to every sheet.
+
+**Why.** Feel is a property of the theme, like colour and weight, so it belongs in the sheet and under
+version control. A profile for the camera separate from the profile for sweeps is needed because the two
+motions have different jobs: a sweep is the subject and should ease over its whole length; an orbit is
+background and should be nearly uniform, with ramps only so that it never starts or stops at speed. A minimum
+rest and a lead-in at least as long as the pulse are timing rules, which no profile can supply, so they are
+checks rather than tokens the renderer applies.
