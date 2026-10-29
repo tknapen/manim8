@@ -19,9 +19,14 @@ from scianim.render.manifests import manifest_for_ref
 from scianim_core import ArtifactManifest, CheckpointRecord, FeedbackRecord, LayoutItem
 from scianim_core.feedback import FeedbackKind, Region, ReviewStatus, Severity
 
-_yaml = YAML()
-_yaml.default_flow_style = False
-_yaml.indent(mapping=2, sequence=4, offset=2)
+
+def _dumper() -> YAML:
+    """A fresh round-trip dumper per write: the review server writes records from several threads, and a
+    ruamel `YAML` object is not safe to share between them."""
+    yaml = YAML()
+    yaml.default_flow_style = False
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    return yaml
 
 
 def new_feedback_id(now: dt.datetime | None = None) -> str:
@@ -39,7 +44,7 @@ def write_feedback(project: Project, record: FeedbackRecord) -> Path:
     if path.exists():
         raise SpecError(path, "feedback record already exists; records are write-once")
     with path.open("w", encoding="utf-8") as handle:
-        _yaml.dump(record.model_dump(mode="json", exclude_none=True), handle)
+        _dumper().dump(record.model_dump(mode="json", exclude_none=True), handle)
     return path
 
 

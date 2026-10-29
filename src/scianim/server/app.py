@@ -356,8 +356,6 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
         for snapshot_id in [*body.snapshot_ids, *body.samples]:
             if not SLUG.match(snapshot_id):
                 raise HTTPException(422, f"invalid snapshot id '{snapshot_id}'")
-        if body.operation == "render_video" and body.profile not in ("draft", "final"):
-            raise HTTPException(422, "a video job needs profile draft or final")
         status = runner.submit(
             project,
             JobRequest(

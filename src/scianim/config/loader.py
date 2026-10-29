@@ -24,7 +24,12 @@ MODELS: dict[SpecKind, type[BaseModel]] = {
 
 CANONICAL_NAMES: dict[str, SpecKind] = {f"{kind}.yaml": kind for kind in MODELS}
 
-_yaml = YAML(typ="safe")
+
+def safe_yaml() -> YAML:
+    """A fresh safe loader/dumper. A ruamel `YAML` object keeps parser state, so one shared instance read from
+    several threads at once (the review server answers requests in a thread pool) corrupts itself; every
+    load and dump therefore gets its own."""
+    return YAML(typ="safe")
 
 
 class SpecError(Exception):
@@ -46,10 +51,10 @@ def format_validation_error(exc: ValidationError) -> str:
 
 def load_yaml(path: Path) -> dict[str, Any]:
     try:
-        data = _yaml.load(path.read_text(encoding="utf-8"))
+        data = safe_yaml().load(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise SpecError(path, "file not found") from None
-    except YAMLError as exc:
+    except (YAMLError, IndexError, ValueError) as exc:  # ruamel raises IndexError on some truncated input
         raise SpecError(path, f"YAML syntax error: {exc}") from None
     if data is None:
         return {}
