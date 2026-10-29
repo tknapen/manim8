@@ -99,8 +99,8 @@ def test_build_video_job_profiles_sections_and_samples(project_copy: Project) ->
     assert final.cache_key != draft.cache_key
     snapshots, _, _ = build_snapshot_job(project_copy, sources, report.family, [])
     assert snapshots.cache_key != draft.cache_key
-    with pytest.raises(SpecError, match="draft or final"):
-        build_video_job(project_copy, sources, report.family, "snapshot")  # type: ignore[arg-type]
+    quick, _, _ = build_video_job(project_copy, sources, report.family, "snapshot")  # a quick look, half size
+    assert quick.operation == "render_video" and (quick.manim.pixel_width, quick.manim.pixel_height) == (960, 540)
     with pytest.raises(SpecError, match="collides"):
         build_video_job(project_copy, sources, report.family, "draft", {"excitation_visible": 1.0})
     with pytest.raises(SpecError, match="beyond"):
