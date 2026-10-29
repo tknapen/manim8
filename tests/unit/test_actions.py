@@ -195,3 +195,122 @@ def test_project_checks_warn_about_snapshots_in_reveals_and_unnamed_parameters(p
     plot.params["series"] = [{"label": "schematic response", "expression": "gain * x / (sigma + P)"}]
     renamed = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
     assert any("parameters ['gain'] are not symbols" in w for w in renamed.warnings), renamed.warnings
+
+
+SURFACE: dict[str, Any] = {
+    "x_label": "x",
+    "y_label": "y",
+    "z_label": "g",
+    "x_range": [-3, 3],
+    "y_range": [-3, 3],
+    "z_range": [0, 1],
+    "expression": "exp(-(x^2 + y^2) / (2 * sigma^2))",
+    "parameters": {"sigma": 1.5},
+    "resolution": 8,
+}
+FADE: dict[str, Any] = {
+    "id": "axes_away",
+    "kind": "fade_axes",
+    "target": "surface",
+    "at_seconds": 3,
+    "duration_seconds": 0.8,
+}
+
+
+def _surface_objects(**surface_extra: Any) -> list[dict[str, Any]]:
+    return [
+        {"id": "surface", "kind": "surface_plot", "params": copy.deepcopy(SURFACE), **surface_extra},
+        {
+            "id": "label",
+            "kind": "equation_label",
+            "equation": {"id": "gaussian", "highlight": ["sigma"], "highlight_mode": "active"},
+            "params": {"text": "size"},
+        },
+    ]
+
+
+def test_lead_in_and_highlight_mode() -> None:
+    sweep = Storyboard.model_validate(_storyboard(actions=[{**SWEEP, "lead_in_seconds": 1.5}])).actions()[0]
+    assert sweep.end_seconds == 12.5 and sweep.moves_at_seconds == 6.5
+    with pytest.raises(ValueError, match="outside scene"):
+        Storyboard.model_validate(_storyboard(actions=[{**SWEEP, "at_seconds": 13, "lead_in_seconds": 2}]))
+    with pytest.raises(ValueError, match="lead_in_seconds"):
+        Storyboard.model_validate(_storyboard(actions=[{**SWEEP, "lead_in_seconds": -1}]))
+    # The lead-in is part of the window, so it counts towards the overlap of two actions on one parameter.
+    with pytest.raises(ValueError, match=r"both vary 'plot\.sigma'"):
+        Storyboard.model_validate(
+            _storyboard(actions=[{**SWEEP, "lead_in_seconds": 3}, {**SWEEP, "id": "again", "at_seconds": 12}])
+        )
+    objects = _surface_objects()
+    label = Storyboard.model_validate(_storyboard(actions=[], objects=objects)).objects()[1]
+    assert label.equation is not None and label.equation.highlight_mode == "active"
+    objects[1]["equation"]["highlight_mode"] = "sometimes"
+    with pytest.raises(ValueError, match="highlight_mode"):
+        Storyboard.model_validate(_storyboard(actions=[], objects=objects))
+
+
+def test_fade_axes_validation() -> None:
+    storyboard = Storyboard.model_validate(_storyboard(actions=[FADE], objects=_surface_objects()))
+    fade = storyboard.actions()[0]
+    assert fade.kind == "fade_axes" and fade.visible is False and fade.end_seconds == pytest.approx(3.8)
+
+    def rejected(message: str, objects: list[dict[str, Any]] | None = None, **changes: Any) -> None:
+        with pytest.raises(ValueError, match=message):
+            Storyboard.model_validate(_storyboard(actions=[{**FADE, **changes}], objects=objects or _surface_objects()))
+
+    rejected("not an object", target="nope")
+    rejected("needs a surface_plot", target="label")
+    rejected("starts before its target", objects=_surface_objects(reveal_at_seconds=5))
+    rejected("outside scene", at_seconds=19.5)
+    with pytest.raises(ValueError, match="overlap"):
+        Storyboard.model_validate(
+            _storyboard(
+                actions=[FADE, {**FADE, "id": "back", "visible": True, "at_seconds": 3.5}], objects=_surface_objects()
+            )
+        )
+    # A fade may run beside a sweep of the same surface, and a later fade may bring the axes back.
+    Storyboard.model_validate(
+        _storyboard(
+            actions=[FADE, {**SWEEP, "target": "surface"}, {**FADE, "id": "back", "visible": True, "at_seconds": 12}],
+            objects=_surface_objects(),
+        )
+    )
+
+
+def test_codegen_emits_axes_fades_and_lead_ins(project_copy: Project, tmp_path) -> None:
+    report = validate_project(project_copy)
+    assert report.animation and report.style
+    storyboard = Storyboard.model_validate(
+        _storyboard(
+            objects=_surface_objects(),
+            actions=[FADE, {**SWEEP, "target": "surface", "lead_in_seconds": 1, "duration_seconds": 4}],
+            snapshots=[
+                {
+                    "id": "lit",
+                    "at_seconds": 5.5,
+                    "description": "inside the lead-in: the term in colour, the value unchanged",
+                },
+                {"id": "halfway", "at_seconds": 8, "description": "inside the sweep"},
+            ],
+        )
+    )
+    code = generate_scene_module(report.animation, storyboard, report.style)
+    lines = [line.strip() for line in code.splitlines() if line.strip()]
+    assert (
+        "axes_away = self.begin_fade_axes(surface, visible=False, at_seconds=3, duration_seconds=0.8, "
+        'action_id="axes_away", easing=None)'
+    ) in lines
+    assert "self.run_until(3.8, [axes_away])" in lines
+    begin = next(i for i, line in enumerate(lines) if line.startswith("widen = self.begin_vary(surface"))
+    assert lines[begin].endswith("value_label=None, lead_in_seconds=1)")
+    assert lines[begin + 1 : begin + 6] == [
+        "self.run_until(5.5, [widen])",
+        "self.wait_until(5.5)",
+        'checkpoint(self, "lit", expected_time=5.5)',
+        "self.run_until(8, [widen])",
+        "self.wait_until(8)",
+    ]
+    assert 'checkpoint(self, "halfway", expected_time=8)' in lines and "self.run_until(10, [widen])" in lines
+    module = tmp_path / "scene.py"
+    module.write_text(code)
+    assert checkpoint_markers(module) == ["lit", "halfway"]

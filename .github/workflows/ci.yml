@@ -19,6 +19,7 @@ jobs:
       - run: uv run scianim validate examples/families/computational_neuroscience/divisive_normalization
       - run: uv run scianim validate examples/families/computational_neuroscience/prf_tuning
       - run: uv run scianim validate examples/families/computational_neuroscience/orientation_tuning
+      - run: uv run scianim validate examples/families/computational_neuroscience/gabor_filter
       - run: uv run scianim schemas export schemas --check
 
   ui:

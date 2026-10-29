@@ -125,29 +125,43 @@ actions:
 
 The σ in the equation pulses as the sweep begins, a readout under the label counts from 1.5 to 4.0 deg, the
 curve widens and the marker moves with it. A checkpoint placed inside the window captures that exact frame.
-One action plays at a time; `scianim validate` says when a sweep would start late because reveals are still
-playing, or would end during the scene's fade-out. The style's `motion` tokens set the easing and the size
-and length of the pulse.
+Give the action a `lead_in_seconds` and the term lights up first, with the readout at its starting value; the
+curve moves only when the lead-in is over. Actions that drive different things may overlap; `scianim
+validate` says when one would end during the scene's fade-out. The style's `motion` tokens set the easing and
+the size and length of the pulse.
 
 ## Surfaces, the camera, and things moving together
 
 A `surface_plot` draws z = f(x, y) over a fixed box as a fine mesh; an `orbit_camera` action turns the camera
 around it; a `function_image` samples a field to pixels (a grating under a disc, say). Actions run at the
-same time when they drive different things, so the camera can keep turning while the filter's orientation,
-frequency and size change in turn, or two parameters can move at once:
+same time when they drive different things, so the camera can keep turning while the filter changes. A clip
+that changes several parameters in turn is written as segments: the equation reference takes
+`highlight_mode: active`, so its terms wait in the equation's ink and only the term at work carries the
+accent; each `vary_parameter` has a `lead_in_seconds` during which that term lights up before the value
+moves; and a `fade_axes` action takes the surface's frame and labels away once the viewer has read the box:
 
 ```yaml
+objects:
+  - id: gabor_label
+    kind: equation_label
+    equation: {id: gabor, highlight: [theta, f, x_0, y_0, sigma], highlight_mode: active}
+    params: {text: "Gabor filter", anchor: top_left}
 actions:
-  - {id: orbit, kind: orbit_camera, to_theta_degrees: 310, at_seconds: 0, duration_seconds: 24, easing: linear}
-  - {id: rotate, kind: vary_parameter, target: gabor_surface, parameter: theta, to: 90, at_seconds: 3, duration_seconds: 5, emphasize: [gabor_label]}
-  - {id: frequency, kind: vary_parameter, target: gabor_surface, parameter: f, to: 1.6, at_seconds: 9.5, duration_seconds: 5, emphasize: [gabor_label]}
+  - {id: orbit, kind: orbit_camera, to_theta_degrees: 255, at_seconds: 0, duration_seconds: 26, easing: linear}
+  - {id: axes_away, kind: fade_axes, target: gabor_surface, at_seconds: 3, duration_seconds: 0.8}
+  - {id: rotate, kind: vary_parameter, target: gabor_surface, parameter: theta, to: 90, at_seconds: 4, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}
+  - {id: frequency, kind: vary_parameter, target: gabor_surface, parameter: f, to: 1.4, at_seconds: 9.5, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}
+  - {id: shift_x, kind: vary_parameter, target: gabor_surface, parameter: x_0, to: 1.2, at_seconds: 15, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}
+  - {id: shift_y, kind: vary_parameter, target: gabor_surface, parameter: y_0, to: -1, at_seconds: 15, lead_in_seconds: 1, duration_seconds: 3.5, emphasize: [gabor_label]}
 ```
 
-Text, equations and readouts stay fixed on the page while the surface turns; a surface's axis labels follow
-their anchors but keep facing you. Only two actions that drive the same parameter of the same object, or two
-orbits, may not overlap. The `three_d` style tokens set the camera's starting angles, the mesh weight and the
-surface opacity. Surfaces render through Cairo as thousands of small cells: snapshots are quick, a draft video
-of a 48-cell mesh takes a few minutes.
+When `frequency` begins, θ gives the colour up and f takes it, and θ's readout recedes to the secondary ink;
+`shift_x` and `shift_y` run together, so x₀ and y₀ are in colour at once. Text, equations and readouts stay
+fixed on the page while the surface turns; a surface's axis labels follow their anchors but keep facing you
+until they fade. Only two actions that drive the same parameter of the same object, two orbits, or two axes
+fades of the same object may not overlap. The `three_d` style tokens set the camera's starting angles, the
+mesh weight and the surface opacity (nearly solid under `default@0.3.1`). Surfaces render through Cairo as
+thousands of small cells: snapshots are quick, a draft video of a 48-cell mesh takes ten to twenty minutes.
 
 ## Revisions, forks and comparison
 

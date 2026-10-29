@@ -1,4 +1,4 @@
-"""Compose the line-and-wash specimen (styles/default/0.3.0/specimen.{pdf,png}) from real renders.
+"""Compose the line-and-wash specimen (styles/default/<version>/specimen.{pdf,png}) from real renders.
 
 The plate is not drawn by hand: every frame on it is a checkpoint PNG that the Manim bridge rendered
 from one of the example clips, read from the newest successful snapshot job of each workspace project.
@@ -10,9 +10,9 @@ package:
     uv run --project workspace/families/computational_neuroscience python tools/specimen_line_and_wash.py
 
 Options: ``--workspace DIR`` (default ``workspace``), ``--family ID`` (default
-``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.3.0``; manifests whose
+``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.3.1``; manifests whose
 resolved style does not carry that layer are refused) and ``--out DIR`` (default
-``styles/default/0.3.0``).
+``styles/default/0.3.1``).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ W = 320.0  # page width in mm; the height follows the content
 
 # Two checkpoints per example, in reading order; a missing id falls back to the first checkpoints of the job.
 FRAMES: list[tuple[str, list[str]]] = [
-    ("gabor_filter", ["rotating", "smaller"]),
+    ("gabor_filter", ["rotating", "moved"]),
     ("prf_tuning", ["moving", "grown"]),
     ("divisive_normalization", ["excitation_visible", "pool_raised"]),
     ("orientation_tuning", ["circuit_shown", "model_complete"]),
@@ -92,9 +92,12 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     math_typ = ", ".join(f'"{f}"' for f in math_fonts)
     ink, secondary, muted, neutral = pal["foreground"], pal["secondary_text"], pal["muted"], pal["neutral"]
     layers = ", ".join(style["layers"])
-    overridden = sorted({layer for layer in style["provenance"].values() if layer != f"theme:{theme}"})
+    own = sorted(path for path, layer in style["provenance"].items() if layer == f"theme:{theme}")
+    others = sorted({layer for layer in style["provenance"].values() if layer != f"theme:{theme}"})
     override_note = (
-        " Every token comes from this theme." if not overridden else f" Tokens also set by: {', '.join(overridden)}."
+        " Every token comes from this theme."
+        if not others
+        else f" This version sets {', '.join(own) or 'nothing'}; every other token comes from {', '.join(others)}."
     )
 
     cols, gutter, left, top = 4, 6.0, 12.0, 28.0
@@ -172,8 +175,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--workspace", type=Path, default=Path("workspace"))
     parser.add_argument("--family", default="computational_neuroscience")
-    parser.add_argument("--theme", default="default@0.3.0")
-    parser.add_argument("--out", type=Path, default=Path("styles/default/0.3.0"))
+    parser.add_argument("--theme", default="default@0.3.1")
+    parser.add_argument("--out", type=Path, default=Path("styles/default/0.3.1"))
     args = parser.parse_args()
 
     theme_layer = f"theme:{args.theme}"

@@ -22,15 +22,28 @@ class EquationComponent(Component):
     highlights: dict[str, Mobject] = field(default_factory=dict)
     """Highlighted symbol name to the glyphs that typeset it."""
     highlight_color: ManimColor | None = None
+    base_color: ManimColor | None = None
+    """The equation's own ink, which an `active`-mode term returns to when its action is over."""
+    highlight_mode: str = "always"
+    """`always`: highlighted terms keep the colour; `active`: only the term a running action emphasizes has it."""
     symbol_units: dict[str, str | None] = field(default_factory=dict)
 
 
-def _group_symbols(source: str, symbols: list[str]) -> str:
-    """Wrap each highlighted symbol in a labelled Typst group: `{{ P : hl_P }}`."""
+def _group_symbols(source: str, symbols: list[str]) -> tuple[str, dict[str, list[str]]]:
+    """Wrap every occurrence of each highlighted symbol in its own labelled Typst group (`{{ P : hl_P_1 }}`,
+    `{{ P : hl_P_2 }}`, ...) and return the source with the labels per symbol, so each occurrence stays
+    addressable on its own: a pulse scales occurrences about their own centres, not about the centre of all."""
+    labels: dict[str, list[str]] = {}
     for symbol in symbols:
         pattern = rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])"
-        source = re.sub(pattern, "{{ " + symbol + " : hl_" + symbol + " }}", source)
-    return source
+
+        def wrap(match: re.Match[str], symbol: str = symbol) -> str:
+            label = f"hl_{symbol}_{len(labels.setdefault(symbol, [])) + 1}"
+            labels[symbol].append(label)
+            return "{{ " + symbol + " : " + label + " }}"
+
+        source = re.sub(pattern, wrap, source)
+    return source, labels
 
 
 def build_equation(
@@ -41,7 +54,8 @@ def build_equation(
     highlight_color: ManimColor,
     px_at_1080p: float,
 ) -> tuple[Mobject, dict[str, Mobject]]:
-    """Typeset the stored source exactly; return the mobject and the glyphs of each highlighted symbol."""
+    """Typeset the stored source exactly; return the mobject and, per highlighted symbol, a group holding one
+    sub-group per occurrence of that symbol."""
     engine = tokens.t.typography.equation.engine
     font_size = tokens.equation_font_size(px_at_1080p)
     source = equation.source_for(engine)
@@ -51,14 +65,11 @@ def build_equation(
     if engine == "typst":
         from manim import MathTypst
 
-        mobject = MathTypst(
-            _group_symbols(source, highlight),
-            font_size=font_size,
-            color=base_color,
-            typst_preamble=tokens.typst_preamble(),
-        )
+        grouped, labels = _group_symbols(source, highlight)
+        mobject = MathTypst(grouped, font_size=font_size, color=base_color, typst_preamble=tokens.typst_preamble())
         for symbol in highlight:
-            parts[symbol] = mobject.select(f"hl_{symbol}").set_color(highlight_color)
+            occurrences = VGroup(*[mobject.select(label) for label in labels.get(symbol, [])])
+            parts[symbol] = occurrences.set_color(highlight_color)
         return mobject, parts
     from manim import MathTex
 
@@ -106,7 +117,11 @@ def equation_block(
     eq, ref = _equation_for(scene, equation, object_id)
     px = tokens.t.typography.equation.size_px_at_1080p * p.scale
     highlight_color = tokens.color("emphasis")
-    main, parts = build_equation(tokens, eq, ref.highlight, tokens.color(style_role), highlight_color, px)
+    base_color = tokens.color(style_role)
+    main, parts = build_equation(tokens, eq, ref.highlight, base_color, highlight_color, px)
+    if ref.highlight_mode == "active":  # the terms wait in the equation's ink until an action lights one
+        for part in parts.values():
+            part.set_color(base_color)
     group = VGroup(main)
     smallest = [px]
     if p.define_symbols and eq.symbols:
@@ -134,6 +149,8 @@ def equation_block(
             text_like=True,
             highlights=parts,
             highlight_color=highlight_color,
+            base_color=base_color,
+            highlight_mode=ref.highlight_mode,
             symbol_units=_units_of(eq),
         ),
     )
@@ -157,10 +174,14 @@ def equation_label(
     group = VGroup(label)
     smallest = [body.size_px_at_1080p]
     parts: dict[str, Mobject] = {}
+    base_color = tokens.color("foreground")
     if p.show_equation:
         px = tokens.t.typography.equation.label_size_px_at_1080p
         smallest.append(px)
-        formula, parts = build_equation(tokens, eq, ref.highlight, tokens.color("foreground"), highlight_color, px)
+        formula, parts = build_equation(tokens, eq, ref.highlight, base_color, highlight_color, px)
+        if ref.highlight_mode == "active":
+            for part in parts.values():
+                part.set_color(base_color)
         formula.next_to(label, DOWN, buff=tokens.baseline)
         formula.align_to(label, LEFT)
         group.add(formula)
@@ -176,6 +197,8 @@ def equation_label(
             text_like=True,
             highlights=parts,
             highlight_color=highlight_color,
+            base_color=base_color,
+            highlight_mode=ref.highlight_mode,
             symbol_units=_units_of(eq),
         ),
     )

@@ -53,7 +53,12 @@ class DataBinding(StrictModel):
 class EquationRef(StrictModel):
     id: Slug
     highlight: list[str] = []
-    """Symbol names (keys of `equations[].symbols`) to emphasize."""
+    """Symbol names (keys of `equations[].symbols`) typeset as addressable terms, so a `vary_parameter` action
+    can emphasize one."""
+    highlight_mode: Literal["always", "active"] = "always"
+    """`always`: every highlighted term sits in the emphasis colour throughout. `active`: the terms sit in the
+    equation's own ink and only the term that a running `vary_parameter` action emphasizes takes the colour; it
+    keeps it until the next emphasized action on this object begins, when the colour passes to that term."""
 
 
 class SceneObject(StrictModel):
@@ -91,11 +96,13 @@ class Snapshot(StrictModel):
 
 
 class VaryParameter(StrictModel):
-    """Vary one named parameter of a `function_plot` continuously while the viewer watches.
+    """Vary one named parameter of a `function_plot`, `surface_plot` or `function_image` while the viewer watches.
 
-    The curve and its markers follow the value, the equation term named by `parameter` pulses once as the
-    sweep begins, and a readout shows the running value. A checkpoint inside the window splits the sweep
-    at that frame, so it is still reached by the real animation flow. One action plays at a time.
+    The picture follows the value, the equation term named by `parameter` pulses once as the action begins,
+    and a readout shows the running value. With a `lead_in_seconds`, the term lights up first and the value
+    moves only afterwards, which makes a clip of several such segments read as "this term, then this one". A
+    checkpoint inside the window splits the sweep at that frame, so it is still reached by the real animation
+    flow. Actions run concurrently unless they drive the same parameter.
     """
 
     kind: Literal["vary_parameter"]
@@ -106,6 +113,11 @@ class VaryParameter(StrictModel):
     to: float = Field(allow_inf_nan=False)
     at_seconds: float = Field(ge=0)
     duration_seconds: float = Field(gt=0)
+    """How long the value takes to reach `to`, after the lead-in."""
+    lead_in_seconds: float = Field(default=0, ge=0)
+    """Time between the action's start and the first change of the value. During it the emphasized term takes
+    the colour and pulses and the readout shows the starting value; the picture moves only afterwards. The
+    action's window is `lead_in_seconds + duration_seconds` long."""
     easing: Easing | None = None
     """Rate profile; omitted means the style's `motion.easing`."""
     emphasize: list[Slug] = []
@@ -117,7 +129,12 @@ class VaryParameter(StrictModel):
 
     @property
     def end_seconds(self) -> float:
-        return self.at_seconds + self.duration_seconds
+        return self.at_seconds + self.lead_in_seconds + self.duration_seconds
+
+    @property
+    def moves_at_seconds(self) -> float:
+        """When the value starts to change."""
+        return self.at_seconds + self.lead_in_seconds
 
 
 class OrbitCamera(StrictModel):
@@ -144,7 +161,29 @@ class OrbitCamera(StrictModel):
         return self.at_seconds + self.duration_seconds
 
 
-SceneAction = Annotated[VaryParameter | OrbitCamera, Field(discriminator="kind")]
+class FadeAxes(StrictModel):
+    """Fade the frame, ticks and labels of a `surface_plot` out (or back in) over a window; the surface stays.
+
+    Show the axes while the viewer learns the box, then let them go once the shape alone carries the meaning.
+    A fade may run beside sweeps and orbits; two fades of the same object may not overlap.
+    """
+
+    kind: Literal["fade_axes"]
+    id: Slug
+    target: Slug
+    """A `surface_plot` in the same scene."""
+    visible: bool = False
+    """False fades the axes out; True brings them back."""
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+SceneAction = Annotated[VaryParameter | OrbitCamera | FadeAxes, Field(discriminator="kind")]
 """Actions run concurrently; the validator refuses two that drive the same thing at once."""
 
 
@@ -244,6 +283,17 @@ class Scene(StrictModel):
                 raise ValueError(
                     f"action '{action.id}': target '{action.target}' is not an object of scene '{self.id}'"
                 )
+            if isinstance(action, FadeAxes):
+                if target.kind != "surface_plot":
+                    raise ValueError(
+                        f"action '{action.id}': target '{target.id}' is a {target.kind}; fade_axes needs a surface_plot"
+                    )
+                if reveal_time(target) > action.at_seconds:
+                    raise ValueError(
+                        f"action '{action.id}' at {action.at_seconds:g}s starts before its target '{target.id}' "
+                        f"is revealed at {reveal_time(target):g}s"
+                    )
+                continue
             if target.kind not in PARAMETRIC_KINDS:
                 raise ValueError(
                     f"action '{action.id}': target '{target.id}' is a {target.kind}; vary_parameter needs one of "
@@ -288,6 +338,8 @@ class Scene(StrictModel):
                 continue
             if isinstance(first, OrbitCamera) and isinstance(second, OrbitCamera):
                 raise ValueError(f"camera orbits '{first.id}' and '{second.id}' overlap; one orbit at a time")
+            if isinstance(first, FadeAxes) and isinstance(second, FadeAxes) and first.target == second.target:
+                raise ValueError(f"axes fades '{first.id}' and '{second.id}' of '{first.target}' overlap")
             if (
                 isinstance(first, VaryParameter)
                 and isinstance(second, VaryParameter)

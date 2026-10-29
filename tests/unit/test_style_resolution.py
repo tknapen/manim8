@@ -26,8 +26,8 @@ def write_sheet(styles: Path, name: str, version: str, body: str) -> Path:
 def test_versioned_layout_is_listed(styles_copy: Path) -> None:
     found = list_styles([styles_copy])
     assert set(found) == {"default", "tomas_scientific"}
-    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0"}
-    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0"}
+    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1"}
+    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1"}
 
 
 def test_theme_chain_and_provenance(styles_copy: Path) -> None:
@@ -124,7 +124,7 @@ def test_missing_required_palette_role_fails(styles_copy: Path) -> None:
 def test_unknown_version_lists_available_ones(styles_copy: Path) -> None:
     with pytest.raises(
         StyleResolutionError,
-        match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0', '0\.3\.0'\]",
+        match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1'\]",
     ):
         resolve_style(StyleSelection(name="tomas_scientific", version="9.9.9"), [styles_copy])
 

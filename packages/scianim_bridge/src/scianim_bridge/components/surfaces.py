@@ -33,6 +33,8 @@ def surface_plot(
 
     The box is centred on the world origin, which the camera orbits. Cells are filled by the sign or the
     height of the value; the mesh lines carry the secondary ink. `set_parameters` rebuilds the mesh in place.
+    The frame, ticks and labels form the component's `axes` group, which a `fade_axes` action can fade and
+    take away, leaving the surface alone.
     """
     p = params_for("surface_plot", params)
     tokens = scene.tokens
@@ -163,7 +165,8 @@ def surface_plot(
     z_label = Text(p.z_label, **tokens.text_kwargs(axis_face, fg))
     z_label.move_to(axes.c2p(xa - 4 * tick_x, ya, zb + 2 * tick_z))
     labels.add(x_label, y_label, z_label)
-    group = VGroup(axes, surface, frame, labels)
+    axes_group = VGroup(frame, labels)
+    group = VGroup(axes, surface, axes_group)
     group.move_to(ORIGIN)
     # Labels follow their anchors in the world but keep facing the viewer; the caption belongs to the page.
     scene.renderer.camera.add_fixed_orientation_mobjects(*labels)
@@ -186,6 +189,7 @@ def surface_plot(
         font_px=tokens.smallest_text_px("tick_label", "axis_label", *(["caption"] if p.data_label else [])),
         text_like=False,
         three_d=True,
+        axes=axes_group,
         parameters=dict(p.parameters),
         rebuild=rebuild,
     )

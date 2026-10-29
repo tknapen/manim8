@@ -256,3 +256,121 @@ def test_surface_image_orbit_and_reveal_tracks() -> None:
         reveal.apply(1.0)
         reveal.finish()
         assert label.group.get_family()[1].get_fill_opacity() == pytest.approx(1.0)
+
+
+def test_lead_in_active_highlight_handover_and_axes_fade() -> None:
+    from types import SimpleNamespace
+
+    from manim import config
+
+    from scianim_bridge import components as C
+    from scianim_core.animation import Equation
+
+    equation = Equation.model_validate(
+        {
+            "id": "gabor",
+            "typst": "g(x, y) = exp(-(x^2 + y^2) / (2 sigma^2)) cos(theta), quad x' = x cos theta",
+            "symbols": {
+                "theta": {"meaning": "orientation", "units": "deg"},
+                "sigma": {"meaning": "size", "units": "deg"},
+            },
+        }
+    )
+    base, accent, secondary = PALETTE["foreground"], PALETTE["emphasis"], PALETTE["secondary_text"]
+
+    def ink(part) -> str:
+        return part.get_family()[-1].get_fill_color().to_hex().upper()
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        scene.ctx = SimpleNamespace(equations={"gabor": equation})
+        surface = C.surface_plot(
+            scene,
+            "surface",
+            params={
+                "x_label": "x",
+                "y_label": "y",
+                "z_label": "g",
+                "x_range": [-3, 3],
+                "y_range": [-3, 3],
+                "z_range": [-1, 1],
+                "expression": "exp(-(x^2 + y^2) / (2 * sigma^2)) * cos(theta * pi / 180 + x)",
+                "parameters": {"theta": 0, "sigma": 1.2},
+                "resolution": 6,
+            },
+        )
+        label = C.equation_label(
+            scene,
+            "label",
+            style_role="emphasis",
+            equation={"id": "gabor", "highlight": ["theta", "sigma"], "highlight_mode": "active"},
+            params={"text": "Gabor", "anchor": "top_left"},
+        )
+        theta, sigma = label.highlights["theta"], label.highlights["sigma"]
+        assert len(theta.submobjects) == 2 and len(sigma.submobjects) == 1  # one sub-group per occurrence
+        assert ink(theta) == base and ink(sigma) == base  # active mode: the terms wait in the equation's ink
+        centres = [occurrence.get_center().copy() for occurrence in theta.submobjects]
+
+        # The axes fade out and leave the surface's group; a later fade brings them back.
+        axes = surface.axes
+        assert axes is not None and axes in surface.group.submobjects
+        away = scene.begin_fade_axes(
+            surface, visible=False, at_seconds=2, duration_seconds=1, action_id="away", easing="linear"
+        )
+        away.apply(0.5)
+        assert axes[0][0].get_stroke_opacity() == pytest.approx(0.5)
+        away.apply(1.0)
+        away.finish()
+        assert axes not in surface.group.submobjects
+        back = scene.begin_fade_axes(
+            surface, visible=True, at_seconds=5, duration_seconds=1, action_id="back", easing="linear"
+        )
+        assert axes in surface.group.submobjects
+        back.apply(1.0)
+        assert axes[0][0].get_stroke_opacity() == pytest.approx(1.0)
+
+        # A lead-in: the term takes the colour and pulses while the value holds; then the value moves.
+        rotate = scene.begin_vary(
+            surface,
+            "theta",
+            to=90.0,
+            at_seconds=10,
+            duration_seconds=4,
+            action_id="rotate",
+            easing="linear",
+            emphasize=[label],
+            lead_in_seconds=1,
+        )
+        assert rotate.duration_seconds == 5 and rotate.lead_fraction == pytest.approx(0.2)
+        rotate.apply(0.1)  # half a second in: the pulse is past its rise and the term is at its largest
+        assert surface.parameters["theta"] == 0 and ink(theta) == accent and ink(sigma) == base
+        for occurrence, centre in zip(theta.submobjects, centres, strict=True):
+            assert occurrence.get_center() == pytest.approx(centre, abs=1e-3)  # grown about its own centre
+        rotate.apply(0.2)
+        assert surface.parameters["theta"] == 0
+        rotate.apply(0.6)
+        assert surface.parameters["theta"] == pytest.approx(45.0)
+        rotate.apply(1.0)
+        assert surface.parameters["theta"] == pytest.approx(90.0)
+        assert rotate.readout is not None and rotate.readout.component.text == "θ = 90.0 deg"
+
+        # The next action hands the colour over: sigma lights up, theta returns to the ink, its readout recedes.
+        size = scene.begin_vary(
+            surface,
+            "sigma",
+            to=0.6,
+            at_seconds=16,
+            duration_seconds=2,
+            action_id="size",
+            easing="linear",
+            emphasize=[label],
+            lead_in_seconds=0.5,
+        )
+        assert len(size.released) == 1
+        size.apply(0.0)
+        assert ink(theta) == accent and ink(sigma) == base
+        size.apply(0.3)
+        assert ink(sigma) == accent and ink(theta) == base
+        assert size.readout is not None
+        assert rotate.readout.color.to_hex().upper() == secondary and size.readout.color.to_hex().upper() == accent

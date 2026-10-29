@@ -1,6 +1,7 @@
 """`SnapshotScene`: a Manim scene with a clock, registered objects, scene sections and concurrent tracks.
 
-A track is anything that unfolds over a storyboard window: a reveal, a parameter sweep, a camera orbit.
+A track is anything that unfolds over a storyboard window: a reveal, a parameter sweep, a camera orbit, an
+axes fade.
 Generated code begins tracks at their start times and calls `run_until(t, tracks)` for each segment between
 breakpoints (track starts and ends, checkpoints), so several tracks advance together and a checkpoint inside
 any of them is reached by the real animation flow at the exact frame. Every track exposes `apply(fraction)`
@@ -17,7 +18,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from manim import DOWN, LEFT, UP, Animation, FadeIn, FadeOut, Mobject, Text, ThreeDScene, VGroup, config
+from manim import DOWN, LEFT, UP, Animation, FadeIn, FadeOut, ManimColor, Mobject, Text, ThreeDScene, VGroup, config
 from manim.utils.rate_functions import ease_in_out_sine, ease_out_cubic, linear, smooth
 
 from scianim_bridge import context as _context
@@ -86,7 +87,13 @@ class Readout:
 
 @dataclass
 class Sweep(Track):
-    """One `vary_parameter` action: the value curve, the emphasized glyphs with pristine copies, the readout."""
+    """One `vary_parameter` action: the value curve, the emphasized glyphs with pristine copies, the readout.
+
+    With a lead-in, the first `lead_fraction` of the window holds the start value while the term lights up.
+    In an equation's `active` highlight mode the emphasized glyphs take `active_color` as the pulse rises and
+    the glyphs this action `released` (the term of the previous action on that equation) return to
+    `base_color` at the same time.
+    """
 
     component: ParametricComponent = field(kw_only=True)
     parameter: str = field(kw_only=True)
@@ -98,13 +105,23 @@ class Sweep(Track):
     pulse_scale: float = field(kw_only=True)
     readout: Readout | None = field(kw_only=True)
     readout_text: Callable[[float], str] | None = field(kw_only=True)
+    lead_fraction: float = field(default=0.0, kw_only=True)
+    released: list[tuple[Mobject, Mobject]] = field(default_factory=list, kw_only=True)
+    base_color: ManimColor | None = field(default=None, kw_only=True)
+    active_color: ManimColor | None = field(default=None, kw_only=True)
 
     @property
     def mobject(self) -> Mobject:
         return self.component.group
 
+    def progress_at(self, fraction: float) -> float:
+        """Progress of the value in [0, 1] at a window fraction: zero through the lead-in, then linear in time."""
+        if self.lead_fraction <= 0.0:
+            return min(1.0, max(0.0, fraction))
+        return min(1.0, max(0.0, (fraction - self.lead_fraction) / (1.0 - self.lead_fraction)))
+
     def value_at(self, fraction: float) -> float:
-        return self.start_value + (self.end_value - self.start_value) * self.easing(fraction)
+        return self.start_value + (self.end_value - self.start_value) * self.easing(self.progress_at(fraction))
 
     def apply(self, fraction: float) -> None:
         fraction = min(1.0, max(0.0, fraction))
@@ -119,13 +136,25 @@ class Sweep(Track):
             self.readout.place()
             self.readout.component.text = text
             self.scene.fix_in_frame(self.readout.component.group)
-        if self.emphasized:
+        if self.emphasized or self.released:
             progress = fraction / self.pulse_fraction if self.pulse_fraction > 0 else 1.0
             scale = 1.0 + (self.pulse_scale - 1.0) * math.sin(math.pi * progress) if 0.0 < progress < 1.0 else 1.0
-            for part, base in self.emphasized:
-                part.become(base)
+            rise = min(
+                1.0, max(0.0, 2.0 * progress)
+            )  # the colour arrives, and leaves the released term, as the pulse rises
+            recolor = self.base_color is not None and self.active_color is not None
+            for part, pristine in self.emphasized:
+                part.become(pristine)
+                if recolor:
+                    part.set_color(self.base_color.interpolate(self.active_color, rise))  # type: ignore[union-attr]
                 if scale != 1.0:
-                    part.scale(scale)
+                    for occurrence in part.submobjects or [part]:  # each occurrence grows about its own centre
+                        occurrence.scale(scale)
+                self.scene.fix_in_frame(part)
+            for part, pristine in self.released:
+                part.become(pristine)
+                if recolor:
+                    part.set_color(self.active_color.interpolate(self.base_color, rise))  # type: ignore[union-attr]
                 self.scene.fix_in_frame(part)
 
 
@@ -151,6 +180,36 @@ class CameraOrbit(Track):
             camera.set_theta(self.start_theta + (self.to_theta - self.start_theta) * eased)
         if self.to_phi is not None:
             camera.set_phi(self.start_phi + (self.to_phi - self.start_phi) * eased)
+
+
+@dataclass
+class AxesFade(Track):
+    """One `fade_axes` action: the object's frame, ticks and labels go to invisible, or back to full ink. Once
+    gone they leave the object's group, so the layout report sees the shape alone until a fade brings them back."""
+
+    component: Component = field(kw_only=True)
+    visible: bool = field(kw_only=True)
+    start_opacity: float = field(kw_only=True)
+    easing: Callable[[float], float] = field(kw_only=True)
+
+    @property
+    def mobject(self) -> Mobject:
+        return self.component.axes if self.component.axes is not None else Mobject()
+
+    def apply(self, fraction: float) -> None:
+        axes = self.component.axes
+        if axes is None:
+            return
+        eased = self.easing(min(1.0, max(0.0, fraction)))
+        target = 1.0 if self.visible else 0.0
+        opacity = self.start_opacity + (target - self.start_opacity) * eased
+        axes.set_opacity(opacity)
+        self.scene._axes_opacity[self.component.object_id] = opacity
+
+    def finish(self) -> None:
+        axes = self.component.axes
+        if axes is not None and not self.visible and axes in self.component.group.submobjects:
+            self.component.group.remove(axes)
 
 
 @dataclass
@@ -199,6 +258,10 @@ class SnapshotScene(ThreeDScene):
         self._tokens: Tokens | None = None
         self._readouts: dict[tuple[str, str], Readout] = {}
         self._readout_anchors: dict[str, Mobject] = {}
+        self._active_terms: dict[str, dict[str, tuple[float, Readout | None]]] = {}
+        """Per equation object in `active` highlight mode: the symbols holding the colour, with the end of the
+        action that lit each one and its readout."""
+        self._axes_opacity: dict[str, float] = {}
         self._camera_set = False
 
     # --- context ------------------------------------------------------------------------------
@@ -269,6 +332,8 @@ class SnapshotScene(ThreeDScene):
         self.scene_objects = []
         self._readouts = {}
         self._readout_anchors = {}
+        self._active_terms = {}
+        self._axes_opacity = {}
         self.next_section(scene_id)
         if start_seconds is not None and abs(self.clock - start_seconds) > self.frame_seconds:
             self.timing_warnings.append(
@@ -339,11 +404,14 @@ class SnapshotScene(ThreeDScene):
         show_value: bool = True,
         value_decimals: int = 1,
         value_label: str | None = None,
+        lead_in_seconds: float = 0.0,
     ) -> Sweep:
         """Start a `vary_parameter` action: set up the readout and the emphasized glyphs, draw the initial state.
 
-        The sweep's time axis is the storyboard window, so `run_until(end, ...)` always completes it even when
-        the clock reached the start late. A later action on the same parameter reuses the readout.
+        The sweep's time axis is the storyboard window, lead-in included, so `run_until(end, ...)` always
+        completes it even when the clock reached the start late. A later action on the same parameter reuses
+        the readout. On an equation in `active` highlight mode, the term of every earlier action on it that has
+        ended gives the colour up as this one takes it, and that term's readout recedes to the secondary ink.
         """
         if not isinstance(component, ParametricComponent):
             raise TypeError(
@@ -356,7 +424,11 @@ class SnapshotScene(ThreeDScene):
             )
         tokens = self.tokens
         motion = tokens.t.motion
+        total = lead_in_seconds + duration_seconds
         emphasized: list[tuple[Mobject, Mobject]] = []
+        released: list[tuple[Mobject, Mobject]] = []
+        base_color: ManimColor | None = None
+        active_color: ManimColor | None = None
         units: str | None = None
         color = tokens.color("foreground")
         for eq in emphasize:
@@ -370,6 +442,18 @@ class SnapshotScene(ThreeDScene):
                 units = eq.symbol_units.get(parameter)
             if eq.highlight_color is not None and not emphasized[:-1]:
                 color = eq.highlight_color
+            if eq.highlight_mode == "active" and eq.highlight_color is not None and eq.base_color is not None:
+                base_color, active_color = eq.base_color, eq.highlight_color
+                terms = self._active_terms.setdefault(eq.object_id, {})
+                for symbol, (ends, earlier) in list(terms.items()):
+                    if symbol != parameter and ends > at_seconds + 1e-9:
+                        continue  # still at work beside this action; it keeps the colour
+                    del terms[symbol]
+                    if symbol != parameter:
+                        prior = eq.highlights[symbol]
+                        released.append((prior, prior.copy().set_color(eq.base_color)))
+                    if earlier is not None:
+                        self._recolor_readout(earlier, tokens.color("secondary_text"))
         readout: Readout | None = None
         readout_text: Callable[[float], str] | None = None
         if show_value:
@@ -382,6 +466,7 @@ class SnapshotScene(ThreeDScene):
             key = (component.object_id, parameter)
             if key in self._readouts:
                 readout = self._readouts[key]
+                readout.color = color
             else:
                 annotation = tokens.typeface("annotation")
                 text = Text(readout_text(component.parameters[parameter]), **tokens.text_kwargs(annotation, color))
@@ -414,25 +499,72 @@ class SnapshotScene(ThreeDScene):
                 self.add(group)
                 readout = Readout(readout_component, place, annotation, color)
                 self._readouts[key] = readout
-        pulse_seconds = min(motion.emphasis_seconds, duration_seconds)
+        if active_color is not None:
+            for eq in emphasize:
+                if isinstance(eq, EquationComponent) and eq.highlight_mode == "active":
+                    self._active_terms.setdefault(eq.object_id, {})[parameter] = (at_seconds + total, readout)
+        pulse_seconds = min(motion.emphasis_seconds, total)
         sweep = Sweep(
             scene=self,
             track_id=action_id,
             at_seconds=at_seconds,
-            duration_seconds=duration_seconds,
+            duration_seconds=total,
             component=component,
             parameter=parameter,
             start_value=component.parameters[parameter],
             end_value=float(to),
             easing=EASINGS[easing or motion.easing],
             emphasized=emphasized,
-            pulse_fraction=pulse_seconds / duration_seconds,
+            pulse_fraction=pulse_seconds / total,
             pulse_scale=motion.emphasis_scale,
             readout=readout,
             readout_text=readout_text,
+            lead_fraction=lead_in_seconds / total,
+            released=released,
+            base_color=base_color,
+            active_color=active_color,
         )
         sweep.apply(0.0)
         return sweep
+
+    def _recolor_readout(self, readout: Readout, color: ManimColor) -> None:
+        """Redraw a readout in another ink, in place."""
+        readout.color = color
+        inner = readout.component.group[0]
+        inner.become(Text(readout.component.text or "", **self.tokens.text_kwargs(readout.typeface, color)))
+        readout.place()
+        self.fix_in_frame(readout.component.group)
+
+    def begin_fade_axes(
+        self,
+        component: Component,
+        *,
+        visible: bool,
+        at_seconds: float,
+        duration_seconds: float,
+        action_id: str,
+        easing: Easing | None = None,
+    ) -> AxesFade:
+        """Start a `fade_axes` action on an object that draws its frame, ticks and labels as a separable group."""
+        axes = component.axes
+        if axes is None:
+            raise ValueError(
+                f"action '{action_id}': '{component.object_id}' is a {component.kind}, which has no axes to fade"
+            )
+        if visible and axes not in component.group.submobjects:
+            component.group.add(axes)
+        fade = AxesFade(
+            scene=self,
+            track_id=action_id,
+            at_seconds=at_seconds,
+            duration_seconds=duration_seconds,
+            component=component,
+            visible=visible,
+            start_opacity=self._axes_opacity.get(component.object_id, 1.0),
+            easing=EASINGS[easing or self.tokens.t.motion.easing],
+        )
+        fade.apply(0.0)
+        return fade
 
     def begin_orbit(
         self,

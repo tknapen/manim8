@@ -1,0 +1,9 @@
+schema_version: "1.0"
+name: tomas_scientific
+version: "0.3.1"
+description: >-
+  Personal layer on the line-and-wash baseline with solid surfaces. Deliberately thin: it
+  pins default@0.3.1 and records only the choices that differ from the baseline, so the
+  signature can grow one reviewed token at a time.
+inherits: default@0.3.1
+palette: {}

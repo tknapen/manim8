@@ -101,6 +101,15 @@
           "title": "Highlight",
           "type": "array"
         },
+        "highlight_mode": {
+          "default": "always",
+          "enum": [
+            "always",
+            "active"
+          ],
+          "title": "Highlight Mode",
+          "type": "string"
+        },
         "id": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Id",
@@ -111,6 +120,69 @@
         "id"
       ],
       "title": "EquationRef",
+      "type": "object"
+    },
+    "FadeAxes": {
+      "additionalProperties": false,
+      "description": "Fade the frame, ticks and labels of a `surface_plot` out (or back in) over a window; the surface stays.\n\nShow the axes while the viewer learns the box, then let them go once the shape alone carries the meaning.\nA fade may run beside sweeps and orbits; two fades of the same object may not overlap.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "fade_axes",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "target",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "FadeAxes",
       "type": "object"
     },
     "FilterTransform": {
@@ -284,6 +356,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "fade_axes": "#/$defs/FadeAxes",
                 "orbit_camera": "#/$defs/OrbitCamera",
                 "vary_parameter": "#/$defs/VaryParameter"
               },
@@ -295,6 +368,9 @@
               },
               {
                 "$ref": "#/$defs/OrbitCamera"
+              },
+              {
+                "$ref": "#/$defs/FadeAxes"
               }
             ]
           },
@@ -523,7 +599,7 @@
     },
     "VaryParameter": {
       "additionalProperties": false,
-      "description": "Vary one named parameter of a `function_plot` continuously while the viewer watches.\n\nThe curve and its markers follow the value, the equation term named by `parameter` pulses once as the\nsweep begins, and a readout shows the running value. A checkpoint inside the window splits the sweep\nat that frame, so it is still reached by the real animation flow. One action plays at a time.",
+      "description": "Vary one named parameter of a `function_plot`, `surface_plot` or `function_image` while the viewer watches.\n\nThe picture follows the value, the equation term named by `parameter` pulses once as the action begins,\nand a readout shows the running value. With a `lead_in_seconds`, the term lights up first and the value\nmoves only afterwards, which makes a clip of several such segments read as \"this term, then this one\". A\ncheckpoint inside the window splits the sweep at that frame, so it is still reached by the real animation\nflow. Actions run concurrently unless they drive the same parameter.",
       "properties": {
         "at_seconds": {
           "minimum": 0,
@@ -571,6 +647,12 @@
           "const": "vary_parameter",
           "title": "Kind",
           "type": "string"
+        },
+        "lead_in_seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Lead In Seconds",
+          "type": "number"
         },
         "parameter": {
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",

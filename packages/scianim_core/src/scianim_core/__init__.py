@@ -38,6 +38,7 @@ from scianim_core.proposals import AppliedProposal, Claim, PatchOperation, Propo
 from scianim_core.revisions import RevisionHashes, RevisionRecord
 from scianim_core.sources import Inference, SourceExtract
 from scianim_core.storyboard import (
+    FadeAxes,
     Narration,
     OrbitCamera,
     Scene,
@@ -67,6 +68,7 @@ __all__ = [
     "ComponentDefinition",
     "Constraint",
     "Equation",
+    "FadeAxes",
     "FamilyManifest",
     "FeedbackRecord",
     "GroupManifest",

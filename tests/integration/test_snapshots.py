@@ -59,7 +59,9 @@ def test_checkpoints_cache_style_change_revisions_and_clean(project: Path, works
     assert rev_manifest.result.status == "succeeded"
 
     # A changed palette token in the workspace's theme: new cache key and different pixels for the curve frame.
-    sheet = workspace / "styles" / "default" / "0.3.0" / "style.yaml"  # the baseline the example's theme inherits
+    sheet = (
+        workspace / "styles" / "default" / "0.3.0" / "style.yaml"
+    )  # the root of the chain the example's theme inherits
     text = sheet.read_text()
     assert 'primary_signal: "#4E86C6"' in text
     sheet.write_text(text.replace('primary_signal: "#4E86C6"', 'primary_signal: "#FF3B30"'))
@@ -149,29 +151,58 @@ def test_gallery_kinds_still_render(workspace: Path, scianim) -> None:
     assert record.warnings == [], record.warnings
 
 
-def test_gabor_filter_renders_under_an_orbiting_camera(workspace: Path, scianim) -> None:
-    """A surface mesh, a camera orbit running the whole clip, three sweeps in turn, and a checkpoint inside the
-    concurrent segment: every checkpoint exact, the surface's projected box inside the frame, readouts stacked."""
+def test_gabor_filter_renders_in_segments(workspace: Path, scianim) -> None:
+    """A surface mesh whose axes leave after the first checkpoint, a camera orbit through the whole clip, and
+    four segments with a lead-in each (two sweeps concurrent in the third): every checkpoint exact, the surface's
+    projected box inside the frame, the readouts stacked, the value held through the lead-in."""
     project = workspace / "families" / "computational_neuroscience" / "gabor_filter"
     assert scianim("validate", str(project)).returncode == 0
     assert scianim("codegen", str(project)).returncode == 0
     generated = (project / "code" / "scene_gabor_filter.py").read_text()
-    assert "orbit = self.begin_orbit(to_theta_degrees=310.0" in generated
-    assert "self.run_until(5.5, [orbit, rotate])" in generated and "self.run_until(8, [orbit, rotate])" in generated
+    assert "orbit = self.begin_orbit(to_theta_degrees=255.0" in generated
+    assert (
+        "axes_away = self.begin_fade_axes(gabor_surface, visible=False, at_seconds=3, duration_seconds=0.8" in generated
+    )
+    assert "self.run_until(3.8, [orbit, axes_away])" in generated
+    assert generated.count("lead_in_seconds=1)") == 5
+    assert (
+        "self.run_until(4.6, [orbit, rotate])" in generated
+        and "self.run_until(19.5, [orbit, shift_x, shift_y])" in generated
+    )
     run = scianim("snapshot", str(project), "--all", "--no-cache")
     assert run.returncode == 0, run.stdout + run.stderr
     manifest = manifests(project, "working")[-1]
     records = {c.snapshot_id: c for c in manifest.result.checkpoints}
-    assert list(records) == ["gabor_start", "rotating", "rotated", "higher_frequency", "smaller"]
+    assert list(records) == [
+        "with_axes",
+        "theta_emphasized",
+        "rotating",
+        "rotated",
+        "higher_frequency",
+        "moved",
+        "smaller",
+    ]
     for record in records.values():
         assert record.fidelity == "exact" and record.warnings == [], (record.snapshot_id, record.warnings)
     surface = next(i for i in records["rotating"].layout if i.object_id == "gabor_surface")
     assert surface.kind == "surface_plot" and surface.bbox.x >= 0 and surface.bbox.x + surface.bbox.width <= 1
+    # Inside the lead-in the readout exists and the value has not moved; inside the sweep it is in between.
+    lit = {i.object_id: i for i in records["theta_emphasized"].layout}
+    assert lit["rotate"].text == "θ = 0.0 deg"
     rotating = {i.object_id: i for i in records["rotating"].layout}
     assert rotating["rotate"].text.startswith("θ = ") and rotating["rotate"].text not in ("θ = 0.0 deg", "θ = 90.0 deg")
     final = {i.object_id: i for i in records["smaller"].layout}
-    assert final["rotate"].text == "θ = 90.0 deg" and final["size"].text == "σ = 0.6 deg"  # noqa: RUF001
-    assert final["size"].bbox.y > final["frequency"].bbox.y > final["rotate"].bbox.y
-    # The camera moved: the surface's box differs between the first and the last checkpoint.
-    first = next(i for i in records["gabor_start"].layout if i.object_id == "gabor_surface")
-    assert first.bbox != surface.bbox
+    assert final["rotate"].text == "θ = 90.0 deg" and final["frequency"].text == "f = 1.4 cycles/deg"
+    assert final["shift_x"].text == "x₀ = 1.2 deg" and final["shift_y"].text == "y₀ = -1.0 deg"
+    assert final["size"].text == "σ = 0.6 deg"  # noqa: RUF001
+    assert (
+        final["size"].bbox.y
+        > final["shift_y"].bbox.y
+        > final["shift_x"].bbox.y
+        > final["frequency"].bbox.y
+        > final["rotate"].bbox.y
+    )
+    # The labelled box is taller than the bare surface once the axes have gone, and the camera has moved on.
+    first = next(i for i in records["with_axes"].layout if i.object_id == "gabor_surface")
+    bare = next(i for i in records["theta_emphasized"].layout if i.object_id == "gabor_surface")
+    assert first.bbox.height > bare.bbox.height and first.bbox != surface.bbox

@@ -19,7 +19,7 @@ from scianim_core.common import Slug, StrictModel
 from scianim_core.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCTIONS, compile_expression, validate_expression
 from scianim_core.style import Anchor
 
-REGISTRY_VERSION = "0.3.0"
+REGISTRY_VERSION = "0.4.0"
 
 ComponentKind = Literal[
     "text_caption",
@@ -187,8 +187,9 @@ class FunctionPlotParams(StrictModel):
 class SurfacePlotParams(StrictModel):
     """A surface z = f(x, y) over a box, drawn as a fine mesh in three dimensions.
 
-    The camera can orbit it (`orbit_camera`) and its `parameters` can be swept (`vary_parameter`); the box never
-    rescales. Flat objects in the same scene stay fixed in the frame while the surface turns.
+    The camera can orbit it (`orbit_camera`), its `parameters` can be swept (`vary_parameter`) and its frame,
+    ticks and labels can leave once the shape is understood (`fade_axes`); the box never rescales. Flat objects
+    in the same scene stay fixed in the frame while the surface turns.
     """
 
     x_label: str = Field(min_length=1)

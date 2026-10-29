@@ -4,13 +4,13 @@ based_on_animation_revision: "draft"
 scenes:
   - id: gabor
     start_seconds: 0
-    end_seconds: 24
-    purpose: "One Gabor filter in three dimensions: turn around it while its orientation, frequency and size change in turn."
+    end_seconds: 26
+    purpose: "One Gabor filter in three dimensions, in segments: the box and its axes leave once they are read, then the orientation, the frequency, the location and the size change in turn, each announced by its term in the equation."
     narration:
       text: >-
-        A Gabor filter is a sinusoidal carrier under a Gaussian envelope. Turning the carrier changes
-        its orientation, raising the frequency packs more cycles under the envelope, and shrinking
-        sigma narrows the envelope.
+        A Gabor filter is a sinusoidal carrier under a Gaussian envelope, and each term of the equation is
+        a knob. Theta turns the carrier, f packs more cycles under the envelope, x zero and y zero move the
+        envelope across the field, and sigma sets its size.
     objects:
       - id: gabor_surface
         kind: surface_plot
@@ -24,63 +24,95 @@ scenes:
           y_range: [-3, 3]
           z_range: [-1, 1]
           expression: >-
-            exp(-((x * cos(theta * pi / 180) + y * sin(theta * pi / 180))^2
-            + (-x * sin(theta * pi / 180) + y * cos(theta * pi / 180))^2) / (2 * sigma^2))
-            * cos(2 * pi * f * (x * cos(theta * pi / 180) + y * sin(theta * pi / 180)) + phi)
-          parameters: {theta: 0, f: 0.6, sigma: 1.2, phi: 0}
+            exp(-(((x - x_0) * cos(theta * pi / 180) + (y - y_0) * sin(theta * pi / 180))^2
+            + (-(x - x_0) * sin(theta * pi / 180) + (y - y_0) * cos(theta * pi / 180))^2) / (2 * sigma^2))
+            * cos(2 * pi * f * ((x - x_0) * cos(theta * pi / 180) + (y - y_0) * sin(theta * pi / 180)) + phi)
+          parameters: {theta: 0, f: 0.6, x_0: 0, y_0: 0, sigma: 1.2, phi: 0}
           resolution: 48
           fill: by_sign
           data_label: "analytic surface from the equation"
-          size_fraction: 0.62
+          size_fraction: 0.6
       - id: gabor_label
         kind: equation_label
         style_role: emphasis
-        equation: {id: gabor, highlight: [theta, f, sigma]}
-        params: {text: "Gabor filter", anchor: top_right}
+        equation: {id: gabor, highlight: [theta, f, x_0, y_0, sigma], highlight_mode: active}
+        params: {text: "Gabor filter", anchor: top_left}
     actions:
       - id: orbit
         kind: orbit_camera
-        to_theta_degrees: 310
+        to_theta_degrees: 255
         at_seconds: 0
-        duration_seconds: 24
+        duration_seconds: 26
         easing: linear
+      - id: axes_away
+        kind: fade_axes
+        target: gabor_surface
+        at_seconds: 3
+        duration_seconds: 0.8
       - id: rotate
         kind: vary_parameter
         target: gabor_surface
         parameter: theta
         to: 90
-        at_seconds: 3
-        duration_seconds: 5
+        at_seconds: 4
+        lead_in_seconds: 1
+        duration_seconds: 3.5
         emphasize: [gabor_label]
       - id: frequency
         kind: vary_parameter
         target: gabor_surface
         parameter: f
-        to: 1.6
+        to: 1.4
         at_seconds: 9.5
-        duration_seconds: 5
+        lead_in_seconds: 1
+        duration_seconds: 3.5
+        emphasize: [gabor_label]
+      - id: shift_x
+        kind: vary_parameter
+        target: gabor_surface
+        parameter: x_0
+        to: 1.2
+        at_seconds: 15
+        lead_in_seconds: 1
+        duration_seconds: 3.5
+        emphasize: [gabor_label]
+      - id: shift_y
+        kind: vary_parameter
+        target: gabor_surface
+        parameter: y_0
+        to: -1
+        at_seconds: 15
+        lead_in_seconds: 1
+        duration_seconds: 3.5
         emphasize: [gabor_label]
       - id: size
         kind: vary_parameter
         target: gabor_surface
         parameter: sigma
         to: 0.6
-        at_seconds: 16
-        duration_seconds: 5
+        at_seconds: 20.5
+        lead_in_seconds: 1
+        duration_seconds: 3.5
         emphasize: [gabor_label]
     snapshots:
-      - id: gabor_start
+      - id: with_axes
         at_seconds: 2
-        description: "The filter at theta 0, f 0.6 and sigma 1.2 as a mesh with positive cells in blue and negative in red, the equation beside it, the camera near its starting angle."
+        description: "The filter at rest inside its labelled box: theta 0, f 0.6, the envelope centred, sigma 1.2; every term of the equation in the line ink; the camera near its starting angle."
+      - id: theta_emphasized
+        at_seconds: 4.6
+        description: "Inside the lead-in of the first segment: the box and its labels have gone, theta is the only term in the accent colour and still enlarged by the pulse, the readout shows theta = 0.0 deg, and the surface has not moved."
       - id: rotating
-        at_seconds: 5.5
-        description: "Inside the first sweep: the carrier has turned part of the way towards 90 deg while the camera has moved on; the readout shows theta between 0 and 90."
+        at_seconds: 6.5
+        description: "Inside the orientation sweep: the carrier has turned part of the way towards 90 deg; the readout shows theta between 0 and 90."
       - id: rotated
-        at_seconds: 8.5
-        description: "The carrier at 90 deg; theta = 90.0 deg in the readout."
+        at_seconds: 8.8
+        description: "The carrier at 90 deg, theta = 90.0 deg in the readout; theta keeps the colour until the next term takes it."
       - id: higher_frequency
-        at_seconds: 15
-        description: "More cycles under the same envelope: the readout reads f = 1.6 cycles/deg."
+        at_seconds: 14.3
+        description: "More cycles under the same envelope: f = 1.4 cycles/deg in the readout; f carries the colour, theta is back in the line ink and its readout has receded to the secondary ink."
+      - id: moved
+        at_seconds: 19.8
+        description: "The envelope moved to x_0 = 1.2 deg, y_0 = -1.0 deg; both location terms carry the colour, their readouts beneath."
       - id: smaller
-        at_seconds: 22
-        description: "A narrower envelope: sigma = 0.6 deg in the readout; the camera has turned almost a full circle."
+        at_seconds: 25.3
+        description: "A narrower envelope: sigma = 0.6 deg in the readout; the camera has turned most of the way round."

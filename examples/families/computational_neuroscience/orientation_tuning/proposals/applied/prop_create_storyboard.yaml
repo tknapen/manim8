@@ -258,7 +258,7 @@ proposal:
                 description: The sharpened model curve (kappa = 8) with both markers, the grating at 180 deg, 
                   the label with its readouts.
   touches_science: false
-applied_at: '2026-10-28T00:21:48+00:00'
+applied_at: '2026-10-29T10:32:40+00:00'
 applied_to_revision: working
 diffs:
   storyboard.yaml: "--- a/storyboard.yaml\n+++ b/storyboard.yaml\n@@ -0,0 +1,234 @@\n+schema_version: '1.0'\n+project_id:

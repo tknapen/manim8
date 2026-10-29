@@ -473,3 +473,53 @@ resolved.
 an old animation re-rendered under its pinned theme still looks as it did. Components read every colour,
 weight and size from tokens, so the whole change is one sheet and no code. A specimen composed from renders
 cannot drift from the renderer, which a hand-drawn plate could.
+
+## ADR-026: Segmented clips: a lead-in, an active highlight mode and axes that leave
+
+**Status:** accepted, 29 October 2026
+
+**Context.** A clip that changes several parameters in turn needs the viewer to know, before each change,
+which term is about to act. Until now every highlighted term carried the accent colour throughout, the pulse
+began at the same instant as the sweep, and a surface's frame, ticks and labels stayed for the whole clip
+even though they matter only while the viewer learns the box.
+
+**Decision.** Three additions to the storyboard contract, all typed and validated. `vary_parameter` gains
+`lead_in_seconds` (default 0): the action's window is `lead_in_seconds + duration_seconds`, the emphasized
+term takes the colour and pulses during the lead-in while the readout shows the starting value, and the
+value moves only afterwards; checkpoints inside the lead-in are reached by the real flow like any other.
+An equation reference gains `highlight_mode` (`always`, today's behaviour, or `active`): in `active` mode the
+highlighted terms sit in the equation's own ink and only the term that a running action emphasizes takes
+the colour; it keeps it until the next emphasized action on that equation begins, when the colour passes
+to the new term and the earlier term's readout recedes to the secondary ink. Concurrent actions keep their
+terms coloured together. A new action kind, `fade_axes`, fades a `surface_plot`'s frame, ticks and labels
+out (or back in) over a window; once gone they leave the object's group, so the layout report sees the
+shape alone. Each occurrence of a highlighted symbol is typeset as its own group, so a pulse grows every
+occurrence about its own centre. The component registry is `0.4.0`. The Gabor example is rebuilt as such a
+clip: the box is shown once, then orientation, frequency, location (two concurrent sweeps) and size change
+in turn, with a lead-in before each.
+
+**Why.** The lead-in makes "which term" precede "what happens", which is the point of a segmented clip; a
+storyboard field, not a style token, because it is a choice per action. `active` mode is a property of the
+equation object, so one YAML line switches a whole clip from "all terms marked" to "the term at work is
+marked". Fading the axes is an action because it has a time, like everything else that happens in a scene,
+and it is restricted to surfaces because only they draw their frame as a separable group today. The
+pulse-per-occurrence fix is a bug fix made visible by the first equation with a repeated symbol.
+
+## ADR-027: `default@0.3.1`, solid surfaces
+
+**Status:** accepted, 29 October 2026
+
+**Context.** Under `default@0.3.0` a surface is laid at sixty percent opacity. With the mesh behind a lobe
+showing through, a surface with several lobes (a Gabor filter after its frequency rises) reads as a tangle
+rather than a shape.
+
+**Decision.** A new published version, `default@0.3.1`, that inherits `default@0.3.0` and sets one token:
+`three_d.surface_opacity` is `0.92`. Its philosophy restates the line-and-wash principles with surfaces as
+nearly solid shapes and adds that axes may leave once read and that the colour passes from term to term in a
+segmented clip. `tomas_scientific@0.3.1` pins it and changes nothing. The examples, the family manifest, the
+fixtures and the specimen tool pin `0.3.1`; the specimen beside the new sheet is composed from renders made
+under it. `default@0.3.0` is not edited.
+
+**Why.** Opacity is a property of every surface, so it is a theme token rather than a per-object parameter,
+and a theme is a published version (ADR-010): a change of taste is a new directory. A patch version that
+inherits its parent records exactly what changed, and the resolved style's provenance shows it.

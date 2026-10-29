@@ -247,9 +247,13 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
             for action in scene.actions:
                 if action.kind == "orbit_camera":
                     what = "camera orbit"
+                elif action.kind == "fade_axes":
+                    what = f"axes of `{action.target}` fade {'in' if action.visible else 'out'}"
                 else:
-                    what = f"`{action.target}.{action.parameter}` to {action.to:g}" + (
-                        f", emphasizing {', '.join(f'`{e}`' for e in action.emphasize)}" if action.emphasize else ""
+                    what = (
+                        f"`{action.target}.{action.parameter}` to {action.to:g}"
+                        + (f", emphasizing {', '.join(f'`{e}`' for e in action.emphasize)}" if action.emphasize else "")
+                        + (f", after a {action.lead_in_seconds:g} s lead-in" if action.lead_in_seconds else "")
                     )
                 lines.append(
                     f"  - action `{action.id}` ({action.kind}): {what} over {action.at_seconds:g}-{action.end_seconds:g} s"

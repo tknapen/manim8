@@ -3,7 +3,7 @@ id: gabor_filter
 title: "A Gabor filter in three dimensions"
 sources: []
 output:
-  duration_seconds: 24
+  duration_seconds: 26
   width_px: 1920
   height_px: 1080
   aspect_ratio: "16:9"
@@ -13,60 +13,78 @@ output:
   audio: none
 style:
   name: tomas_scientific
-  version: "0.3.0"
+  version: "0.3.1"
   overrides: {}
 equations:
   - id: gabor
-    typst: "g(x, y) = exp(-(x'^2 + y'^2) / (2 sigma^2)) cos(2 pi f x' + phi), quad x' = x cos theta + y sin theta"
-    latex: "g(x, y) = \\exp\\left(-\\frac{x'^2 + y'^2}{2\\sigma^2}\\right)\\cos(2\\pi f x' + \\phi),\\quad x' = x\\cos\\theta + y\\sin\\theta"
+    typst: >-
+      & g(x, y) = exp(-(x'^2 + y'^2) / (2 sigma^2)) cos(2 pi f x' + phi) \
+      & x' = (x - x_0) cos theta + (y - y_0) sin theta, quad y' = -(x - x_0) sin theta + (y - y_0) cos theta
+    latex: >-
+      g(x, y) &= \exp\left(-\frac{x'^2 + y'^2}{2\sigma^2}\right)\cos(2\pi f x' + \phi) \\
+      x' &= (x - x_0)\cos\theta + (y - y_0)\sin\theta,\quad y' = -(x - x_0)\sin\theta + (y - y_0)\cos\theta
     symbols:
       g: {meaning: "filter weight at position (x, y)"}
       x: {meaning: "horizontal position", units: "deg"}
       y: {meaning: "vertical position", units: "deg"}
       theta: {meaning: "orientation of the carrier", units: "deg"}
       f: {meaning: "spatial frequency of the carrier", units: "cycles/deg"}
+      x_0: {meaning: "horizontal centre of the envelope", units: "deg"}
+      y_0: {meaning: "vertical centre of the envelope", units: "deg"}
       sigma: {meaning: "size of the Gaussian envelope", units: "deg"}
       phi: {meaning: "phase of the carrier", units: "rad"}
 audience: graduate_neuroscience
 objective: >-
-  A brief clip: one Gabor filter as a fine mesh in three dimensions, seen from a camera that turns
-  around it, while its orientation, spatial frequency and size change one after the other beside
-  the equation whose term is changing.
+  A brief clip in segments: one Gabor filter as a fine mesh in three dimensions under a slowly turning
+  camera. The box and its axes are shown once and then leave. Then the orientation, the spatial frequency,
+  the location and the size change one after the other; before each change the term that is about to act is
+  the only one in colour, and the picture follows it.
 scientific_constraints:
   - id: equation_exact
     kind: hard
     equation: gabor
-    text: "Show the Gabor equation exactly as stored, with theta, f and sigma highlighted."
+    text: "Show the Gabor equation exactly as stored; the term that is changing is the only one in the accent colour."
   - id: analytic_label
     kind: hard
     text: "Label the surface as computed from the equation, not as a measured filter."
   - id: fixed_box
     kind: hard
-    text: "Keep the x, y and z ranges fixed while the parameters vary."
+    text: "Keep the x, y and z ranges fixed while the parameters vary, whether or not the axes are shown."
 timeline:
   - id: start
     at_seconds: 0
     tolerance_seconds: 0
     kind: hard
-    instruction: "The surface and the equation are on screen from the first frame; the camera begins to turn."
-  - id: orientation
+    instruction: "The surface inside its labelled box and the equation are on screen from the first frame; the camera begins to turn."
+  - id: axes_leave
     at_seconds: 3
     tolerance_seconds: 1
     kind: preferred
-    instruction: "Turn the carrier from 0 to 90 degrees."
+    instruction: "The frame, ticks and labels fade; the surface stays."
+  - id: orientation
+    at_seconds: 4
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Theta lights up, then the carrier turns from 0 to 90 degrees."
   - id: frequency
     at_seconds: 9.5
     tolerance_seconds: 1
     kind: preferred
-    instruction: "Raise the spatial frequency."
-  - id: size
-    at_seconds: 16
+    instruction: "f lights up, then the spatial frequency rises."
+  - id: location
+    at_seconds: 15
     tolerance_seconds: 1
     kind: preferred
-    instruction: "Shrink the envelope."
+    instruction: "x_0 and y_0 light up, then the envelope moves across the field."
+  - id: size
+    at_seconds: 20.5
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "Sigma lights up, then the envelope shrinks."
 direction:
-  tone: "Plain, unhurried"
+  tone: "Plain, unhurried; one thing at a time"
   avoid:
     - "Decorative motion beyond the slow orbit"
-    - "Unlabelled axes"
+    - "Unlabelled axes while axes are shown"
+    - "Two terms in colour unless both are changing"
 extensions: {}

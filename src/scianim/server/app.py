@@ -37,7 +37,7 @@ from scianim.render.manifests import (
 from scianim.server.runner import JobRequest, JobRunner
 from scianim_core import ArtifactManifest, CheckpointRecord
 from scianim_core.feedback import FeedbackKind, Region, ReviewStatus, Severity
-from scianim_core.storyboard import OrbitCamera, SceneAction
+from scianim_core.storyboard import FadeAxes, OrbitCamera, SceneAction
 
 STATIC_DIR = Path(__file__).parent / "static"
 SLUG = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -81,9 +81,13 @@ def action_summary(action: SceneAction) -> str:
         if action.to_phi_degrees is not None:
             parts.append(f"elevation to {action.to_phi_degrees:g} deg")
         return "camera " + ", ".join(parts)
+    if isinstance(action, FadeAxes):
+        return f"axes of {action.target} fade {'in' if action.visible else 'out'}"
     text = f"{action.target}.{action.parameter} to {action.to:g}"
     if action.emphasize:
         text += ", emphasizing " + ", ".join(action.emphasize)
+    if action.lead_in_seconds:
+        text += f", after a {action.lead_in_seconds:g} s lead-in"
     return text
 
 

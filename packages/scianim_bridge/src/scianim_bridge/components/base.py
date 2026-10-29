@@ -80,6 +80,9 @@ class Component:
     visible: bool = False
     three_d: bool = False
     """True for objects that live in the rotating world (surfaces); flat objects stay fixed in the frame."""
+    axes: VGroup | None = None
+    """The frame, ticks and labels that a `fade_axes` action fades, when the object draws them as a separable
+    group (surfaces do); None for everything else."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)
