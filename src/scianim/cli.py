@@ -603,7 +603,9 @@ def _print_video(manifest: ArtifactManifest) -> None:
 @app.command()
 def render(
     project: Annotated[Path, typer.Argument(help="Project directory.")],
-    profile: Annotated[str, typer.Option(help="draft (reduced resolution) or final (exact output).")] = "draft",
+    profile: Annotated[
+        str, typer.Option(help="storyboard or snapshot (a quick look), draft (review) or final (exact output).")
+    ] = "draft",
     revision: Annotated[
         str | None, typer.Option(help="Render an immutable revision (e.g. rev_0002) instead of the working copy.")
     ] = None,
@@ -611,9 +613,8 @@ def render(
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 3600,
 ) -> None:
-    """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames."""
-    if profile not in ("draft", "final"):
-        fail("profile must be draft or final")
+    """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames, at any
+    profile: storyboard or snapshot for a quick look at a small size, draft for review, final for delivery."""
     proj, report = _prepare(project, require_family=True)
     if report.family is None:
         print_report(report, str(project))

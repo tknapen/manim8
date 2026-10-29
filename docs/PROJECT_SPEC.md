@@ -759,7 +759,7 @@ The control plane resolves the family, checks its lock/environment, validates al
 | `draft` | Motion review | Reduced resolution/quality permitted, but preserve relative timing |
 | `final` | Presentation/publication | Enforce requested dimensions, fps, duration, codec, file checks |
 
-Define fast preview profiles separately from exact delivery settings. Never let a preview override persist into the final spec.
+Define fast preview profiles separately from exact delivery settings. Never let a preview override persist into the final spec. A video may be rendered at any profile: the two small ones give a quick look at the motion in a fraction of the time, and are no more evidence of final appearance than their stills.
 
 ### 10.4 Component registry
 

@@ -285,9 +285,8 @@ def build_video_job(
     tool_versions: dict[str, object] | None = None,
     job_id: str | None = None,
 ) -> tuple[RenderJob, JobPaths, InputHashes]:
-    """A draft or final video of the whole storyboard with sections, subtitles and sampled checkpoints."""
-    if profile not in ("draft", "final"):
-        raise SpecError(sources.storyboard_path, f"video profile must be draft or final, not '{profile}'")
+    """A video of the whole storyboard with sections, subtitles and sampled checkpoints, at any profile:
+    `storyboard` and `snapshot` for a quick look at a small size, `draft` for review, `final` for delivery."""
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
