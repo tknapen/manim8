@@ -26,14 +26,24 @@ def normalized_bbox(mobject: Mobject) -> BBox:
     )
 
 
+def _draws_nothing(member: Mobject) -> bool:
+    """True for a member with no ink: fully transparent stroke and fill (a surface's helper axes, say)."""
+    stroke = getattr(member, "get_stroke_opacity", None)
+    fill = getattr(member, "get_fill_opacity", None)
+    if stroke is None or fill is None:
+        return False
+    return float(stroke()) <= 0.0 and float(fill()) <= 0.0
+
+
 def projected_bbox(camera: Any, mobject: Mobject) -> BBox:
-    """Bounding box of a 3D object as the camera shows it: its points projected through the camera."""
+    """Bounding box of a 3D object as the camera shows it: the points of every member that draws ink, projected
+    through the camera. Invisible helper geometry (the axes a surface is built on) does not count."""
     fw, fh = float(config.frame_width), float(config.frame_height)
     fixed_in_frame = getattr(camera, "fixed_in_frame_mobjects", set())
     fixed_orientation = getattr(camera, "fixed_orientation_mobjects", {})
     arrays = []
     for member in mobject.get_family():
-        if not len(member.points):
+        if not len(member.points) or _draws_nothing(member):
             continue
         if member in fixed_in_frame:
             arrays.append(member.points)

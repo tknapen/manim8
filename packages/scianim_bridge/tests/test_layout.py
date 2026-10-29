@@ -160,3 +160,22 @@ def test_smallest_text_px_mixes_roles_and_explicit_sizes() -> None:
         tokens = Tokens(_style())
         assert tokens.smallest_text_px("tick_label", 46.0) == pytest.approx(32)
         assert tokens.smallest_text_px("body", 28.0) == pytest.approx(28)
+
+
+def test_projected_bbox_measures_ink_only() -> None:
+    """Invisible helper geometry (a surface's axes, stroke and fill at zero opacity) does not widen the box."""
+    from manim import Square, VGroup, config
+
+    from scianim_bridge.layout import projected_bbox
+    from scianim_bridge.scene import SnapshotScene
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = SnapshotScene()
+        visible = Square(side_length=2.0, stroke_opacity=1.0, fill_opacity=0.0)
+        helper = Square(side_length=6.0, stroke_opacity=0.0, fill_opacity=0.0)
+        bbox = projected_bbox(scene.renderer.camera, VGroup(helper, visible))
+        assert bbox.width == pytest.approx(2.0 / config.frame_width, abs=1e-6)
+        assert bbox.height == pytest.approx(2.0 / config.frame_height, abs=1e-6)
+        alone = projected_bbox(scene.renderer.camera, VGroup(helper))
+        assert alone.width == pytest.approx(6.0 / config.frame_width, abs=1e-6)  # nothing visible: fall back to all
