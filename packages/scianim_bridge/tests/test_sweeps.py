@@ -466,3 +466,16 @@ def test_eased_linear_profile_camera_ramps_and_raised_cosine_pulse() -> None:
         assert glyph.height / height == pytest.approx(1.3, abs=0.02)
         sweep.apply(1.0 * pulse)
         assert glyph.height / height == pytest.approx(1.0, abs=1e-3)
+
+
+def test_a_segment_that_ends_on_the_breakpoint_completes_the_track() -> None:
+    """(3.8 - 3) / 0.8 is one ulp short of 1 in floating point; the target fraction snaps to 1 so that a fade's
+    `finish` runs and the faded axes leave the group instead of lingering, invisible, in the layout box."""
+    from scianim_bridge.scene import Track
+
+    scene = _scene()
+    track = Track(scene=scene, track_id="t", at_seconds=3.0, duration_seconds=0.8)
+    assert (3.8 - 3.0) / 0.8 < 1.0  # the rounding this guards against
+    assert track.target_fraction(3.8) == 1.0
+    assert track.target_fraction(3.4) == pytest.approx(0.5)
+    assert track.target_fraction(2.0) == 0.0

@@ -32,7 +32,7 @@ def _draws_nothing(member: Mobject) -> bool:
     fill = getattr(member, "get_fill_opacity", None)
     if stroke is None or fill is None:
         return False
-    return float(stroke()) <= 0.0 and float(fill()) <= 0.0
+    return float(stroke()) <= 1e-6 and float(fill()) <= 1e-6
 
 
 def projected_bbox(camera: Any, mobject: Mobject) -> BBox:

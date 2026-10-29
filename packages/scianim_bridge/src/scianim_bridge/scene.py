@@ -106,7 +106,12 @@ class Track:
         return None
 
     def target_fraction(self, seconds: float) -> float:
-        return min(1.0, max(self.fraction, (seconds - self.at_seconds) / self.duration_seconds))
+        """The fraction of the window reached at `seconds`; a value within rounding of the end is the end, so a
+        segment that stops exactly at a track's end completes it (and calls `finish`) despite floating point."""
+        raw = (seconds - self.at_seconds) / self.duration_seconds
+        if raw >= 1.0 - 1e-9:
+            return 1.0
+        return min(1.0, max(self.fraction, raw))
 
 
 class TrackSegment(Animation):
