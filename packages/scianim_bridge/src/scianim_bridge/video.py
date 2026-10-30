@@ -8,13 +8,15 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import av
 
-from scianim_core import CheckpointRecord, SectionRecord, VideoRecord, verify_timing
+from scianim_core import CheckpointRecord, SectionRecord, SegmentRecord, VideoRecord, verify_timing
 from scianim_core.timing import TimingReport
 
 if TYPE_CHECKING:
@@ -63,6 +65,30 @@ def probe_video(path: Path) -> Probe:
         return Probe(stream.width, stream.height, fps, frames, duration, codec, pixel_format)
 
 
+def concat_segments(inputs: Sequence[Path], output: Path) -> None:
+    """Join encoded segments into one movie by copying their packets, as Manim joins its partial movie files.
+
+    Nothing is decoded or re-encoded, so the joined movie carries exactly the frames of the segments, in order.
+    """
+    if not inputs:
+        raise ValueError("no segments to join")
+    missing = [str(path) for path in inputs if not Path(path).exists()]
+    if missing:
+        raise FileNotFoundError(f"segment(s) missing: {missing[:5]}")
+    manifest = BytesIO("".join(f"file 'file:{Path(path).resolve().as_posix()}'\n" for path in inputs).encode("utf-8"))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with av.open(manifest, options={"safe": "0", "an": "1"}, format="concat") as source:
+        stream = source.streams.video[0]
+        with av.open(str(output), mode="w") as target:
+            out_stream = target.add_stream_from_template(template=stream)
+            for packet in source.demux(stream):
+                if packet.dts is None:  # the flushing packets `demux` generates
+                    continue
+                packet.dts = None  # each segment restarts its clock; libav recomputes the decode stamps
+                packet.stream = out_stream
+                target.mux(packet)
+
+
 @dataclass
 class VideoOutputs:
     videos: list[VideoRecord] = field(default_factory=list)
@@ -91,24 +117,7 @@ def collect_video_outputs(scene: SnapshotScene, ctx: JobContext) -> VideoOutputs
     movie = Path(movie)
     target = ctx.output_dir / f"{job.job_id}.mp4"
     shutil.copy2(movie, target)
-    probe = probe_video(target)
-    out.videos.append(
-        VideoRecord(
-            path=_relative(ctx, target),
-            width_px=probe.width,
-            height_px=probe.height,
-            fps=probe.fps,
-            duration_seconds=probe.duration_seconds,
-            frame_count=probe.frames,
-            codec=probe.codec,
-            sha256=sha256_of(target),
-        )
-    )
-    expected = (job.manim.pixel_width, job.manim.pixel_height)
-    if (probe.width, probe.height) != expected:
-        out.errors.append(f"movie is {probe.width}x{probe.height}, the job asked for {expected[0]}x{expected[1]}")
-    if abs(probe.fps - job.manim.frame_rate) > 1e-2:
-        out.errors.append(f"movie plays at {probe.fps:g} fps, the job asked for {job.manim.frame_rate:g}")
+    probe = _describe_movie(out, target, ctx)
 
     # Sections: Manim's index lists each saved section with its video path relative to the sections dir.
     section_frames: list[tuple[str, int]] = []
@@ -150,10 +159,136 @@ def collect_video_outputs(scene: SnapshotScene, ctx: JobContext) -> VideoOutputs
 
     subtitle_source = plan.subcaption_file
     if subtitle_source is not None and Path(subtitle_source).exists():
-        subtitle_target = ctx.output_dir / f"{job.job_id}.srt"
-        shutil.copy2(subtitle_source, subtitle_target)
-        out.subtitles = _relative(ctx, subtitle_target)
+        out.subtitles = _copy_subtitles(Path(subtitle_source), ctx)
 
+    reached = {
+        str(entry["snapshot_id"]): (float(entry["time"]), int(entry["animation_index"]))
+        for entry in scene.checkpoint_log
+    }
+    _verify_and_sample(out, target, probe, section_frames, reached, ctx)
+    return out
+
+
+def merge_video_outputs(ctx: JobContext) -> VideoOutputs:
+    """Join the segments the parts of a parallel render drew into the movie and its sections, then verify and
+    sample exactly as after a serial render (ADR-029)."""
+    out = VideoOutputs()
+    job = ctx.job
+    merge = job.merge
+    if merge is None:
+        out.errors.append("merge_video needs `merge` inputs")
+        return out
+    plays = sorted(merge.plays, key=lambda play: play.index)
+    by_index = {segment.play_index: segment for segment in merge.segments}
+    missing = [play.index for play in plays if play.index not in by_index]
+    unplanned = sorted(set(by_index) - {play.index for play in plays})
+    if missing or unplanned:
+        if missing:
+            out.errors.append(f"no segment for play(s) {missing}")
+        if unplanned:
+            out.errors.append(f"segment(s) for play(s) {unplanned} that the plan does not list")
+        return out
+    ordered = [by_index[play.index] for play in plays]
+    absent = [segment.path for segment in ordered if not (ctx.project_root / segment.path).exists()]
+    if absent:
+        out.errors.append(f"segment file(s) missing: {absent[:5]}")
+        return out
+
+    target = ctx.output_dir / f"{job.job_id}.mp4"
+    concat_segments([ctx.project_root / segment.path for segment in ordered], target)
+    probe = _describe_movie(out, target, ctx)
+    planned = sum(play.frames for play in plays)
+    if probe.frames != planned:
+        out.errors.append(f"the joined movie has {probe.frames} frames, the plan's plays add up to {planned}")
+
+    # Sections: consecutive plays of one storyboard scene, joined the same way.
+    section_frames: list[tuple[str, int]] = []
+    if job.manim.save_sections:
+        sections_dir = ctx.output_dir / "sections"
+        sections_dir.mkdir(exist_ok=True)
+        groups: list[tuple[str, list[SegmentRecord]]] = []
+        for play, segment in zip(plays, ordered, strict=True):
+            name = play.scene_id or "autocreated"
+            if groups and groups[-1][0] == name:
+                groups[-1][1].append(segment)
+            else:
+                groups.append((name, [segment]))
+        rewritten: list[dict[str, Any]] = []
+        for index, (name, segments) in enumerate(groups):
+            destination = sections_dir / f"{job.job_id}_{index:04}_{name}.mp4"
+            concat_segments([ctx.project_root / segment.path for segment in segments], destination)
+            section_probe = probe_video(destination)
+            section_frames.append((name, section_probe.frames))
+            record = SectionRecord(
+                name=name,
+                type="default.normal",
+                video=_relative(ctx, destination),
+                metadata={
+                    "frames": section_probe.frames,
+                    "duration_seconds": section_probe.duration_seconds,
+                    "width_px": section_probe.width,
+                    "height_px": section_probe.height,
+                    "fps": section_probe.fps,
+                    "sha256": sha256_of(destination),
+                },
+            )
+            out.sections.append(record)
+            rewritten.append(record.model_dump(mode="json"))
+        (sections_dir / "index.json").write_text(json.dumps(rewritten, indent=2), encoding="utf-8")
+
+    if merge.subtitles is not None:
+        source = ctx.project_root / merge.subtitles
+        if source.exists():
+            out.subtitles = _copy_subtitles(source, ctx)
+        else:
+            out.warnings.append(f"the plan's subtitle file is missing: {merge.subtitles}")
+
+    reached = {c.snapshot_id: (c.time_seconds, c.animation_index) for c in merge.checkpoints}
+    _verify_and_sample(out, target, probe, section_frames, reached, ctx)
+    return out
+
+
+def _describe_movie(out: VideoOutputs, target: Path, ctx: JobContext) -> Probe:
+    """Probe the movie in the job directory, record it and check it against the job's settings."""
+    job = ctx.job
+    probe = probe_video(target)
+    out.videos.append(
+        VideoRecord(
+            path=_relative(ctx, target),
+            width_px=probe.width,
+            height_px=probe.height,
+            fps=probe.fps,
+            duration_seconds=probe.duration_seconds,
+            frame_count=probe.frames,
+            codec=probe.codec,
+            sha256=sha256_of(target),
+        )
+    )
+    expected = (job.manim.pixel_width, job.manim.pixel_height)
+    if (probe.width, probe.height) != expected:
+        out.errors.append(f"movie is {probe.width}x{probe.height}, the job asked for {expected[0]}x{expected[1]}")
+    if abs(probe.fps - job.manim.frame_rate) > 1e-2:
+        out.errors.append(f"movie plays at {probe.fps:g} fps, the job asked for {job.manim.frame_rate:g}")
+    return probe
+
+
+def _copy_subtitles(source: Path, ctx: JobContext) -> str:
+    subtitle_target = ctx.output_dir / f"{ctx.job.job_id}.srt"
+    shutil.copy2(source, subtitle_target)
+    return _relative(ctx, subtitle_target)
+
+
+def _verify_and_sample(
+    out: VideoOutputs,
+    target: Path,
+    probe: Probe,
+    section_frames: list[tuple[str, int]],
+    reached: dict[str, tuple[float, int]],
+    ctx: JobContext,
+) -> None:
+    """Compare the frame counts with the storyboard and sample every checkpoint at the time the scene reached it,
+    plus the extra samples the job asks for."""
+    job = ctx.job
     out.timing = verify_timing(
         [(s.scene_id, s.start_seconds, s.end_seconds) for s in job.scenes],
         section_frames,
@@ -164,17 +299,15 @@ def collect_video_outputs(scene: SnapshotScene, ctx: JobContext) -> VideoOutputs
     if not job.manim.save_sections or not section_frames:
         out.timing.notes.append("sections were not saved; only the total was verified")
 
-    # Sampled frames: every storyboard checkpoint at the time the scene actually reached it, plus extra samples.
-    reached = {entry["snapshot_id"]: entry for entry in scene.checkpoint_log}
     targets: dict[str, tuple[float, float, str | None, int]] = {}
     for snapshot_id, snapshot in job.snapshots.items():
         entry = reached.get(snapshot_id)
-        actual = float(entry["time"]) if entry else snapshot.expected_time_seconds
+        actual = entry[0] if entry else snapshot.expected_time_seconds
         targets[snapshot_id] = (
             snapshot.expected_time_seconds,
             actual,
             snapshot.scene_id,
-            int(entry["animation_index"]) if entry else 0,
+            entry[1] if entry else 0,
         )
         if entry is None:
             out.warnings.append(
@@ -184,7 +317,6 @@ def collect_video_outputs(scene: SnapshotScene, ctx: JobContext) -> VideoOutputs
         scene_id = next((s.scene_id for s in job.scenes if s.start_seconds <= seconds <= s.end_seconds), None)
         targets[sample_id] = (seconds, seconds, scene_id, 0)
     out.samples = sample_frames(target, targets, ctx, probe.fps)
-    return out
 
 
 def sample_frames(
@@ -259,4 +391,13 @@ def _save_sample(
     )
 
 
-__all__ = ["Probe", "VideoOutputs", "collect_video_outputs", "probe_video", "sample_frames", "sha256_of"]
+__all__ = [
+    "Probe",
+    "VideoOutputs",
+    "collect_video_outputs",
+    "concat_segments",
+    "merge_video_outputs",
+    "probe_video",
+    "sample_frames",
+    "sha256_of",
+]

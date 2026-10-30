@@ -555,3 +555,51 @@ motions have different jobs: a sweep is the subject and should ease over its who
 background and should be nearly uniform, with ramps only so that it never starts or stops at speed. A minimum
 rest and a lead-in at least as long as the pulse are timing rules, which no profile can supply, so they are
 checks rather than tokens the renderer applies.
+
+## ADR-029: Parallel video renders by ranges of plays
+
+**Status:** accepted, 30 October 2026
+
+**Context.** Manim's Cairo renderer draws one frame at a time in one process, and a frame costs roughly a
+millisecond per surface cell, so a fine Gabor mesh at 60 fps takes hours while three of four cores idle.
+A GPU path (Manim's OpenGL renderer) would be a different renderer with different output; splitting the work
+across processes keeps the renderer and the frames.
+
+**Decision.** `scianim render --workers N` (and `workers` on an API job request; `0` means one per core) runs a
+`render_video` job in three stages, each a bridge worker in the family environment, orchestrated by the control
+plane from one job payload. A `plan_video` pass fast-forwards through the scene and lists every play (Manim's
+animation number, the storyboard scene, the start time, the frames, whether it is a still wait) together with
+the checkpoints it reaches and the subtitles. The plays are split into N contiguous ranges; each
+`render_video_part` worker draws its range through Manim's own animation-number window
+(`from_animation_number`, `upto_animation_number`), fast-forwarding through the plays before it exactly as a
+snapshot does, so it begins from the state a single process would have reached, and encodes into a media
+directory of its own. A `merge_video` worker joins the segments into the movie and its per-scene sections by
+copying packets (the same joining Manim performs on its partial movie files), then probes, verifies the timing
+and samples the checkpoints as a serial render does. The manifest is the parent job's, with `workers`, one
+`PartReport` per part and the measured wall time of every play; the cache key is that of the serial render,
+because the movie is the same. Ranges are balanced by frames the first time, a still wait counting one frame
+plus a tenth of its repeats; thereafter by the play times measured in the most recent render of the same
+project whose plays match, serial or parallel. A play that Manim served from its per-play cache was not drawn,
+and its time is replaced by the estimate at the measured scale of the drawn plays. Each part's log of
+fast-forwarded plays is checked against the plan, so a scene that does not play the same way twice fails
+loudly rather than producing a movie with a seam. Measured on the Gabor clip at a 24-cell mesh and 30 fps:
+414 s in one process, 145 s with four workers on four cores.
+Building this exposed one place where fast-forward and rendering diverged: a value readout updated its text
+with `become`, which aligns the glyph outlines' point counts with the text shown before, so after ninety frames
+the outlines carried the history of every value and the glyph edges rasterised a shade differently. Readouts now
+receive a fresh `Text` each time; a probe of the scene state at every checkpoint of the orientation-tuning clip
+is identical in the two modes, and the sampled frames of a two-worker render are byte-identical to the serial
+ones. The same divergence had made Manim's per-play cache produce slightly different movies on repeated serial
+renders, so the fix is to serial rendering too.
+
+**Why.** The storyboard clock is frame-exact and the scene is deterministic (spec section 8.4, ADR-002), which
+is what makes a range of plays rendered elsewhere identical to the same range rendered in sequence; the
+sampled checkpoint frames of a two-worker render are byte-identical to the serial ones. Splitting at play
+boundaries rather than at arbitrary frames keeps every segment an independently encoded stream that joins
+without re-encoding and keeps section boundaries exact. The control plane never touches video data: joining,
+probing and sampling stay in the bridge, and stage jobs are ordinary `RenderJob` payloads, so everything a
+part did is on file. Measured weights rather than a cost model: the cost of a play depends on what its
+components rebuild per frame (a grating resampled each frame costs fifteen times a reveal of the same length),
+which no structural proxy predicted, while the time of the previous render is exact for the common case of
+re-rendering after a small change.
+

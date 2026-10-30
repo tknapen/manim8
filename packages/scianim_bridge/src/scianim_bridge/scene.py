@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import math
 import re
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -196,12 +197,7 @@ class Sweep(Track):
             if warning not in self.scene.render_warnings:
                 self.scene.render_warnings.append(warning)
         if self.readout is not None and self.readout_text is not None:
-            text = self.readout_text(value)
-            inner = self.readout.component.group[0]
-            inner.become(Text(text, **self.scene.tokens.text_kwargs(self.readout.typeface, self.readout.color)))
-            self.readout.place()
-            self.readout.component.text = text
-            self.scene.fix_in_frame(self.readout.component.group)
+            self.scene.set_readout_text(self.readout, self.readout_text(value))
         if self.emphasized or self.released:
             progress = fraction / self.pulse_fraction if self.pulse_fraction > 0 else 1.0
             # A raised cosine: the term grows and settles with zero speed at both ends of the pulse.
@@ -329,6 +325,9 @@ class SnapshotScene(ThreeDScene):
         self.scene_objects: list[Component] = []
         self.scene_id: str | None = None
         self.checkpoint_log: list[dict[str, Any]] = []
+        self.play_log: list[dict[str, Any]] = []
+        """Every play or wait: Manim's animation number, the storyboard scene, the clock at its start and its
+        frames. The same in every mode, so a planning pass can split a video into ranges of plays (ADR-029)."""
         self.narration_log: list[dict[str, Any]] = []
         self.timing_warnings: list[str] = []
         self.render_warnings: list[str] = []
@@ -376,16 +375,33 @@ class SnapshotScene(ThreeDScene):
             return
         fps = float(config.frame_rate)
         before = self.clock
+        index = int(self.renderer.num_plays)
+        family = [m for mob in self.mobjects for m in mob.get_family()]
+        static = False
+        started = time.perf_counter()
         if animations:
             # Animated plays render `len(np.arange(0, run_time, 1/fps))` frames: half a frame less rounds up.
             self.play(*animations, run_time=(frames - 0.5) / fps, **kwargs)
         else:
             # A static wait repeats one frame `int(run_time * fps)` times: half a frame more truncates down.
             # A wait with updaters renders frame by frame like an animation.
-            static = not self.updaters and not any(m.get_updaters() for mob in self.mobjects for m in mob.get_family())
+            static = not self.updaters and not any(m.get_updaters() for m in family)
             run_time = (frames + 0.5) / fps if static else (frames - 0.5) / fps
             self.wait(run_time, frozen_frame=static)
         self.renderer.time = before + frames / fps
+        # Manim leaves `skip_animations` set when it fast-forwarded the play or served it from its per-play cache.
+        drawn = not bool(getattr(self.renderer, "skip_animations", False))
+        self.play_log.append(
+            {
+                "index": index,
+                "scene_id": self.scene_id,
+                "time": before,
+                "frames": frames,
+                "static": static,
+                "drawn": drawn,
+                "seconds": time.perf_counter() - started,
+            }
+        )
 
     # --- the three-dimensional camera ---------------------------------------------------------
     def ensure_camera(self) -> None:
@@ -607,13 +623,31 @@ class SnapshotScene(ThreeDScene):
         sweep.apply(0.0)
         return sweep
 
+    def set_readout_text(self, readout: Readout, text: str) -> None:
+        """Show `text` in a readout, as a fresh `Text` in the readout's group.
+
+        A fresh object rather than `become`: `become` aligns the glyph outlines' point counts with the text shown
+        before, so the outlines would carry the history of every value displayed, and a scene fast-forwarded
+        through a sweep (one value) would not match the same scene rendered frame by frame (ninety values). The
+        checkpoints, Manim's per-play cache and the parts of a parallel render all rely on that match (ADR-029).
+        """
+        group = readout.component.group
+        fresh = Text(text, **self.tokens.text_kwargs(readout.typeface, readout.color))
+        fixed = getattr(self.renderer.camera, "fixed_in_frame_mobjects", None)
+        for old in list(group.submobjects):
+            group.remove(old)
+            if fixed is not None:
+                for member in old.get_family():
+                    fixed.discard(member)
+        group.add(fresh)
+        readout.place()
+        readout.component.text = text
+        self.fix_in_frame(group)
+
     def recolor_readout(self, readout: Readout, color: ManimColor) -> None:
         """Redraw a readout in another ink, in place."""
         readout.color = color
-        inner = readout.component.group[0]
-        inner.become(Text(readout.component.text or "", **self.tokens.text_kwargs(readout.typeface, color)))
-        readout.place()
-        self.fix_in_frame(readout.component.group)
+        self.set_readout_text(readout, readout.component.text or "")
 
     def begin_fade_axes(
         self,

@@ -26,7 +26,7 @@ complete except for section splicing (ADR-019). Milestone 5 (source adapters, co
 self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
 guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
 readouts) is complete (ADR-022), and Milestone 8 (surfaces, the orbiting camera, concurrent tracks; four examples) is
-complete (ADR-024); the baseline theme is `default@0.4.0`, line and wash with solid surfaces and the rules of smooth motion as tokens, with a specimen composed from real renders (ADR-025, ADR-027, ADR-028); clips can be segmented with a lead-in per action, an active highlight mode and axes that fade (ADR-026). Open items across milestones: section splicing
+complete (ADR-024); the baseline theme is `default@0.4.0`, line and wash with solid surfaces and the rules of smooth motion as tokens, with a specimen composed from real renders (ADR-025, ADR-027, ADR-028); clips can be segmented with a lead-in per action, an active highlight mode and axes that fade (ADR-026). Videos render in parallel across a chosen number of processes (ADR-029). Open items across milestones: section splicing
 (ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
 
 ## Milestone 0 — repository and contracts
@@ -193,7 +193,8 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 - [x] Segmented clips: `lead_in_seconds` on `vary_parameter`, `highlight_mode: active` on equation references (the colour passes from term to term and earlier readouts recede), a `fade_axes` action for surfaces, and one Typst group per occurrence of a highlighted symbol so a pulse grows each about its own centre (ADR-026).
 - [x] Motion rules as style tokens: `easing` for sweeps, fades and colour, `camera_easing` with `ramp_seconds` (`eased_linear`: ramp, constant speed, ramp), `hold_seconds` for the rest between motions, a raised-cosine pulse and an eased colour hand-over; `scianim validate` warns on linear easing, a lead-in shorter than the pulse and a shorter rest (ADR-028).
 - [x] Examples: a Gabor filter under a slow orbit, in segments: the box shown once, then orientation, frequency, location and size changing in turn; the pRF as a hill over the visual field with the centre moving in both directions at once; a grating turning while a marker follows it on the tuning curve; two normalization parameters moving at once.
-- [ ] Depth-correct drawing of a surface's frame lines (they draw on top); an OpenGL path for long surface videos; vectorised sampling for large images.
+- [x] Parallel video renders: `--workers N` (CLI and API) plans the plays, draws contiguous ranges of them in N processes through Manim's animation-number window and joins the segments without re-encoding; parts balanced by frames first and by the measured play times of an earlier render afterwards (ADR-029).
+- [ ] Depth-correct drawing of a surface's frame lines (they draw on top); a rasterised or OpenGL path for long surface videos; vectorised sampling for large images.
 
 **Acceptance:** the Gabor clip's seven checkpoints are exact with the readouts stacked, the value held through the lead-in and the surface's projected box inside the frame; the pRF checkpoint inside the concurrent segment shows two readouts between their end values; the loop example's turning grating and marker share one parameter value.
 

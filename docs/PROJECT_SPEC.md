@@ -740,6 +740,8 @@ Rendering is performed via an isolated worker command with a structured job payl
 
 The control plane resolves the family, checks its lock/environment, validates allowed paths and job arguments, and launches the worker in that environment. The worker emits JSON status/log messages and returns an artifact manifest. The payload is self-contained: the worker needs no access to YAML, style chains or control-plane code. Give each revision a stable Manim `media_dir` under `.scianim/` so Manim's own per-`play()` cache works beneath the scene-level cache; do not disable it.
 
+A video job with `workers` above one runs as three derived jobs of the same payload (ADR-029): `plan_video` fast-forwards through the scene and returns every play (`PlayRecord`: animation number, scene, start, frames, whether it is a still wait) and the checkpoints reached; `render_video_part` draws one contiguous range of plays (`part`) through Manim's animation-number window into a media directory of its own, fast-forwarding through the rest, and returns one encoded segment per play; `merge_video` joins the segments (`merge`) into the movie and its sections by copying packets, then verifies the timing and samples the checkpoints like a serial render. The stages' job files, logs and results live under the job's directory; the manifest is the parent job's, its result lists the parts and the measured time of every play. The control plane never decodes or joins video itself.
+
 ### 10.2 Reproducibility and isolation
 
 - Local renderer process with explicit cwd, environment variables and bounded resource settings where supported.
@@ -905,6 +907,7 @@ scianim snapshot path/to/project --all   # Named checkpoint stills
 scianim snapshot path/to/project --id equation_complete
 scianim render path/to/project --profile draft     # 2/3 resolution, sections, SRT, sampled checkpoint frames
 scianim render path/to/project --profile final     # exact dimensions and fps; fails when timing misses by > 1 frame
+scianim render path/to/project --workers 4         # ranges of the clip drawn in four processes at once, joined losslessly
 scianim timing path/to/project [--out proposed.yaml]  # Durations from narration; conflicts with milestones
 scianim stale path/to/project [--since rev_0002]   # Scenes a change touches since a revision
 scianim revision create path/to/project -m "..."   # Write-once revisions/rev_NNNN

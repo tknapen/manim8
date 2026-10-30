@@ -651,6 +651,60 @@
       "title": "ManimSettings",
       "type": "object"
     },
+    "MergeInputs": {
+      "additionalProperties": false,
+      "description": "What `merge_video` joins: every play's segment in order, plus the plan's checkpoints and subtitles.",
+      "properties": {
+        "checkpoints": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ReachedCheckpoint"
+          },
+          "title": "Checkpoints",
+          "type": "array"
+        },
+        "parts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PartRange"
+          },
+          "title": "Parts",
+          "type": "array"
+        },
+        "plays": {
+          "items": {
+            "$ref": "#/$defs/PlayRecord"
+          },
+          "title": "Plays",
+          "type": "array"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentRecord"
+          },
+          "title": "Segments",
+          "type": "array"
+        },
+        "subtitles": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitles"
+        }
+      },
+      "required": [
+        "plays",
+        "segments"
+      ],
+      "title": "MergeInputs",
+      "type": "object"
+    },
     "Motion": {
       "additionalProperties": false,
       "properties": {
@@ -808,6 +862,161 @@
       "title": "OutputSpec",
       "type": "object"
     },
+    "PartRange": {
+      "additionalProperties": false,
+      "description": "The plays one worker of a parallel render draws; it fast-forwards through all the others.",
+      "properties": {
+        "count": {
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "first_play": {
+          "minimum": 0,
+          "title": "First Play",
+          "type": "integer"
+        },
+        "frames": {
+          "minimum": 0,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "last_play": {
+          "minimum": 0,
+          "title": "Last Play",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "index",
+        "count",
+        "first_play",
+        "last_play",
+        "frames"
+      ],
+      "title": "PartRange",
+      "type": "object"
+    },
+    "PartReport": {
+      "additionalProperties": false,
+      "description": "One part of a parallel render: its range and how long its worker took.",
+      "properties": {
+        "elapsed_seconds": {
+          "minimum": 0,
+          "title": "Elapsed Seconds",
+          "type": "number"
+        },
+        "part": {
+          "$ref": "#/$defs/PartRange"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "canceled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "part",
+        "status",
+        "elapsed_seconds"
+      ],
+      "title": "PartReport",
+      "type": "object"
+    },
+    "PlayRecord": {
+      "additionalProperties": false,
+      "description": "One `play` of the generated scene, as the planning pass saw it in fast-forward.",
+      "properties": {
+        "drawn": {
+          "default": false,
+          "title": "Drawn",
+          "type": "boolean"
+        },
+        "frames": {
+          "minimum": 1,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Id"
+        },
+        "seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Seconds",
+          "type": "number"
+        },
+        "start_seconds": {
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "number"
+        },
+        "static": {
+          "default": false,
+          "title": "Static",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "index",
+        "start_seconds",
+        "frames"
+      ],
+      "title": "PlayRecord",
+      "type": "object"
+    },
+    "ReachedCheckpoint": {
+      "additionalProperties": false,
+      "description": "A checkpoint the scene reached, with the clock and the animation number at that moment.",
+      "properties": {
+        "animation_index": {
+          "minimum": 0,
+          "title": "Animation Index",
+          "type": "integer"
+        },
+        "snapshot_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "time_seconds": {
+          "minimum": 0,
+          "title": "Time Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "animation_index",
+        "time_seconds"
+      ],
+      "title": "ReachedCheckpoint",
+      "type": "object"
+    },
     "RenderJob": {
       "additionalProperties": false,
       "properties": {
@@ -859,10 +1068,24 @@
         "manim": {
           "$ref": "#/$defs/ManimSettings"
         },
+        "merge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MergeInputs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "operation": {
           "enum": [
             "render_snapshots",
             "render_video",
+            "plan_video",
+            "render_video_part",
+            "merge_video",
             "probe"
           ],
           "title": "Operation",
@@ -874,6 +1097,17 @@
         "output_dir": {
           "title": "Output Dir",
           "type": "string"
+        },
+        "part": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PartRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "project_id": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
@@ -949,6 +1183,12 @@
           },
           "title": "Snapshots",
           "type": "object"
+        },
+        "workers": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Workers",
+          "type": "integer"
         }
       },
       "required": [
@@ -1143,6 +1383,46 @@
         "type"
       ],
       "title": "SectionRecord",
+      "type": "object"
+    },
+    "SegmentRecord": {
+      "additionalProperties": false,
+      "description": "One play's encoded video segment, as a part worker left it in its media directory.",
+      "properties": {
+        "frames": {
+          "minimum": 1,
+          "title": "Frames",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "play_index": {
+          "minimum": 0,
+          "title": "Play Index",
+          "type": "integer"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Id"
+        }
+      },
+      "required": [
+        "play_index",
+        "path",
+        "frames"
+      ],
+      "title": "SegmentRecord",
       "type": "object"
     },
     "SnapshotTarget": {
@@ -1607,6 +1887,30 @@
           "title": "Job Id",
           "type": "string"
         },
+        "parts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PartReport"
+          },
+          "title": "Parts",
+          "type": "array"
+        },
+        "plays": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PlayRecord"
+          },
+          "title": "Plays",
+          "type": "array"
+        },
+        "reached": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ReachedCheckpoint"
+          },
+          "title": "Reached",
+          "type": "array"
+        },
         "schema_version": {
           "const": "1.0",
           "default": "1.0",
@@ -1619,6 +1923,14 @@
             "$ref": "#/$defs/SectionRecord"
           },
           "title": "Sections",
+          "type": "array"
+        },
+        "segments": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SegmentRecord"
+          },
+          "title": "Segments",
           "type": "array"
         },
         "status": {

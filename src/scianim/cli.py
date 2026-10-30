@@ -38,6 +38,7 @@ from scianim.render.jobs import (
     tool_versions_for,
 )
 from scianim.render.manifests import manifest_for_ref
+from scianim.render.parallel import resolve_workers, run_parallel_video
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import create_revision, latest_revision, list_revisions, load_revision
 from scianim.sources.adapters import load_extracts, probe_all
@@ -598,6 +599,15 @@ def _print_video(manifest: ArtifactManifest) -> None:
     samples = [c for c in manifest.result.checkpoints if c.kind == "sampled_video_frame"]
     if samples:
         out.print(f"sampled frames: {', '.join(f'{c.snapshot_id}@{c.renderer_time_seconds:.3f}s' for c in samples)}")
+    if manifest.result.parts:
+        out.print(
+            f"{len(manifest.result.parts)} workers: "
+            + "; ".join(
+                f"part {r.part.index} plays {r.part.first_play}-{r.part.last_play} ({r.part.frames} frames) "
+                f"{r.status} in {r.elapsed_seconds:.0f}s"
+                for r in manifest.result.parts
+            )
+        )
 
 
 @app.command()
@@ -612,6 +622,14 @@ def render(
     sample: Annotated[list[str] | None, typer.Option(help="Extra frame to extract as id=seconds (repeatable).")] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 3600,
+    workers: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Worker processes: 1 renders in one process; N draws N ranges of the clip at the same time and "
+            "joins them, the same movie in about 1/N of the time; 0 uses one process per CPU core.",
+        ),
+    ] = 1,
 ) -> None:
     """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames, at any
     profile: storyboard or snapshot for a quick look at a small size, draft for review, final for delivery."""
@@ -639,7 +657,15 @@ def render(
             if revision
             else sources_from_report(proj, report)
         )
-        job, paths, hashes = build_video_job(proj, sources, family, profile, samples, tool_versions)  # type: ignore[arg-type]
+        job, paths, hashes = build_video_job(
+            proj,
+            sources,
+            family,
+            profile,  # type: ignore[arg-type]
+            samples,
+            tool_versions,
+            workers=resolve_workers(workers),
+        )
     except SpecError as exc:
         fail(str(exc))
     if not no_cache:
@@ -652,9 +678,15 @@ def render(
         f"rendering {profile} video of {sources.revision_id} in family '{family.manifest.id}' "
         f"({job.manim.pixel_width}x{job.manim.pixel_height} at {job.manim.frame_rate:g} fps, "
         f"{job.output.duration_seconds:g}s, cache {job.cache_key[:23]}...)"
+        + (f" with {job.workers} workers" if job.workers > 1 else "")
     )
     try:
-        manifest = run_job(proj, family, job, paths, hashes, timeout=timeout)
+        if job.workers > 1:
+            manifest = run_parallel_video(
+                proj, family, job, paths, hashes, timeout=timeout, log=lambda line: out.print(f"  {line}")
+            )
+        else:
+            manifest = run_job(proj, family, job, paths, hashes, timeout=timeout)
     except SpecError as exc:
         fail(str(exc))
     sheet = write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")

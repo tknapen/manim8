@@ -284,9 +284,13 @@ def build_video_job(
     samples: dict[str, float] | None = None,
     tool_versions: dict[str, object] | None = None,
     job_id: str | None = None,
+    workers: int = 1,
 ) -> tuple[RenderJob, JobPaths, InputHashes]:
     """A video of the whole storyboard with sections, subtitles and sampled checkpoints, at any profile:
-    `storyboard` and `snapshot` for a quick look at a small size, `draft` for review, `final` for delivery."""
+    `storyboard` and `snapshot` for a quick look at a small size, `draft` for review, `final` for delivery.
+
+    `workers` above one renders ranges of the scene's plays in that many processes at once (ADR-029); the
+    cache key does not depend on it because the movie is the same."""
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
@@ -332,6 +336,7 @@ def build_video_job(
         manim=manim,
         output_dir=paths.output_dir.relative_to(project.root).as_posix(),
         cache_key=key,
+        workers=max(1, workers),
     )
     return job, paths, hashes
 
@@ -424,47 +429,55 @@ def launch_job(
 
 def complete_job(project: Project, launched: LaunchedJob) -> ArtifactManifest:
     """Wait for a launched worker, write the log and the manifest, and record the cache pointer."""
+    result = complete_stage(launched)
+    return finish_manifest(project, launched.job, launched.paths, launched.hashes, result)
+
+
+def complete_stage(launched: LaunchedJob) -> WorkerResult:
+    """Wait for a launched worker, write its log and read its result; no manifest (a stage of a parallel render
+    is not a job of its own)."""
     returncode = launched.process.wait()
     elapsed = time.monotonic() - launched.started
     stdout = launched.stdout_path.read_text(encoding="utf-8", errors="replace")
     stderr = launched.stderr_path.read_text(encoding="utf-8", errors="replace")
-    return _finish_job(
-        project, launched.job, launched.paths, launched.hashes, launched.argv, returncode, stdout, stderr, elapsed
-    )
+    write_worker_log(launched.paths, launched.argv, returncode, stdout, stderr, elapsed)
+    return read_worker_result(launched.paths, stderr)
 
 
-def _finish_job(
-    project: Project,
-    job: RenderJob,
-    paths: JobPaths,
-    hashes: InputHashes,
-    argv: list[str],
-    returncode: int,
-    stdout: str,
-    stderr: str,
-    elapsed: float,
-) -> ArtifactManifest:
+def write_worker_log(
+    paths: JobPaths, argv: list[str], returncode: int, stdout: str, stderr: str, elapsed: float
+) -> None:
     paths.log_file.write_text(
         f"$ {' '.join(argv)}\n(exit {returncode}, {elapsed:.1f}s)\n\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n"
     )
+
+
+def read_worker_result(paths: JobPaths, stderr: str = "") -> WorkerResult:
     result_file = paths.output_dir / "result.json"
     if not result_file.exists():
         tail = stderr.strip().splitlines()[-25:]
         raise SpecError(paths.log_file, "worker produced no result.json; last stderr lines:\n" + "\n".join(tail))
     try:
-        worker_result = WorkerResult.model_validate_json(result_file.read_text())
+        return WorkerResult.model_validate_json(result_file.read_text())
     except ValidationError as exc:
         raise SpecError(
             result_file, f"worker result does not match the contract:\n{format_validation_error(exc)}"
         ) from None
+
+
+def finish_manifest(
+    project: Project, job: RenderJob, paths: JobPaths, hashes: InputHashes, result: WorkerResult
+) -> ArtifactManifest:
+    """Write `manifest.json` for a finished job and, when it succeeded, point the cache at it."""
     manifest = ArtifactManifest(
         created_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         job=job,
-        result=worker_result,
+        result=result,
         inputs=hashes,
     )
+    paths.manifest_file.parent.mkdir(parents=True, exist_ok=True)
     paths.manifest_file.write_text(manifest.model_dump_json(indent=2))
-    if worker_result.status == "succeeded":
+    if result.status == "succeeded":
         record_cache(project, job.cache_key, paths.manifest_file)
     return manifest
 
@@ -498,14 +511,18 @@ __all__ = [
     "cache_key",
     "cached_manifest",
     "complete_job",
+    "complete_stage",
+    "finish_manifest",
     "input_hashes",
     "job_paths",
     "launch_job",
     "manim_settings",
     "materialize_data_files",
     "new_job_id",
+    "read_worker_result",
     "run_job",
     "sources_from_report",
     "sources_from_revision",
     "tool_versions_for",
+    "write_worker_log",
 ]

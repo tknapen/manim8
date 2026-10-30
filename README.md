@@ -52,6 +52,7 @@ uv run scianim compare $P rev_0001 working             # pixel and layout differ
 uv run scianim serve --workspace workspace             # review UI and API on http://127.0.0.1:8765/
 uv run scianim render $P --profile draft               # 1280x720 video, sections, SRT, sampled frames, timing report
 uv run scianim render $P --profile final               # 1920x1080 at the spec's fps, exactly duration*fps frames
+uv run scianim render $P --profile final --workers 4   # the same movie from four processes drawing ranges of the clip
 uv run scianim timing $P                               # scene durations proposed from narration, with conflicts
 uv run scianim sources probe $P                        # what each source says (columns, pages), with checksums
 uv run scianim context $P                              # CONTEXT.md + schemas for an external agent
@@ -80,7 +81,8 @@ object resolution from the layout report, render comparison, non-blocking render
 React front end built into the package (source in `ui/`). Milestone 4 adds frame-exact video rendering
 (`scianim render`): draft and final movies with per-scene section videos, subtitles from the narration, PyAV
 probing, sampled frames at every checkpoint and a timing report against the storyboard, plus `scianim timing`
-and `scianim stale`. Milestone 5 adds the agent loop as files: source extracts, a context bundle, typed
+and `scianim stale`; `--workers N` renders ranges of the clip in N processes at once and joins the segments
+without re-encoding (ADR-029). Milestone 5 adds the agent loop as files: source extracts, a context bundle, typed
 proposals with diffs and claims, self-inspection, and four more kinds (cited captions, populations,
 receptive-field glyphs, network graphs); a third example, `orientation_tuning`, is the output of that loop.
 Milestone 6 adds verified bundles (`scianim bundle export|inspect|import`) and the

@@ -88,7 +88,22 @@ writes the same records with `scianim feedback add`.
 scianim timing <project>                    # scene durations proposed from narration; conflicts reported
 scianim render <project> --profile draft    # 2/3 resolution, sections, subtitles, sampled frames
 scianim render <project> --profile final    # exact dimensions and fps; fails if a frame is off
+scianim render <project> --workers 4        # four processes draw four ranges of the clip at once
 ```
+
+A video renders in one process unless you ask for more. With `--workers N` (`0` means one per CPU core) a
+planning pass lists every play of the scene, the plays are split into N contiguous ranges, N workers draw
+their ranges at the same time, each fast-forwarding through the rest so it starts from exactly the state a
+single process would have reached, and the encoded segments are joined without re-encoding. The movie, its
+sections, subtitles and sampled frames are the same as from one process, and so is the cache key; the manifest
+lists the parts and how long each took. The first time, ranges are balanced by frame counts (a still wait
+counts little); every render records how long each play took and whether it was drawn or served from Manim's
+per-play cache, and the next parallel render of the same clip balances its parts by the measured times of the
+drawn plays. The Gabor clip at a 24-cell mesh and 30 fps took 414 s in one process and 145 s with four
+workers on four cores (the parts took 90 to 124 s; the planning pass and the join add about ten seconds).
+The review server takes the same `workers` field in a job request. Manim's per-play cache under
+`.scianim/media` does not know when the renderer's code changed; after updating SciAnim, `scianim clean
+--media` keeps old segments out of new movies.
 
 ## Making something move
 
@@ -168,7 +183,8 @@ mesh weight and the surface opacity (nearly solid since `default@0.3.1`). A surf
 footprint and `lift_fraction` raises it above the page's centre, so a large surface can sit behind the text
 (text is always drawn on top) while the floor frame, which hangs below the surface, keeps its labels on the
 page. Surfaces render through Cairo as thousands of small cells: snapshots are quick, a draft video takes
-tens of minutes, and the 80-cell Gabor mesh at 60 fps takes about two hours.
+tens of minutes in one process, and the 80-cell Gabor mesh at 60 fps takes about two hours; `--workers`
+divides those times by somewhat less than the number of cores you give it.
 
 ## Revisions, forks and comparison
 

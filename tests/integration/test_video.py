@@ -109,3 +109,62 @@ def test_video_job_through_the_api_runner(workspace: Path, scianim) -> None:
     assert job["operation"] == "render_video" and job["videos"][0]["frame_count"] == 24 * 30
     assert {c["snapshot_id"] for c in job["checkpoints"]} >= {"circuit_shown", "model_complete", "halfway"}
     assert job["timing"]["within_tolerance"], job["timing"]["problems"]
+
+
+def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> None:
+    """Two workers draw halves of the clip; the joined movie has the same frames as the one-process render."""
+    project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
+    assert scianim("codegen", str(project)).returncode == 0
+
+    def latest() -> ArtifactManifest:
+        return ArtifactManifest.model_validate_json(
+            sorted((project / "renders" / "working").glob("*/manifest.json"))[-1].read_text()
+        )
+
+    serial = scianim("render", str(project), "--profile", "storyboard", "--no-cache")
+    assert serial.returncode == 0, serial.stdout + serial.stderr
+    one = latest()
+    parallel = scianim("render", str(project), "--profile", "storyboard", "--no-cache", "--workers", "2")
+    assert parallel.returncode == 0, parallel.stdout + parallel.stderr
+    two = latest()
+    assert two.job.job_id != one.job.job_id and two.job.workers == 2 and two.job.operation == "render_video"
+    assert two.job.cache_key == one.job.cache_key and two.result.status == "succeeded"
+
+    ranges = [(r.part.first_play, r.part.last_play) for r in two.result.parts]
+    assert len(ranges) == 2 and ranges[0][0] == 0 and ranges[0][1] + 1 == ranges[1][0]
+    assert ranges[1][1] == len(two.result.plays) - 1 and all(r.status == "succeeded" for r in two.result.parts)
+    assert sum(p.frames for p in two.result.plays) == 720 and all(p.seconds >= 0 for p in two.result.plays)
+    assert sum(p.seconds for p in two.result.plays) > 0  # the parts report how long each play took
+
+    [movie_one], [movie_two] = one.result.videos, two.result.videos
+    assert (
+        (movie_two.frame_count, movie_two.width_px, movie_two.height_px, movie_two.fps)
+        == (
+            movie_one.frame_count,
+            movie_one.width_px,
+            movie_one.height_px,
+            movie_one.fps,
+        )
+        == (720, 480, 270, 30.0)
+    )
+    assert [(s.name, s.metadata["frames"]) for s in two.result.sections] == [
+        (s.name, s.metadata["frames"]) for s in one.result.sections
+    ]
+    assert two.result.timing is not None and two.result.timing.within_tolerance
+    assert (
+        two.result.subtitles
+        and (project / two.result.subtitles).read_text()
+        == (
+            project / one.result.subtitles  # type: ignore[operator]
+        ).read_text()
+    )
+    # Every sampled checkpoint frame is pixel-identical: the parts drew exactly what one process draws.
+    assert {c.snapshot_id: c.sha256 for c in two.result.checkpoints} == {
+        c.snapshot_id: c.sha256 for c in one.result.checkpoints
+    }
+    log = (project / ".scianim" / "jobs" / two.job.job_id / "worker.log").read_text()
+    assert "balanced by the play times measured in" in log  # the serial render just before supplied them
+    assert (project / ".scianim" / "jobs" / two.job.job_id / "parts" / "1" / "result.json").exists()
+    # The cache does not care how many workers drew the movie.
+    again = scianim("render", str(project), "--profile", "storyboard", "--workers", "3")
+    assert again.returncode == 0 and "cache hit" in again.stdout

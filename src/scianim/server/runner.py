@@ -32,6 +32,7 @@ from scianim.render.jobs import (
     tool_versions_for,
 )
 from scianim.render.manifests import JobStatus, manifest_relative_path, now_iso, write_status
+from scianim.render.parallel import JobCanceled, resolve_workers, run_parallel_video
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import load_revision
 
@@ -47,6 +48,8 @@ class JobRequest:
     no_cache: bool = False
     operation: str = "render_snapshots"
     samples: dict[str, float] = field(default_factory=dict)
+    workers: int = 1
+    """Worker processes for a video (0: one per CPU core)."""
 
 
 class JobRunner:
@@ -72,6 +75,7 @@ class JobRunner:
             profile=request.profile,
             snapshot_ids=list(request.snapshot_ids),
             no_cache=request.no_cache,
+            workers=resolve_workers(request.workers) if request.operation == "render_video" else 1,
             status="queued",
             created_at=now_iso(),
             submitted_by="server",
@@ -168,6 +172,7 @@ class JobRunner:
                 dict(request.samples),
                 tool_versions,
                 job_id=job_id,
+                workers=resolve_workers(request.workers),
             )
         else:
             job, paths, hashes = build_snapshot_job(
@@ -193,16 +198,26 @@ class JobRunner:
         if job_id in self._cancel:
             self._set(job_id, status="canceled", finished_at=now_iso())
             return
-        launched = launch_job(project, family, job, paths, hashes)
-        with self._lock:
-            self._launched[job_id] = launched
-        self._set(job_id, status="running")
-        while launched.process.poll() is None:
-            time.sleep(0.25)
-        if job_id in self._cancel:
-            self._set(job_id, status="canceled", finished_at=now_iso(), error="canceled by the reviewer")
-            return
-        manifest = complete_job(project, launched)
+        if job.workers > 1:
+            self._set(job_id, status="running")
+            try:
+                manifest = run_parallel_video(
+                    project, family, job, paths, hashes, timeout=None, cancel=lambda: job_id in self._cancel
+                )
+            except JobCanceled:
+                self._set(job_id, status="canceled", finished_at=now_iso(), error="canceled by the reviewer")
+                return
+        else:
+            launched = launch_job(project, family, job, paths, hashes)
+            with self._lock:
+                self._launched[job_id] = launched
+            self._set(job_id, status="running")
+            while launched.process.poll() is None:
+                time.sleep(0.25)
+            if job_id in self._cancel:
+                self._set(job_id, status="canceled", finished_at=now_iso(), error="canceled by the reviewer")
+                return
+            manifest = complete_job(project, launched)
         write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")
         self._set(
             job_id,

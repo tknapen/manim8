@@ -7,14 +7,16 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from scianim_core.animation import Equation, OutputSpec
 from scianim_core.common import HexColor, RelPath, SchemaVersion, Sha256, Slug, StrictModel
 from scianim_core.style import EquationEngine, ResolvedStyle
 from scianim_core.timing import TimingReport
 
-Operation = Literal["render_snapshots", "render_video", "probe"]
+Operation = Literal["render_snapshots", "render_video", "plan_video", "render_video_part", "merge_video", "probe"]
+"""`plan_video`, `render_video_part` and `merge_video` are the three stages of a parallel video render (ADR-029);
+the control plane derives them from one `render_video` job with `workers` above one."""
 QualityProfile = Literal["storyboard", "snapshot", "draft", "final"]
 PreviewKind = Literal["manim_checkpoint", "sampled_video_frame", "storyboard_schematic"]
 Fidelity = Literal["exact", "approximate"]
@@ -52,6 +54,64 @@ class SceneTarget(StrictModel):
     end_seconds: float = Field(gt=0)
 
 
+class PlayRecord(StrictModel):
+    """One `play` of the generated scene, as the planning pass saw it in fast-forward."""
+
+    index: int = Field(ge=0)
+    """Manim's animation number: `renderer.num_plays` when the play began."""
+    scene_id: Slug | None = None
+    """The storyboard scene (one Manim section each) the play belongs to."""
+    start_seconds: float = Field(ge=0)
+    frames: int = Field(ge=1)
+    static: bool = False
+    """A wait with nothing moving: Manim draws one frame and repeats it, so it costs little."""
+    drawn: bool = False
+    """Manim drew the play's frames in the worker that reported it: not fast-forwarded, not served from its
+    per-play cache. Only then is `seconds` the cost of drawing."""
+    seconds: float = Field(default=0, ge=0)
+    """Wall time the play took in the worker that reported it. A later parallel render of the same clip balances
+    its parts by the times of the plays that were drawn."""
+
+
+class ReachedCheckpoint(StrictModel):
+    """A checkpoint the scene reached, with the clock and the animation number at that moment."""
+
+    snapshot_id: Slug
+    animation_index: int = Field(ge=0)
+    time_seconds: float = Field(ge=0)
+
+
+class PartRange(StrictModel):
+    """The plays one worker of a parallel render draws; it fast-forwards through all the others."""
+
+    index: int = Field(ge=0)
+    count: int = Field(ge=1)
+    first_play: int = Field(ge=0)
+    last_play: int = Field(ge=0)
+    """Inclusive."""
+    frames: int = Field(ge=0)
+    """Planned frames in the range."""
+
+
+class SegmentRecord(StrictModel):
+    """One play's encoded video segment, as a part worker left it in its media directory."""
+
+    play_index: int = Field(ge=0)
+    scene_id: Slug | None = None
+    path: RelPath
+    frames: int = Field(ge=1)
+
+
+class MergeInputs(StrictModel):
+    """What `merge_video` joins: every play's segment in order, plus the plan's checkpoints and subtitles."""
+
+    plays: list[PlayRecord]
+    segments: list[SegmentRecord]
+    checkpoints: list[ReachedCheckpoint] = []
+    subtitles: RelPath | None = None
+    parts: list[PartRange] = []
+
+
 class RenderJob(StrictModel):
     schema_version: SchemaVersion = "1.0"
     job_id: str = Field(min_length=1)
@@ -78,6 +138,21 @@ class RenderJob(StrictModel):
     manim: ManimSettings
     output_dir: RelPath
     cache_key: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    workers: int = Field(default=1, ge=1)
+    """Worker processes for a video. Above one, the plays are split into ranges rendered at the same time and
+    the segments are joined without re-encoding; the result is the same movie (ADR-029)."""
+    part: PartRange | None = None
+    """`render_video_part` only: the range this worker draws."""
+    merge: MergeInputs | None = None
+    """`merge_video` only: the segments to join."""
+
+    @model_validator(mode="after")
+    def _stage_fields_match_operation(self) -> RenderJob:
+        if (self.operation == "render_video_part") != (self.part is not None):
+            raise ValueError("`part` belongs to operation render_video_part, and only there")
+        if (self.operation == "merge_video") != (self.merge is not None):
+            raise ValueError("`merge` belongs to operation merge_video, and only there")
+        return self
 
 
 class BBox(StrictModel):
@@ -149,6 +224,14 @@ class VideoRecord(StrictModel):
     sha256: Sha256
 
 
+class PartReport(StrictModel):
+    """One part of a parallel render: its range and how long its worker took."""
+
+    part: PartRange
+    status: Literal["succeeded", "failed", "canceled"]
+    elapsed_seconds: float = Field(ge=0)
+
+
 class ToolVersions(StrictModel):
     python: str
     platform: str
@@ -169,6 +252,15 @@ class WorkerResult(StrictModel):
     subtitles: RelPath | None = None
     timing: TimingReport | None = None
     """Per-scene and total frame counts of a video against the storyboard."""
+    plays: list[PlayRecord] = []
+    """Every play of the scene (`plan_video`; a part lists the plays up to the end of its range; a merge
+    repeats the plan)."""
+    reached: list[ReachedCheckpoint] = []
+    """Checkpoints reached, with their clock (`plan_video`)."""
+    segments: list[SegmentRecord] = []
+    """Encoded segments, one per play drawn (`render_video_part`; a merge lists what it joined)."""
+    parts: list[PartReport] = []
+    """How each part of a parallel render went (filled in by the control plane on the merged result)."""
     tool_versions: ToolVersions | None = None
     elapsed_seconds: float = Field(ge=0)
     errors: list[str] = []

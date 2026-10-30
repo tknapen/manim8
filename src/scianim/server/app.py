@@ -54,6 +54,9 @@ class JobCreate(BaseModel):
     no_cache: bool = False
     samples: dict[str, float] = {}
     """Extra video frames to extract, id -> seconds (video jobs)."""
+    workers: int = Field(default=1, ge=0)
+    """Worker processes for a video: ranges of the clip rendered at the same time and joined; 0 means one per
+    CPU core."""
 
 
 class FeedbackCreate(BaseModel):
@@ -366,6 +369,7 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                 body.no_cache,
                 body.operation,
                 dict(body.samples),
+                body.workers,
             ),
         )
         return status.model_dump(mode="json")

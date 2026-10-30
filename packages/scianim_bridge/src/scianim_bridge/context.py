@@ -13,7 +13,14 @@ from scianim_core.animation import Equation, OutputSpec
 
 JOB_FILE_ENV = "SCIANIM_JOB_FILE"
 PROJECT_ROOT_ENV = "SCIANIM_PROJECT_ROOT"
-Mode = Literal["snapshot", "video"]
+Mode = Literal["snapshot", "video", "plan", "part", "merge"]
+MODES: dict[str, Mode] = {
+    "render_snapshots": "snapshot",
+    "render_video": "video",
+    "plan_video": "plan",
+    "render_video_part": "part",
+    "merge_video": "merge",
+}
 
 
 @dataclass
@@ -26,7 +33,12 @@ class JobContext:
 
     @property
     def mode(self) -> Mode:
-        return "snapshot" if self.job.operation == "render_snapshots" else "video"
+        """What the worker does with the scene: capture checkpoints, encode the movie, fast-forward through it to
+        list its plays, draw one range of plays, or join segments without touching the scene at all."""
+        try:
+            return MODES[self.job.operation]
+        except KeyError:
+            raise ValueError(f"operation '{self.job.operation}' is not one the worker performs") from None
 
     @property
     def style(self) -> ResolvedStyle:

@@ -36,6 +36,7 @@ class JobStatus(BaseModel):
     profile: str = "snapshot"
     snapshot_ids: list[str] = []
     no_cache: bool = False
+    workers: int = 1
     status: JobLifecycle
     created_at: str
     started_at: str | None = None
