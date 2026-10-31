@@ -207,3 +207,43 @@ def test_schema_export_is_deterministic() -> None:
         "render_job.schema.json",
         "artifact_manifest.schema.json",
     } <= set(first)
+
+
+def test_array_expressions_agree_with_scalar_evaluation() -> None:
+    """`compile_expression(..., arrays=True)` evaluates a grid in one call and matches the scalar form."""
+    import math
+
+    np = pytest.importorskip("numpy")
+    from scianim_core.expressions import compile_expression
+
+    expression = "exp(-(x - x_0)^2 / (2 * sigma^2)) + 1 / x + sqrt(x)"
+    scalar = compile_expression(expression, ("x", "x_0", "sigma"))
+    vector = compile_expression(expression, ("x", "x_0", "sigma"), arrays=True)
+    xs = np.linspace(-1.0, 2.0, 13)
+    grid = vector(x=xs, x_0=0.5, sigma=0.8)
+    assert grid.shape == xs.shape
+    for x, value in zip(xs.tolist(), grid.tolist(), strict=True):
+        expected = scalar(x=x, x_0=0.5, sigma=0.8)
+        assert (math.isnan(expected) and math.isnan(value)) or math.isclose(expected, value, rel_tol=1e-12)
+    with pytest.raises(TypeError, match="missing variable"):
+        vector(x=xs)
+    with pytest.raises(ValueError, match="unknown name"):
+        compile_expression("x + y", ("x",), arrays=True)
+
+
+def test_surface_renderer_is_a_setting_that_enters_the_cache_key() -> None:
+    from scianim_core.jobs import ManimSettings
+
+    base = {
+        "pixel_width": 960,
+        "pixel_height": 540,
+        "frame_rate": 60,
+        "background_color": "#FFFFFF",
+        "media_dir": ".scianim/media/working",
+    }
+    cairo = ManimSettings.model_validate(base)
+    raster = ManimSettings.model_validate({**base, "surface_renderer": "raster"})
+    assert cairo.surface_renderer == "cairo" and raster.surface_renderer == "raster"
+    assert cairo.model_dump(mode="json") != raster.model_dump(mode="json")
+    with pytest.raises(ValidationError):
+        ManimSettings.model_validate({**base, "surface_renderer": "opengl"})

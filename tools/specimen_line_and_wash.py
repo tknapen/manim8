@@ -101,7 +101,13 @@ def typ_text(s: str) -> str:
     return s.replace("\\", "\\\\").replace("#", "\\#").replace("@", "\\@").replace("_", "\\_").replace("*", "\\*")
 
 
-def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dict[str, Any], notes: list[str]) -> str:
+def build(
+    theme: str,
+    frames: list[tuple[str, dict[str, Any], Path]],
+    style: dict[str, Any],
+    notes: list[str],
+    renderers: set[str] | None = None,
+) -> str:
     pal = style["tokens"]["palette"]
     typo = style["tokens"]["typography"]
     body_fonts = [typo["body"]["font_family"], *typo["body"]["font_fallbacks"]]
@@ -125,6 +131,9 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     sy = top + 2 * row_h + 2.0  # palette strip
     height = sy + 13.0 + left
 
+    # Which surface renderer (ADR-032) drew the surfaces: the sheet says so, since the two differ in their pixels.
+    kinds = sorted(renderers or {"cairo"})
+    renderer_note = ", surfaces drawn by the " + " and ".join(kinds) + " renderer" if kinds != ["cairo"] else ""
     out: list[str] = []
     out.append(f'#set page(width: {W}mm, height: {height:.3f}mm, margin: 0mm, fill: rgb("{pal["background"]}"))\n')
     out.append(f'#set text(font: ({fonts_typ}), fill: rgb("{ink}"), size: 7pt)\n')
@@ -134,7 +143,8 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     )
     out.append(
         f'#place(top + left, dx: 12mm, dy: 18.5mm, text(size: 6.2pt, fill: rgb("{secondary}"))'
-        "[Eight checkpoints rendered by the Manim bridge from the example clips, unretouched, at the snapshot profile. "
+        "[Eight checkpoints rendered by the Manim bridge from the example clips, unretouched, at the snapshot profile"
+        f"{typ_text(renderer_note)}. "
         f"Resolved layers: {typ_text(layers)}; style hash {typ_text(style['hash'][:19])}.{typ_text(override_note)}])\n"
     )
 
@@ -201,10 +211,12 @@ def main() -> int:
     frames: list[tuple[str, dict[str, Any], Path]] = []
     style: dict[str, Any] | None = None
     notes: list[str] = []
+    renderers: set[str] = set()
     for project, wanted in FRAMES:
         project_dir = args.workspace / "families" / args.family / project
         manifest = newest_manifest(project_dir, theme_layer)
         style = style or manifest["job"]["resolved_style"]
+        renderers.add(manifest["job"]["manim"].get("surface_renderer", "cairo"))
         for record in pick_frames(manifest, wanted):
             frames.append((project, record, project_dir / record["png"]))
         for warning in manifest["result"].get("warnings", []):
@@ -221,7 +233,7 @@ def main() -> int:
             shutil.copyfile(png, target)
             staged.append((project, record, target))
         source = root / "specimen.typ"
-        source.write_text(build(args.theme, staged, style, notes), encoding="utf-8")
+        source.write_text(build(args.theme, staged, style, notes, renderers), encoding="utf-8")
         import typst
 
         typst.compile(str(source), output=str(args.out / "specimen.pdf"), format="pdf", root=str(root))

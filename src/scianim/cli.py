@@ -56,6 +56,7 @@ from scianim_core.feedback import Region
 from scianim_core.schemas import export_schemas
 
 QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
+SURFACE_RENDERERS = ("cairo", "raster")
 
 app = typer.Typer(no_args_is_help=True, help="SciAnim Studio control plane. Never imports Manim.")
 style_app = typer.Typer(no_args_is_help=True, help="Style token resolution.")
@@ -605,10 +606,19 @@ def snapshot(
     ] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 1800,
+    surface_renderer: Annotated[
+        str,
+        typer.Option(
+            help="How surfaces are drawn: cairo (Manim polygons) or raster (one image painted by the bridge, "
+            "faster, the floor frame hidden where the surface covers it). Enters the cache key."
+        ),
+    ] = "cairo",
 ) -> None:
     """Render named checkpoints from the real animation flow in the family environment."""
     if profile not in QUALITY_PROFILES:
         fail(f"profile must be one of {list(QUALITY_PROFILES)}")
+    if surface_renderer not in SURFACE_RENDERERS:
+        fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
     proj, report = _prepare(project, require_family=True)
     if report.family is None:
         print_report(report, str(project))
@@ -626,7 +636,15 @@ def snapshot(
             if revision
             else sources_from_report(proj, report)
         )
-        job, paths, hashes = build_snapshot_job(proj, sources, family, list(ids or []), profile, tool_versions)  # type: ignore[arg-type]
+        job, paths, hashes = build_snapshot_job(
+            proj,
+            sources,
+            family,
+            list(ids or []),
+            profile,  # type: ignore[arg-type]
+            tool_versions,
+            surface_renderer=surface_renderer,  # type: ignore[arg-type]
+        )
     except SpecError as exc:
         fail(str(exc))
     if not no_cache:
@@ -720,9 +738,18 @@ def render(
             "joins them, the same movie in about 1/N of the time; 0 uses one process per CPU core.",
         ),
     ] = 1,
+    surface_renderer: Annotated[
+        str,
+        typer.Option(
+            help="How surfaces are drawn: cairo (Manim polygons) or raster (one image painted by the bridge, "
+            "faster, the floor frame hidden where the surface covers it). Enters the cache key."
+        ),
+    ] = "cairo",
 ) -> None:
     """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames, at any
     profile: storyboard or snapshot for a quick look at a small size, draft for review, final for delivery."""
+    if surface_renderer not in SURFACE_RENDERERS:
+        fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
     proj, report = _prepare(project, require_family=True)
     if report.family is None:
         print_report(report, str(project))
@@ -755,6 +782,7 @@ def render(
             samples,
             tool_versions,
             workers=resolve_workers(workers),
+            surface_renderer=surface_renderer,  # type: ignore[arg-type]
         )
     except SpecError as exc:
         fail(str(exc))

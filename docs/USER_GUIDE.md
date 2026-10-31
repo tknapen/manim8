@@ -211,6 +211,19 @@ writes `renders/working/stills_<stamp>/stills.html`, the token differences above
 seen on the clip before it is published; `--against name@version` compares with another published sheet.
 `style publish` copies an accepted candidate into `styles/<name>/<version>/` and never overwrites a version.
 
+
+A second surface renderer paints the surface as one image instead: `scianim snapshot <project>
+--surface-renderer raster` (and the same option on `render`; `surface_renderer` on an API job). The raster
+projects the mesh through the same camera, fills the cells far to near with the same washes and the same
+light, and paints the floor frame and ticks into the picture with a depth test, so the frame is hidden where
+the surface covers it and seen where it does not; the labels stay text and keep facing you. A frame of the
+80-cell Gabor costs about a tenth of a second instead of nearly three, so the full clip renders in minutes
+in one process. The two renderers are equals and either may be chosen per render; the default stays `cairo`
+until the raster stills have been reviewed (`styles/default/0.5.0/specimen_raster.png` beside `specimen.png`
+shows the two), and the choice is part of the cache key, so switching renders afresh. They differ only in
+anti-aliasing: the raster is drawn at twice the size and reduced, Cairo computes coverage exactly. A sampled
+`function_image` now evaluates its field in one array call either way.
+
 ## Revisions, forks and comparison
 
 ```bash

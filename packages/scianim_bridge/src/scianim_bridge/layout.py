@@ -68,11 +68,12 @@ def layout_report(scene: SnapshotScene) -> tuple[list[LayoutItem], list[LayoutWa
     for component in scene.objects.values():
         if not component.visible or len(component.group.submobjects) == 0:
             continue
-        bbox = (
-            projected_bbox(scene.renderer.camera, component.group)
-            if component.three_d
-            else normalized_bbox(component.group)
-        )
+        if component.layout_bbox is not None:
+            bbox = component.layout_bbox()
+        elif component.three_d:
+            bbox = projected_bbox(scene.renderer.camera, component.group)
+        else:
+            bbox = normalized_bbox(component.group)
         items.append(
             LayoutItem(
                 object_id=component.object_id,

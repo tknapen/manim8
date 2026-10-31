@@ -18,6 +18,7 @@ Operation = Literal["render_snapshots", "render_video", "plan_video", "render_vi
 """`plan_video`, `render_video_part` and `merge_video` are the three stages of a parallel video render (ADR-029);
 the control plane derives them from one `render_video` job with `workers` above one."""
 QualityProfile = Literal["storyboard", "snapshot", "draft", "final"]
+SurfaceRenderer = Literal["cairo", "raster"]
 PreviewKind = Literal["manim_checkpoint", "sampled_video_frame", "storyboard_schematic"]
 Fidelity = Literal["exact", "approximate"]
 WarningCode = Literal["outside_safe_zone", "text_too_small", "overlap"]
@@ -38,6 +39,10 @@ class ManimSettings(StrictModel):
     pixel_format: str = "yuv420p"
     video_codec: str = "libx264"
     save_sections: bool = False
+    surface_renderer: SurfaceRenderer = "cairo"
+    """How `surface_plot` objects are drawn: `cairo` as thousands of small Manim polygons, `raster` as one image
+    the bridge paints itself (projected through the same camera, cells in painter's order, the floor frame
+    hidden where the surface covers it; ADR-032). The two are equals; the value enters the cache key."""
 
 
 class SnapshotTarget(StrictModel):

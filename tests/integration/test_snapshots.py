@@ -240,3 +240,41 @@ def test_style_stills_render_a_candidate_beside_the_pinned_sheet(workspace: Path
         "style", "publish", str(candidate), "tomas_scientific@0.6.0", "--styles-dir", str(workspace / "styles")
     )
     assert again.returncode != 0
+
+
+def test_gabor_filter_renders_the_same_under_the_raster_renderer(workspace: Path, scianim) -> None:
+    """ADR-032: the raster path draws the same clip, its projected boxes within two percent of the frame of the
+    Cairo path's, the floor frame hidden where the surface covers it, and the picture costs a fraction."""
+    project = workspace / "families" / "computational_neuroscience" / "gabor_filter"
+    assert scianim("codegen", str(project)).returncode == 0
+    boxes: dict[str, dict[str, object]] = {}
+    elapsed: dict[str, float] = {}
+    for renderer in ("cairo", "raster"):
+        run = scianim(
+            "snapshot",
+            str(project),
+            "--no-cache",
+            "--id",
+            "with_axes",
+            "--id",
+            "rotating",
+            "--surface-renderer",
+            renderer,
+        )
+        assert run.returncode == 0, run.stdout + run.stderr
+        manifest = manifests(project, "working")[-1]
+        assert manifest.result.status == "succeeded" and manifest.job.manim.surface_renderer == renderer
+        elapsed[renderer] = manifest.result.elapsed_seconds
+        for record in manifest.result.checkpoints:
+            assert record.fidelity == "exact" and record.warnings == []
+            boxes[f"{renderer}:{record.snapshot_id}"] = next(
+                i for i in record.layout if i.object_id == "gabor_surface"
+            ).bbox
+    for snapshot_id in ("with_axes", "rotating"):
+        a, b = boxes[f"cairo:{snapshot_id}"], boxes[f"raster:{snapshot_id}"]
+        for name in ("x", "y", "x2", "y2"):
+            assert abs(getattr(a, name) - getattr(b, name)) < 0.02, (snapshot_id, name, a, b)
+    # Two renderers, two cache keys; the raster job is the quicker by far.
+    cairo_job, raster_job = manifests(project, "working")[-2:]
+    assert cairo_job.job.cache_key != raster_job.job.cache_key
+    assert elapsed["raster"] < elapsed["cairo"]

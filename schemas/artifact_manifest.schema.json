@@ -650,6 +650,15 @@
           "title": "Seed",
           "type": "integer"
         },
+        "surface_renderer": {
+          "default": "cairo",
+          "enum": [
+            "cairo",
+            "raster"
+          ],
+          "title": "Surface Renderer",
+          "type": "string"
+        },
         "video_codec": {
           "default": "libx264",
           "title": "Video Codec",
