@@ -10,9 +10,9 @@ package:
     uv run --project workspace/families/computational_neuroscience python tools/specimen_line_and_wash.py
 
 Options: ``--workspace DIR`` (default ``workspace``), ``--family ID`` (default
-``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.4.0``; manifests whose
+``computational_neuroscience``), ``--theme NAME@VERSION`` (default ``default@0.5.0``; manifests whose
 resolved style does not carry that layer are refused) and ``--out DIR`` (default
-``styles/default/0.4.0``).
+``styles/default/0.5.0``).
 """
 
 from __future__ import annotations
@@ -49,6 +49,24 @@ PALETTE_ROLES = [
     "comparison_soft",
     "warning",
 ]
+
+
+def _describe_tokens(paths: list[str]) -> str:
+    """The token paths a version sets, grouped by section; a long list within one section is folded to the
+    kinds of leaf and the roles they belong to (`typography: font_family of body, title`)."""
+    by_section: dict[str, list[str]] = {}
+    for path in paths:
+        section, _, rest = path.partition(".")
+        by_section.setdefault(section, []).append(rest)
+    parts = []
+    for section, leaves in by_section.items():
+        if len(leaves) <= 6:
+            parts.append(f"{section} ({', '.join(leaves)})")
+        else:
+            tails = sorted({leaf.rsplit(".", 1)[-1] for leaf in leaves})
+            heads = sorted({leaf.split(".", 1)[0] for leaf in leaves if "." in leaf})
+            parts.append(f"{section} ({len(leaves)} tokens: {', '.join(tails)} of {', '.join(heads)})")
+    return "; ".join(parts)
 
 
 def newest_manifest(project_dir: Path, theme_layer: str) -> dict[str, Any]:
@@ -97,7 +115,7 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     override_note = (
         " Every token comes from this theme."
         if not others
-        else f" This version sets {', '.join(own) or 'nothing'}; every other token comes from {', '.join(others)}."
+        else f" This version sets {_describe_tokens(own) or 'nothing'}; every other token comes from {', '.join(others)}."
     )
 
     cols, gutter, left, top = 4, 6.0, 12.0, 28.0
@@ -175,8 +193,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--workspace", type=Path, default=Path("workspace"))
     parser.add_argument("--family", default="computational_neuroscience")
-    parser.add_argument("--theme", default="default@0.4.0")
-    parser.add_argument("--out", type=Path, default=Path("styles/default/0.4.0"))
+    parser.add_argument("--theme", default="default@0.5.0")
+    parser.add_argument("--out", type=Path, default=Path("styles/default/0.5.0"))
     args = parser.parse_args()
 
     theme_layer = f"theme:{args.theme}"

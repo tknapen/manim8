@@ -603,3 +603,39 @@ components rebuild per frame (a grating resampled each frame costs fifteen times
 which no structural proxy predicted, while the time of the previous render is exact for the common case of
 re-rendering after a small change.
 
+## ADR-030: `default@0.5.0`, line and wash after Keenan Crane
+
+**Status:** accepted, 31 October 2026
+
+**Context.** Since `default@0.3.0` the baseline has aimed at the look of Keenan Crane's geometry figures, but
+three things kept a surface from reading as his do: the wash was flat and the only modelling came from Manim's
+built-in lamp, which no token controlled; the mesh was dense and drawn in the text ink, so the wire competed
+with the shape; and labels were set in Helvetica beside Palatino mathematics, so a symbol in a readout and the
+same symbol in the equation were two letters. Lines also ended square, which at hairline weights looks cut,
+and a dot on a line lost its edge.
+
+**Decision.** A new published version, `default@0.5.0`, inheriting `default@0.4.0`, and the tokens to carry
+it. `three_d.shading_strength`, `light_azimuth_degrees` and `light_elevation_degrees` describe one soft light,
+placed relative to the camera's starting azimuth and fixed in the world while the camera orbits; the bridge
+reads each cell's normal from the corners it was built from, lightens cells that face the light toward the
+page and darkens cells turned away toward the foreground ink, and switches Manim's lamp off for that surface.
+`three_d.mesh_role` names the palette role of the mesh lines. `geometry.line_cap` sets round ends and joins on
+every stroked primitive (spines, ticks, curves, swatches, marker lines, edges, arrows, the surface frame), and
+`geometry.marker_rim_px_at_1080p` gives filled dots a rim in the page colour. All four default to the previous
+behaviour (strength zero keeps Manim's lamp; `secondary_text`; `butt`; no rim), so every older sheet renders
+as it did. `default@0.5.0` sets strength 0.45 with the light at the viewer's upper left, the mesh at 0.5 px in
+the muted ink, opaque surfaces, round ends, a 1.5 px rim, and a Palatino-lineage serif (TeX Gyre Pagella where
+Palatino is absent) for every text role, keeping the sizes of 0.3.0 through the leaf-wise merge.
+`tomas_scientific@0.5.0` pins it and changes nothing; the examples, the family manifest, the fixtures and the
+specimen tool pin `0.5.0`; the specimen beside the sheet is composed from renders made under it. Older
+versions are not edited.
+
+**Why.** Light is what makes a drawn surface an object: the same ridge reads from every angle of the orbit,
+and the diverging wash still says sign and height because the shade only moves a cell part of the way toward
+the page or the ink. One light, no specular term and no cast shadow keep the picture a drawing rather than a
+rendering, which is the line Crane's figures hold. The mesh demoted to a texture lets the light do the
+modelling. One type family on the page follows from the equations being the subject: a label should look
+like a line of the same document, not a caption from another. Round ends and rimmed dots are the two
+smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
+that a personal layer may revise, and the renderer honours them without reading a style's name.
+

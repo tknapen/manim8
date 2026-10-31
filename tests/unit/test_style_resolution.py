@@ -26,8 +26,8 @@ def write_sheet(styles: Path, name: str, version: str, body: str) -> Path:
 def test_versioned_layout_is_listed(styles_copy: Path) -> None:
     found = list_styles([styles_copy])
     assert set(found) == {"default", "tomas_scientific"}
-    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0"}
-    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0"}
+    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.5.0"}
+    assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.5.0"}
 
 
 def test_theme_chain_and_provenance(styles_copy: Path) -> None:
@@ -124,7 +124,8 @@ def test_missing_required_palette_role_fails(styles_copy: Path) -> None:
 def test_unknown_version_lists_available_ones(styles_copy: Path) -> None:
     with pytest.raises(
         StyleResolutionError,
-        match=r"not found.*available versions of 'tomas_scientific': \['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1', '0\.4\.0'\]",
+        match=r"not found.*available versions of 'tomas_scientific': "
+        r"\['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1', '0\.4\.0', '0\.5\.0'\]",
     ):
         resolve_style(StyleSelection(name="tomas_scientific", version="9.9.9"), [styles_copy])
 
@@ -173,3 +174,27 @@ def test_motion_tokens_resolve_with_provenance(styles_copy: Path) -> None:
     assert style.provenance["palette.primary_signal"] == "theme:default@0.3.0"
     older = resolve_style(StyleSelection(name="tomas_scientific", version="0.3.1"), [styles_copy])
     assert older.tokens.motion.camera_easing is None and older.tokens.motion.hold_seconds == 0
+
+
+def test_crane_tokens_resolve_on_top_of_the_motion_rules(styles_copy: Path) -> None:
+    """`default@0.5.0` lights surfaces, quiets the mesh, sets Palatino labels and round line ends on top of
+    0.4.0's motion tokens; the leaf-wise merge keeps the label sizes of 0.3.0 under the new faces."""
+    style = resolve_style(StyleSelection(name="tomas_scientific", version="0.5.0"), [styles_copy])
+    tokens = style.tokens
+    assert tokens.three_d.shading_strength == 0.45 and tokens.three_d.mesh_role == "muted"
+    assert tokens.three_d.surface_opacity == 1.0 and tokens.three_d.mesh_stroke_px_at_1080p == 0.5
+    assert tokens.geometry.line_cap == "round" and tokens.geometry.marker_rim_px_at_1080p == 1.5
+    assert tokens.typography.body.font_family == "Palatino" and tokens.typography.body.size_px_at_1080p == 34
+    assert tokens.typography.title.weight == "bold" and tokens.typography.tick_label.size_px_at_1080p == 26
+    assert tokens.typography.equation.math_font == "TeX Gyre Pagella Math"
+    assert tokens.motion.camera_easing == "eased_linear" and tokens.motion.hold_seconds == 0.5
+    assert style.provenance["three_d.shading_strength"] == "theme:default@0.5.0"
+    assert style.provenance["typography.body.font_family"] == "theme:default@0.5.0"
+    assert style.provenance["typography.body.size_px_at_1080p"] == "theme:default@0.3.0"
+    assert style.provenance["motion.camera_easing"] == "theme:default@0.4.0"
+    assert style.layers[-2:] == ["theme:default@0.5.0", "theme:tomas_scientific@0.5.0"]
+    # Older sheets keep the flat wash and square line ends: the new tokens default to the old behaviour.
+    older = resolve_style(StyleSelection(name="tomas_scientific", version="0.4.0"), [styles_copy])
+    assert older.tokens.three_d.shading_strength == 0 and older.tokens.geometry.line_cap == "butt"
+    assert older.tokens.three_d.mesh_role == "secondary_text" and older.tokens.geometry.marker_rim_px_at_1080p == 0
+    assert older.hash != style.hash

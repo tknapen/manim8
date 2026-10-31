@@ -107,6 +107,9 @@ class Layout(StrictModel):
     preferred_alignment: Literal["left", "center", "right"] = "left"
 
 
+LineCap = Literal["butt", "round"]
+
+
 class Geometry(StrictModel):
     axis_stroke_px_at_1080p: float = Field(gt=0)
     curve_stroke_px_at_1080p: float = Field(gt=0)
@@ -114,6 +117,11 @@ class Geometry(StrictModel):
     marker_radius_px_at_1080p: float = Field(default=6.0, gt=0)
     tick_length_px_at_1080p: float = Field(default=8.0, gt=0)
     """Length of the outward tick marks on the spines."""
+    line_cap: LineCap = "butt"
+    """How every drawn line ends and bends: `butt` is cut square, `round` ends and joins in a half circle, the
+    softer end of a pen stroke."""
+    marker_rim_px_at_1080p: float = Field(default=0.0, ge=0)
+    """A rim in the page colour around filled dots, so a dot reads where it crosses a line; zero draws none."""
 
 
 Spine = Literal["left", "bottom", "top", "right"]
@@ -170,8 +178,18 @@ class ThreeD(StrictModel):
     """Azimuth of the camera at the start of every scene; `orbit_camera` actions change it."""
     mesh_stroke_px_at_1080p: float = Field(default=0.8, gt=0)
     """Line weight of a surface mesh."""
+    mesh_role: Slug = "secondary_text"
+    """Palette role of the mesh lines."""
     surface_opacity: float = Field(default=0.5, ge=0, le=1)
     """Fill opacity of surface cells, so the mesh behind stays visible."""
+    shading_strength: float = Field(default=0.0, ge=0, le=1)
+    """How much one soft light models a surface: cells turned from the light darken toward the foreground ink
+    and cells facing it lighten toward the page, by at most this fraction. Zero leaves the wash flat (the
+    renderer's own faint default lamp then applies, as before this token existed)."""
+    light_azimuth_degrees: float = Field(default=-135)
+    """Direction the light comes from, measured in the floor plane like `camera_theta_degrees`."""
+    light_elevation_degrees: float = Field(default=50, ge=0, le=90)
+    """Height of the light above the floor plane."""
 
 
 class Accessibility(StrictModel):

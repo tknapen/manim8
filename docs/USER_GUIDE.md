@@ -179,7 +179,9 @@ When `frequency` begins, θ gives the colour up and f takes it, and θ's readout
 fixed on the page while the surface turns; a surface's axis labels follow their anchors but keep facing you
 until they fade. Only two actions that drive the same parameter of the same object, two orbits, or two axes
 fades of the same object may not overlap. The `three_d` style tokens set the camera's starting angles, the
-mesh weight and the surface opacity (nearly solid since `default@0.3.1`). A surface's `size_fraction` sets its
+mesh weight and ink, the surface opacity (solid since `default@0.5.0`) and the one soft light that models a
+surface (`shading_strength`, `light_azimuth_degrees`, `light_elevation_degrees`); `geometry.line_cap` and
+`geometry.marker_rim_px_at_1080p` give lines round ends and dots a rim of the page. A surface's `size_fraction` sets its
 footprint and `lift_fraction` raises it above the page's centre, so a large surface can sit behind the text
 (text is always drawn on top) while the floor frame, which hangs below the surface, keeps its labels on the
 page. Surfaces render through Cairo as thousands of small cells: snapshots are quick, a draft video takes

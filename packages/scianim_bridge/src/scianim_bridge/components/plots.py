@@ -79,6 +79,7 @@ def _axes_with_labels(
     x0, x1, xs = x_range
     y0, y1, ys = y_range
     stroke = tokens.stroke_width(tokens.t.geometry.axis_stroke_px_at_1080p)
+    ends = tokens.line_kwargs()
     tick = tokens.units(tokens.t.geometry.tick_length_px_at_1080p)
     offset = tokens.units(tokens.t.charts.spine_offset_px_at_1080p)
     spines = set(tokens.t.charts.spines)
@@ -86,18 +87,22 @@ def _axes_with_labels(
     top_left, top_right = axes.c2p(x0, y1), axes.c2p(x1, y1)
     frame = VGroup()
     if "bottom" in spines:
-        frame.add(Line(bottom_left + DOWN * offset, bottom_right + DOWN * offset, color=fg, stroke_width=stroke))
+        frame.add(
+            Line(bottom_left + DOWN * offset, bottom_right + DOWN * offset, color=fg, stroke_width=stroke, **ends)
+        )
     if "left" in spines:
-        frame.add(Line(bottom_left + LEFT * offset, top_left + LEFT * offset, color=fg, stroke_width=stroke))
+        frame.add(Line(bottom_left + LEFT * offset, top_left + LEFT * offset, color=fg, stroke_width=stroke, **ends))
     if "top" in spines:
-        frame.add(Line(top_left + UP * offset, top_right + UP * offset, color=fg, stroke_width=stroke))
+        frame.add(Line(top_left + UP * offset, top_right + UP * offset, color=fg, stroke_width=stroke, **ends))
     if "right" in spines:
-        frame.add(Line(bottom_right + RIGHT * offset, top_right + RIGHT * offset, color=fg, stroke_width=stroke))
+        frame.add(
+            Line(bottom_right + RIGHT * offset, top_right + RIGHT * offset, color=fg, stroke_width=stroke, **ends)
+        )
     x_labels = VGroup()
     value = x0
     while value <= x1 + 1e-9:
         foot = axes.c2p(value, y0) + DOWN * offset
-        frame.add(Line(foot, foot + DOWN * tick, color=fg, stroke_width=stroke))
+        frame.add(Line(foot, foot + DOWN * tick, color=fg, stroke_width=stroke, **ends))
         label = Text(_fmt(value), **tokens.text_kwargs(tick_face, secondary))
         label.next_to(foot + DOWN * tick, DOWN, buff=tokens.baseline * 0.35)
         x_labels.add(label)
@@ -106,7 +111,7 @@ def _axes_with_labels(
     value = y0
     while value <= y1 + 1e-9:
         foot = axes.c2p(x0, value) + LEFT * offset
-        frame.add(Line(foot, foot + LEFT * tick, color=fg, stroke_width=stroke))
+        frame.add(Line(foot, foot + LEFT * tick, color=fg, stroke_width=stroke, **ends))
         label = Text(_fmt(value), **tokens.text_kwargs(tick_face, secondary))
         label.next_to(foot + LEFT * tick, LEFT, buff=tokens.baseline * 0.35)
         y_labels.add(label)
@@ -129,8 +134,9 @@ def _curve(
         line_color=color,
         add_vertex_dots=show_points,
         vertex_dot_radius=tokens.units(tokens.t.geometry.marker_radius_px_at_1080p),
-        vertex_dot_style={"fill_color": color, "stroke_width": 0},
+        vertex_dot_style=tokens.dot_kwargs(color),
         stroke_width=tokens.stroke_width(tokens.t.geometry.curve_stroke_px_at_1080p),
+        **tokens.line_kwargs(),
     )
     return VGroup(graph)
 
@@ -151,6 +157,7 @@ def _legend(tokens: Tokens, axes: Axes, entries: list[tuple[str, ManimColor]]) -
             RIGHT * tokens.units(18),
             color=color,
             stroke_width=tokens.stroke_width(tokens.t.geometry.curve_stroke_px_at_1080p),
+            **tokens.line_kwargs(),
         )
         text = Text(label, **tokens.text_kwargs(annotation, tokens.color("foreground")))
         legend.add(VGroup(swatch, text).arrange(RIGHT, buff=tokens.baseline * 0.5))
@@ -336,6 +343,7 @@ def function_plot(
             color=color,
             stroke_width=tokens.stroke_width(tokens.t.geometry.annotation_stroke_px_at_1080p),
             dash_length=tokens.units(10),
+            **tokens.line_kwargs(),
         )
         group.add(line)
         text = None

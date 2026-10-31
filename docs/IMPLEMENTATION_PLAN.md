@@ -26,7 +26,7 @@ complete except for section splicing (ADR-019). Milestone 5 (source adapters, co
 self-inspection, four more kinds) is complete except for voiceover (ADR-020). Milestone 6 (bundles and the user
 guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
 readouts) is complete (ADR-022), and Milestone 8 (surfaces, the orbiting camera, concurrent tracks; four examples) is
-complete (ADR-024); the baseline theme is `default@0.4.0`, line and wash with solid surfaces and the rules of smooth motion as tokens, with a specimen composed from real renders (ADR-025, ADR-027, ADR-028); clips can be segmented with a lead-in per action, an active highlight mode and axes that fade (ADR-026). Videos render in parallel across a chosen number of processes (ADR-029). Open items across milestones: section splicing
+complete (ADR-024); the baseline theme is `default@0.5.0`, line and wash after Keenan Crane: solid surfaces modelled by one soft light, a quiet mesh, Palatino labels, round line ends, and the rules of smooth motion as tokens, with a specimen composed from real renders (ADR-025, ADR-027, ADR-028, ADR-030); clips can be segmented with a lead-in per action, an active highlight mode and axes that fade (ADR-026). Videos render in parallel across a chosen number of processes (ADR-029). Open items across milestones: section splicing
 (ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
 
 ## Milestone 0 — repository and contracts
@@ -65,7 +65,7 @@ Validation must not import Manim in the current process. Negative tests: inconsi
 - [x] `ResolvedStyle` export: every token, provenance per token, content hash; `scianim style resolve`.
 - [x] Family discovery: nearest `family.yaml` is authoritative, `family:` optional, `group.yaml` layers, explicit child families, duplicate ids rejected.
 - [x] Versioned style directories (`<name>/<version>/style.yaml`) with pinned inheritance; `scianim style list`.
-- [x] Baseline theme `default@0.2.0` (Twin Ink) with philosophy and specimen plate, superseded by `default@0.3.0` (line and wash, ADR-025), `default@0.3.1` (solid surfaces, ADR-027) and `default@0.4.0` (motion rules, ADR-028), each with a specimen composed from real renders; font fallback resolution reported in the manifest; Typst math font and LaTeX packages from tokens.
+- [x] Baseline theme `default@0.2.0` (Twin Ink) with philosophy and specimen plate, superseded by `default@0.3.0` (line and wash, ADR-025), `default@0.3.1` (solid surfaces, ADR-027), `default@0.4.0` (motion rules, ADR-028) and `default@0.5.0` (after Keenan Crane: one soft light on surfaces, a quiet mesh, Palatino labels, round line ends, rimmed dots; ADR-030), each with a specimen composed from real renders; font fallback resolution reported in the manifest; Typst math font and LaTeX packages from tokens.
 - [x] Workspaces: `workspace init|list`, `family init`, `project init`, read-only examples as templates.
 - [x] `asset://` sources from family and workspace `assets/`; family `components/` on the worker path.
 - [x] `scianim family env sync <family>` through `uv sync` in a subprocess, with clear errors for absent locks or unsupported platforms; check `system_requirements`.

@@ -265,6 +265,22 @@
           "default": null,
           "title": "Curve Stroke Px At 1080P"
         },
+        "line_cap": {
+          "anyOf": [
+            {
+              "enum": [
+                "butt",
+                "round"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Cap"
+        },
         "marker_radius_px_at_1080p": {
           "anyOf": [
             {
@@ -276,6 +292,18 @@
           ],
           "default": null,
           "title": "Marker Radius Px At 1080P"
+        },
+        "marker_rim_px_at_1080p": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Marker Rim Px At 1080P"
         },
         "tick_length_px_at_1080p": {
           "anyOf": [
@@ -521,6 +549,42 @@
           "default": null,
           "title": "Camera Theta Degrees"
         },
+        "light_azimuth_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Light Azimuth Degrees"
+        },
+        "light_elevation_degrees": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Light Elevation Degrees"
+        },
+        "mesh_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mesh Role"
+        },
         "mesh_stroke_px_at_1080p": {
           "anyOf": [
             {
@@ -532,6 +596,18 @@
           ],
           "default": null,
           "title": "Mesh Stroke Px At 1080P"
+        },
+        "shading_strength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shading Strength"
         },
         "surface_opacity": {
           "anyOf": [

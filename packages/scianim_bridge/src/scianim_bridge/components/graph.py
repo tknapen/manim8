@@ -61,6 +61,7 @@ def network_graph(
     )
     annotation = tokens.typeface("annotation")
     base_stroke = tokens.stroke_width(tokens.t.geometry.annotation_stroke_px_at_1080p)
+    ends = tokens.line_kwargs()
     heaviest = max((abs(e.weight) for e in p.edges), default=1.0) or 1.0
     edges = VGroup()
     for edge in p.edges:
@@ -75,13 +76,21 @@ def network_graph(
         end_point = end - unit * node_radius
         width = base_stroke * (0.6 + MAX_EDGE_STROKE_FACTOR * abs(edge.weight) / heaviest)
         if edge.weight < 0:
-            line = DashedLine(start_point, end_point, color=color, stroke_width=width, dash_length=tokens.units(10))
+            line = DashedLine(
+                start_point, end_point, color=color, stroke_width=width, dash_length=tokens.units(10), **ends
+            )
         elif edge.directed:
             line = Arrow(
-                start_point, end_point, color=color, stroke_width=width, buff=0, max_tip_length_to_length_ratio=0.18
+                start_point,
+                end_point,
+                color=color,
+                stroke_width=width,
+                buff=0,
+                max_tip_length_to_length_ratio=0.18,
+                **ends,
             )
         else:
-            line = Line(start_point, end_point, color=color, stroke_width=width)
+            line = Line(start_point, end_point, color=color, stroke_width=width, **ends)
         edges.add(line)
     nodes = VGroup()
     labels = VGroup()

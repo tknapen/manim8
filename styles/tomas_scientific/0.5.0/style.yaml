@@ -1,0 +1,9 @@
+schema_version: "1.0"
+name: tomas_scientific
+version: "0.5.0"
+description: >-
+  Personal layer on the line-and-wash baseline after Keenan Crane: lit matte surfaces, a quiet
+  mesh, Palatino labels, round line ends. Deliberately thin: it pins default@0.5.0 and records only
+  the choices that differ from the baseline, so the signature can grow one reviewed token at a time.
+inherits: default@0.5.0
+palette: {}

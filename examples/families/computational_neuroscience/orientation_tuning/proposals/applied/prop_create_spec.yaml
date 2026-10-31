@@ -50,7 +50,7 @@ proposal:
           audio: none
         style:
           name: tomas_scientific
-          version: 0.4.0
+          version: 0.5.0
           overrides: {}
         equations:
           - id: von_mises
@@ -106,8 +106,8 @@ diffs:
     +    path: data/tuning.csv\n+    role: illustrative_data\n+    citation: Synthetic von Mises tuning curves computed
     for this example; not measurements\n output:\n-  duration_seconds: 15\n+  duration_seconds: 24\n   width_px:
     1920\n   height_px: 1080\n-  aspect_ratio: \"16:9\"\n+  aspect_ratio: 16:9\n   fps: 30\n   container: mp4\n\
-    \   video_codec: h264\n   audio: none\n style:\n   name: tomas_scientific\n-  version: \"0.4.0\"\n+  version:
-    0.4.0\n   overrides: {}\n-equations: []\n-objective: \"One mechanism in a brief clip: say what moves, and what
+    \   video_codec: h264\n   audio: none\n style:\n   name: tomas_scientific\n-  version: \"0.5.0\"\n+  version:
+    0.5.0\n   overrides: {}\n-equations: []\n-objective: \"One mechanism in a brief clip: say what moves, and what
     the viewer should see it do.\"\n-scientific_constraints: []\n-timeline: []\n+equations:\n+  - id: von_mises\n\
     +    typst: r(theta) = r_\"max\" exp(kappa (cos(theta - theta_0) - 1))\n+    latex: r(\\theta) = r_{\\max} \\
     exp\\left(\\kappa (\\cos(\\theta - \\theta_0) - 1)\\right)\n+    symbols:\n+      r:\n+        meaning: firing

@@ -2,10 +2,28 @@
 
 from __future__ import annotations
 
+import math
 from functools import lru_cache
+from typing import Any
 
 import numpy as np
-from manim import DL, DOWN, DR, LEFT, ORIGIN, RIGHT, UL, UP, UR, ManimColor, Mobject, Text, config
+from manim import (
+    DL,
+    DOWN,
+    DR,
+    LEFT,
+    ORIGIN,
+    RIGHT,
+    UL,
+    UP,
+    UR,
+    CapStyleType,
+    LineJointType,
+    ManimColor,
+    Mobject,
+    Text,
+    config,
+)
 
 from scianim_core import ResolvedStyle
 from scianim_core.style import Anchor, TextRole, Typeface
@@ -131,6 +149,38 @@ class Tokens:
 
     def stroke_width(self, px_at_1080p: float) -> float:
         return self.units(px_at_1080p) / CAIRO_LINE_WIDTH_MULTIPLE
+
+    def line_kwargs(self) -> dict[str, Any]:
+        """How lines end and bend, from `geometry.line_cap`: pass to any stroked Manim object."""
+        if self.t.geometry.line_cap == "round":
+            return {"cap_style": CapStyleType.ROUND, "joint_type": LineJointType.ROUND}
+        return {}
+
+    def dot_kwargs(self, fill: ManimColor) -> dict[str, Any]:
+        """A filled dot in `fill`, with the page-coloured rim `geometry.marker_rim_px_at_1080p` asks for."""
+        rim = self.t.geometry.marker_rim_px_at_1080p
+        if rim > 0:
+            return {
+                "fill_color": fill,
+                "fill_opacity": 1.0,
+                "stroke_color": self.color("background"),
+                "stroke_width": self.stroke_width(rim),
+            }
+        return {"fill_color": fill, "fill_opacity": 1.0, "stroke_width": 0}
+
+    def light_direction(self) -> np.ndarray | None:
+        """Unit vector toward the light of `three_d`, in world coordinates, or None when the wash stays flat.
+
+        The azimuth is relative to the camera's starting azimuth, so a sheet says where the light stands
+        for the viewer at the start; it then stays fixed in the world while the camera orbits."""
+        t3 = self.t.three_d
+        if t3.shading_strength <= 0:
+            return None
+        azimuth = math.radians(t3.camera_theta_degrees + t3.light_azimuth_degrees)
+        elevation = math.radians(t3.light_elevation_degrees)
+        return np.array(
+            [math.cos(elevation) * math.cos(azimuth), math.cos(elevation) * math.sin(azimuth), math.sin(elevation)]
+        )
 
     def safe_rect(self) -> tuple[float, float, float, float]:
         m = self.t.layout.safe_margin_fraction

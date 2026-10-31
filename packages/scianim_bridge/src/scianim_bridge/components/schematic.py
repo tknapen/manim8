@@ -106,7 +106,7 @@ def receptive_field_glyph(
     centre = Dot(
         point=box.get_center() + RIGHT * cx + UP * cy,
         radius=tokens.units(tokens.t.geometry.marker_radius_px_at_1080p),
-        color=ink,
+        **tokens.dot_kwargs(ink),
     )
     group.add(centre)
     smallest: list[Any] = []
@@ -115,12 +115,20 @@ def receptive_field_glyph(
         tick = tokens.units(tokens.t.geometry.tick_length_px_at_1080p)
         for value in (-p.field_extent, 0.0, p.field_extent):
             foot = box.get_corner(DOWN + LEFT) + RIGHT * ((value + p.field_extent) * scale)
-            group.add(Line(foot, foot + DOWN * tick, color=secondary, stroke_width=axis_stroke))
+            group.add(Line(foot, foot + DOWN * tick, color=secondary, stroke_width=axis_stroke, **tokens.line_kwargs()))
             label = Text(f"{value:g}", **tokens.text_kwargs(tick_face, secondary))
             label.next_to(foot + DOWN * tick, DOWN, buff=tokens.baseline * 0.35)
             group.add(label)
             side_foot = box.get_corner(DOWN + LEFT) + UP * ((value + p.field_extent) * scale)
-            group.add(Line(side_foot, side_foot + LEFT * tick, color=secondary, stroke_width=axis_stroke))
+            group.add(
+                Line(
+                    side_foot,
+                    side_foot + LEFT * tick,
+                    color=secondary,
+                    stroke_width=axis_stroke,
+                    **tokens.line_kwargs(),
+                )
+            )
             label_y = Text(f"{value:g}", **tokens.text_kwargs(tick_face, secondary))
             label_y.next_to(side_foot + LEFT * tick, LEFT, buff=tokens.baseline * 0.35)
             group.add(label_y)

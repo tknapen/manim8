@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: default
+version: "0.5.0"
+description: >-
+  Line and wash after Keenan Crane: every token of default@0.4.0, with surfaces lit by one soft
+  light from the viewer's upper left and shaded like matte clay, a quieter mesh in the muted ink,
+  labels set in the same Palatino lineage as the equations, lines that end and bend in a half
+  circle, and dots with a rim of the page. The philosophy and a specimen rendered from the examples
+  sit beside this file.
+inherits: default@0.4.0
+typography:
+  title:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+    weight: bold
+  body:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+  annotation:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+  axis_label:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+  tick_label:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+  caption:
+    font_family: "Palatino"
+    font_fallbacks: ["Palatino Linotype", "Book Antiqua", "TeX Gyre Pagella", "URW Palladio L", "P052", "serif"]
+geometry:
+  line_cap: round
+  marker_rim_px_at_1080p: 1.5
+three_d:
+  mesh_stroke_px_at_1080p: 0.5
+  mesh_role: muted
+  surface_opacity: 1.0
+  shading_strength: 0.45
+  light_azimuth_degrees: -60
+  light_elevation_degrees: 55

@@ -64,10 +64,12 @@ def surface_plot(
     other = tokens.color("comparison")
     zero_ink = tokens.color("muted")
     reach = max(abs(low), abs(high)) or 1.0  # a diverging scale saturates at the larger edge of the z range
-    mesh = tokens.color("secondary_text")
+    mesh = tokens.color(t3.mesh_role)
     fg = tokens.color("foreground")
+    page = tokens.color("background")
     opacity = t3.surface_opacity if p.fill != "none" else 0.0
     clipped: list[str] = []
+    light = tokens.light_direction()
 
     def basis() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         origin = axes.c2p(0, 0, 0)
@@ -109,12 +111,30 @@ def surface_plot(
             for face in surface.submobjects:
                 z = value((face.u1 + face.u2) / 2, (face.v1 + face.v2) / 2)
                 if p.fill == "by_sign":
-                    face.set_fill(ink if z >= 0 else other, opacity=opacity)
+                    wash, alpha = (ink if z >= 0 else other), opacity
                 elif p.fill == "diverging":
                     strength = min(1.0, abs(z) / reach)
-                    face.set_fill(zero_ink.interpolate(ink if z >= 0 else other, strength), opacity=opacity)
+                    wash, alpha = zero_ink.interpolate(ink if z >= 0 else other, strength), opacity
                 else:
-                    face.set_fill(ink, opacity=opacity * min(1.0, max(0.0, (z - low) / span)))
+                    wash, alpha = ink, opacity * min(1.0, max(0.0, (z - low) / span))
+                if light is not None:
+                    # One soft light: the cell's normal against the light direction, from the four corners it
+                    # was built from. Cells turned away darken toward the ink, cells facing it lighten toward
+                    # the page; the renderer's own lamp is switched off so the sheet alone decides the shade.
+                    a = point(face.u1, face.v1)
+                    normal = np.cross(point(face.u2, face.v1) - a, point(face.u1, face.v2) - a)
+                    size = float(np.linalg.norm(normal))
+                    lambert = float(np.dot(normal / size, light)) if size > 0 else 0.0
+                    if lambert < 0:  # a graph's upper side always faces up; use that side
+                        lambert = -lambert
+                    toward = (lambert - 0.5) * 2.0  # +1 square to the light, -1 edge-on
+                    strength = t3.shading_strength
+                    if toward >= 0:
+                        wash = wash.interpolate(page, 0.5 * strength * toward)
+                    else:
+                        wash = wash.interpolate(fg, strength * -toward)
+                    face.shade_in_3d = False
+                face.set_fill(wash, opacity=alpha)
         if out_of_range and not clipped:
             clipped.append(
                 f"object '{object_id}': values leave z_range [{low:g}, {high:g}] for parameters {values}; "
@@ -124,6 +144,8 @@ def surface_plot(
         return surface
 
     surface = build(p.parameters)
+    if light is not None:
+        surface.set_shade_in_3d(False)
     # Despined frame: the floor rectangle and one vertical edge, with outward ticks and flat labels.
     stroke = tokens.stroke_width(tokens.t.geometry.axis_stroke_px_at_1080p)
     tick = tokens.units(tokens.t.geometry.tick_length_px_at_1080p)
@@ -135,9 +157,12 @@ def surface_plot(
     tick_z = tick / z_len * (zb - za)
     corners = [axes.c2p(xa, ya, za), axes.c2p(xb, ya, za), axes.c2p(xb, yb, za), axes.c2p(xa, yb, za)]
     frame = VGroup(
-        *[Line(a, b, color=fg, stroke_width=stroke) for a, b in zip(corners, corners[1:] + corners[:1], strict=True)]
+        *[
+            Line(a, b, color=fg, stroke_width=stroke, **tokens.line_kwargs())
+            for a, b in zip(corners, corners[1:] + corners[:1], strict=True)
+        ]
     )
-    frame.add(Line(axes.c2p(xa, ya, za), axes.c2p(xa, ya, zb), color=fg, stroke_width=stroke))
+    frame.add(Line(axes.c2p(xa, ya, za), axes.c2p(xa, ya, zb), color=fg, stroke_width=stroke, **tokens.line_kwargs()))
     tick_face = tokens.typeface("tick_label")
     axis_face = tokens.typeface("axis_label")
     secondary = tokens.color("secondary_text")
@@ -188,7 +213,10 @@ def surface_plot(
 
     def rebuild(values: dict[str, float]) -> list[str]:
         before = len(scene.render_warnings)
-        surface.become(build(values))
+        fresh = build(values)
+        surface.become(fresh)
+        if light is not None:  # `become` copies points and colours, not this flag
+            surface.set_shade_in_3d(False)
         return scene.render_warnings[before:]
 
     component = ParametricComponent(
