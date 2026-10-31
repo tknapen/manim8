@@ -57,6 +57,8 @@ class JobCreate(BaseModel):
     workers: int = Field(default=1, ge=0)
     """Worker processes for a video: ranges of the clip rendered at the same time and joined; 0 means one per
     CPU core."""
+    surface_renderer: Literal["cairo", "raster"] = "cairo"
+    """How surfaces are drawn: Manim polygons, or one image the bridge paints (ADR-032); enters the cache key."""
 
 
 class FeedbackCreate(BaseModel):
@@ -370,6 +372,7 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                 body.operation,
                 dict(body.samples),
                 body.workers,
+                body.surface_renderer,
             ),
         )
         return status.model_dump(mode="json")

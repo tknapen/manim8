@@ -639,3 +639,68 @@ like a line of the same document, not a caption from another. Round ends and rim
 smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
 that a personal layer may revise, and the renderer honours them without reading a style's name.
 
+## ADR-032: A raster renderer for surfaces, equal to the Cairo one
+
+**Status:** accepted, 31 October 2026
+
+**Context.** A `surface_plot` under Cairo is one Manim polygon per cell, and Manim's per-mobject path costs
+about a millisecond per cell per frame: 2.8 s per frame for the 80-cell Gabor at 1080p, about two hours for
+its 26 s at 60 fps in one process. Two things were also wrong in the picture. The floor frame was drawn on
+top of the surface wherever the two overlapped, because the frame's lines are flat mobjects that Manim draws
+after the sorted cells. And under the light of ADR-030 the cells leave Manim's depth sort altogether: the
+sort and the built-in lamp hang on the same flag (`shade_in_3d`), so switching the lamp off for a cell also
+takes it out of the sort, and the cells draw in grid order, which is back to front only from the side of
+the orbit the grid happens to favour. A sampled image (`function_image`) evaluated its expression once per
+pixel in Python as well.
+
+**Decision.** A second surface renderer, `raster`, chosen by `ManimSettings.surface_renderer` (`cairo` or
+`raster`), `scianim snapshot|render --surface-renderer` and `JobCreate.surface_renderer`; the value enters
+the cache key, so the two never serve each other's results. The bridge module `raster.py` keeps the
+component's vertex grid in world coordinates and paints it when the camera asks for the picture: the grid is
+projected through the scene's own camera (`ThreeDCamera.project_points` and its frame-to-pixel mapping, as
+functions in `camera.py`, so the raster lands where everything else on screen says it should), the cells are
+sorted by view depth and filled far to near with their wash and the shading, the mesh is stroked in the mesh
+role at its token weight, and the floor frame and ticks are painted into the same image after a depth test:
+each edge is cut into pieces, and a piece whose line of sight to the eye passes under the surface inside the
+box's footprint is left out. The canvas is painted at twice the output size and reduced with a box filter
+(`Image.reduce(2)`); the result is an `ImageMobject` fixed in the frame, cropped to what it draws and placed
+on whole output pixels, so Manim composes it without resampling. The shading of ADR-030 is one pure
+function, `tokens.shaded_rgb`, that both paths call, so a cell has the same shade whichever draws them; the
+Cairo path's pixels do not change (the Gabor `rotating` checkpoint is byte-identical before and after; `with_axes` differs in 0.15 percent of its pixels, at the joints of the frame's pieces). The image repaints lazily: a sweep (`rebuild`), an orbit (the `on_camera`
+hook) and a fade of the frame (a `fade_axes` action, whose frame now lives in the picture) mark it dirty, and
+the next request for its pixels paints once, so a frame in which a sweep and an orbit both advance costs one
+painting; nothing else triggers one. The labels stay Manim text of fixed orientation; `fade_axes` fades them
+through Manim and the frame through the raster's alpha, and the end-of-scene fade scales the whole image.
+The layout report takes the component's own box, the projected extents of the vertices and the frame when
+it shows, joined with the labels and caption, through a new `Component.layout_bbox` hook; on the Gabor the
+two renderers' boxes agree within one percent of the frame. `compile_expression(..., arrays=True)` compiles
+the same whitelisted grammar against NumPy, so the surface grid, the cell centres and a `function_image`
+evaluate in one call each and agree with the scalar form element by element, NaN for NaN. On the Cairo
+path each floor-frame edge is cut into twenty pieces that join Manim's depth sort when the cells are in it
+(the lamp on, the light off); under the light the cells are not sorted, so the pieces stay on top as before.
+The default stays `cairo`. The two renderers are equals: the same bridge tests run on both, the specimen
+tool composes from either and says which drew the surfaces, and neither is deprecated. Switching the default
+is a later decision for the author, after a review of the raster stills beside the Cairo ones
+(`styles/default/0.5.0/specimen_raster.png` beside `specimen.png`), because the two differ in their
+anti-aliasing (supersampled coverage against Cairo's analytic coverage) and that is a matter of taste.
+
+Measured on this machine, the 80-cell Gabor: three checkpoints at the snapshot size took 89 s under Cairo
+and 4.4 s under the raster; one frame of the surface alone paints in about 40 ms at 960 by 540 and 70 ms
+at 1080p, and a whole frame with the equation and readouts takes 0.06 s and 0.12 s, against about 0.6 s and
+2.8 s. The full clip at 1080p and 60 fps in one process took 258 s (4 min 18 s) while the machine was
+shared with other work, against about two hours under Cairo; every sampled checkpoint frame was exact.
+
+Two limits are accepted. A translucent surface (`surface_opacity` below one) shows the page through itself,
+and the cells behind through painter's blending, but not an object drawn before it in the scene, because the
+image composes against the page colour; the published sheets lay surfaces opaque. And Pillow's polygons
+have no sub-pixel coordinates, which the twofold supersample hides at the mesh weights in use; a threefold
+one is the fallback at three times the fill cost.
+
+**Why.** Painting the cells in the bridge turns thousands of mobjects into one and a two-hour render into a
+few minutes, without a second rendering stack: the projection is Manim's, the composition is Manim's, and
+only the pixels inside the surface's box are the bridge's. Painter's order and the per-piece depth test
+give what a drawn figure of a surface shows, the frame hidden behind the shape and seen before it, which the
+Cairo path cannot give under the light without changing its cells. One shading function keeps the two
+renderers from drifting apart in colour, and one cache key per renderer keeps a review honest about which
+drew what. The Cairo path is left as it is, cells unsorted under the light included, because the published
+specimen was made from it and no output may change before the author has looked at the alternative.

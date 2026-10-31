@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from manim import Animation, FadeIn, VGroup
 
+from scianim_core import BBox
 from scianim_core.components import validate_params
 
 if TYPE_CHECKING:
@@ -87,6 +88,9 @@ class Component:
     """Called after the camera moves (an orbit), for objects that redraw themselves for a viewpoint."""
     ink_originals: list[tuple[Any, Any, Any, Any]] | None = None
     """Every member's full fill and stroke opacity, captured by the first fade, so a later fade-in restores it."""
+    layout_bbox: Callable[[], BBox] | None = None
+    """The object's box on screen, when it knows it better than the layout report can read from its mobjects
+    (a raster surface reports its projected vertex extents); None lets the report measure the group."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)

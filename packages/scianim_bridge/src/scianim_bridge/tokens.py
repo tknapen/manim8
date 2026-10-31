@@ -117,6 +117,35 @@ def tex_units_per_point() -> float:
     return float(probe.height) / 100.0
 
 
+def shaded_rgb(
+    rgb: np.ndarray,
+    normals: np.ndarray,
+    light: np.ndarray,
+    strength: float,
+    page_rgb: np.ndarray,
+    ink_rgb: np.ndarray,
+) -> np.ndarray:
+    """The one soft light of ADR-030 on a batch of cells, as colours in 0..1.
+
+    `rgb` (n, 3) is each cell's wash, `normals` (n, 3) the normal a cell was built with (any length; a
+    zero-length normal counts as edge-on), `light` the unit vector toward the light. A cell square to the
+    light moves half of `strength` toward the page colour; a cell edge-on moves `strength` toward the ink;
+    in between is linear in the cosine. A graph's upper side always faces up, so the sign of the normal does
+    not matter. Both surface renderers call this, so a cell has the same shade whichever draws it.
+    """
+    rgb = np.asarray(rgb, dtype=float).reshape(-1, 3)
+    normals = np.asarray(normals, dtype=float).reshape(-1, 3)
+    size = np.linalg.norm(normals, axis=1)
+    lambert = np.zeros(len(normals))
+    lit = size > 0
+    lambert[lit] = np.abs(normals[lit] @ np.asarray(light, dtype=float)) / size[lit]
+    toward = (lambert - 0.5) * 2.0  # +1 square to the light, -1 edge-on
+    facing = toward >= 0
+    amount = np.where(facing, 0.5 * strength * toward, strength * -toward)[:, None]
+    target = np.where(facing[:, None], np.asarray(page_rgb, dtype=float), np.asarray(ink_rgb, dtype=float))
+    return rgb * (1.0 - amount) + target * amount
+
+
 class Tokens:
     """Resolved style tokens converted to Manim units for the current render configuration."""
 

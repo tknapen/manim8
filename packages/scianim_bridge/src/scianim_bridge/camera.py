@@ -1,8 +1,14 @@
-"""The bridge's camera: Manim's three-dimensional Cairo camera with one repair.
+"""The bridge's camera: Manim's three-dimensional Cairo camera with one repair, and its projection as functions.
 
 Manim 0.22 composes an `ImageMobject` into a float array that newer Pillow versions refuse to treat as RGBA
 ("Invalid mode for data type"), so sampled fields could not be drawn. `SnapshotCamera.display_image_mobject`
 is Manim's routine with the canvas allocated as 8-bit RGBA. Everything else is inherited.
+
+The module functions give the raster surface (ADR-032) the camera's own projection: `project_to_pixels` is
+exactly the path a world point takes to the output image (`ThreeDCamera.project_points`, then the frame to
+pixel mapping), `view_depth` is the key Manim sorts three-dimensional mobjects by, and `eye_position` is the
+pinhole those projections converge on. Nothing here re-derives the camera; a raster drawn with these agrees
+with everything Manim draws beside it.
 """
 
 from __future__ import annotations
@@ -10,9 +16,32 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from manim import ThreeDCamera
+from manim import Mobject, ThreeDCamera
 from manim.utils.space_ops import cross2d
 from PIL import Image
+
+_PROBE = Mobject()
+"""A mobject that is neither fixed in frame nor of fixed orientation, so the camera projects its points."""
+
+
+def project_to_pixels(camera: Any, points: np.ndarray) -> np.ndarray:
+    """World points (n, 3) to output pixel coordinates (n, 2), x to the right and y down, as floats."""
+    camera.reset_rotation_matrix()
+    return np.asarray(camera.points_to_subpixel_coords(_PROBE, np.array(points, dtype=float)))
+
+
+def view_depth(camera: Any, points: np.ndarray) -> np.ndarray:
+    """How near each world point is to the viewer: larger is nearer (Manim's sort key for 3D mobjects)."""
+    camera.reset_rotation_matrix()
+    rotated = np.dot(np.asarray(points, dtype=float) - camera.frame_center, camera.get_rotation_matrix().T)
+    return np.asarray(rotated[:, 2])
+
+
+def eye_position(camera: Any) -> np.ndarray:
+    """The pinhole of the camera's perspective in world coordinates: `focal_distance` along the view axis."""
+    camera.reset_rotation_matrix()
+    rotation = camera.get_rotation_matrix()
+    return np.asarray(camera.frame_center) + rotation.T @ np.array([0.0, 0.0, float(camera.get_focal_distance())])
 
 
 class SnapshotCamera(ThreeDCamera):
