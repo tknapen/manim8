@@ -27,7 +27,9 @@ self-inspection, four more kinds) is complete except for voiceover (ADR-020). Mi
 guide) is complete (ADR-021). Milestone 7 (scene actions: parameter sweeps with emphasized equation terms and
 readouts) is complete (ADR-022), and Milestone 8 (surfaces, the orbiting camera, concurrent tracks; four examples) is
 complete (ADR-024); the baseline theme is `default@0.5.0`, line and wash after Keenan Crane: solid surfaces modelled by one soft light, a quiet mesh, Palatino labels, round line ends, and the rules of smooth motion as tokens, with a specimen composed from real renders (ADR-025, ADR-027, ADR-028, ADR-030); clips can be segmented with a lead-in per action, an active highlight mode and axes that fade (ADR-026). Videos render in parallel across a chosen number of processes (ADR-029). Open items across milestones: section splicing
-(ADR-019), voiceover (ADR-020) and further action kinds (ADR-022).
+(ADR-019), voiceover (ADR-020) and further action kinds (ADR-022). The next stages are planned as parallel work packages in
+[`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md) (frame windows, raster surfaces, splicing, actions, voiceover, the feedback loop,
+distribution, the personal signature).
 
 ## Milestone 0 — repository and contracts
 
