@@ -188,6 +188,19 @@ page. Surfaces render through Cairo as thousands of small cells: snapshots are q
 tens of minutes in one process, and the 80-cell Gabor mesh at 60 fps takes about two hours; `--workers`
 divides those times by somewhat less than the number of cores you give it.
 
+## Trying a style change
+
+```bash
+scianim style stills <project> --candidate next/style.yaml --snapshot rotating --snapshot moved
+scianim style publish next/style.yaml tomas_scientific@0.6.0
+```
+
+A candidate is an unpublished `style.yaml` that pins `inherits` to a published sheet and sets the tokens to
+try. `style stills` renders the named checkpoints under the project's sheet and under the candidate and
+writes `renders/working/stills_<stamp>/stills.html`, the token differences above each pair, so a change is
+seen on the clip before it is published; `--against name@version` compares with another published sheet.
+`style publish` copies an accepted candidate into `styles/<name>/<version>/` and never overwrites a version.
+
 ## Revisions, forks and comparison
 
 ```bash

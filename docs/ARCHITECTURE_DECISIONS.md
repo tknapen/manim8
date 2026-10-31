@@ -639,3 +639,28 @@ like a line of the same document, not a caption from another. Round ends and rim
 smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
 that a personal layer may revise, and the renderer honours them without reading a style's name.
 
+## ADR-038: A personal signature grows one reviewed token at a time
+
+**Status:** accepted, 31 October 2026
+
+**Context.** `tomas_scientific` pins the baseline and changes nothing. The spec leaves open which tokens the
+personal signature should change and asks for alternative stills for approval (section 17, item 1). Editing a
+published sheet is forbidden (ADR-010), and a change of taste should be seen on the project's own checkpoints
+before it is published, not guessed from a token table.
+
+**Decision.** Two commands. `scianim style stills <project> --candidate <style.yaml> [--against name@version]
+--snapshot <id>...` resolves an unpublished candidate sheet beside the published chain (staged in a temporary
+`styles/<name>/<version>/` so the resolver reads it as any sheet, with the project's own overrides kept),
+refuses a candidate that resolves to the tokens it is compared with, renders the named checkpoints under
+both as ordinary snapshot jobs (the style hash alone separates their cache keys), and writes
+`renders/working/stills_<stamp>/stills.html`: the token differences above each checkpoint under the one sheet
+beside the same under the other, with each side's layout warnings. `scianim style publish <candidate>
+<name>@<version>` copies an accepted candidate into the versioned directory with its name and version set to
+the reference, requires a pinned `inherits`, carries a `PHILOSOPHY.md` beside it, and refuses a version that
+exists.
+
+**Why.** A signature is a sequence of small, seen decisions; the stills make the decision concrete on the
+clips that matter, and publishing is a copy, so the history of versions stays a record of what was accepted.
+The candidate tokens to put forward first are the emphasis orange against the blue, the camera's starting
+angles and the light's azimuth, the motion ramp and hold, and the label sizes.
+

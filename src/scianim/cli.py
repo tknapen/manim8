@@ -51,7 +51,7 @@ from scianim.workspace import (
     init_workspace,
     scan_workspace,
 )
-from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest
+from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest, StyleSelection
 from scianim_core.feedback import Region
 from scianim_core.schemas import export_schemas
 
@@ -253,6 +253,96 @@ def style_list(
         for version, sheet in sorted(versions.items()):
             table.add_row(name, version, str(sheet))
     out.print(table)
+
+
+@style_app.command("stills")
+def style_stills(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    candidate: Annotated[Path, typer.Option(help="An unpublished style.yaml (name, version and inherits set).")],
+    against: Annotated[
+        str | None, typer.Option(help="A published sheet as name@version (default: the project's own).")
+    ] = None,
+    snapshot: Annotated[list[str] | None, typer.Option("--snapshot", help="Checkpoint id (repeatable).")] = None,
+    profile: Annotated[str, typer.Option(help="Quality profile for the stills.")] = "snapshot",
+    timeout: Annotated[float, typer.Option(help="Worker timeout in seconds per render.")] = 1800,
+) -> None:
+    """Render the same checkpoints under the project's sheet and under a candidate, side by side with the
+    token differences, so a signature grows one reviewed token at a time (ADR-038)."""
+    from scianim.styles import stills as _stills
+
+    proj, report = _prepare(project, require_family=True)
+    if report.family is None or report.animation is None or not report.ok:
+        print_report(report, str(project))
+        fail("the project must validate with a resolvable family")
+    family = report.family
+    tool_versions = tool_versions_for(family)
+    if not tool_versions:
+        fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
+    try:
+        sheet = _stills.load_candidate(candidate)
+        staged = _stills.stage_candidate(sheet, candidate, _stills.temporary_styles_root())
+        own = report.animation.style
+        current = (
+            _stills.resolve_with(proj, report, _stills.selection_for(against, own), []) if against else report.style
+        )
+        assert current is not None
+        wanted = _stills.resolve_with(
+            proj,
+            report,
+            StyleSelection(name=sheet.name, version=sheet.version, overrides=dict(own.overrides)),
+            [staged],
+        )
+        if current.hash == wanted.hash:
+            fail("the candidate resolves to the same tokens as the sheet it is compared with")
+        rendered = _stills.render_stills(
+            proj,
+            report,
+            family,
+            {f"{current.theme}@{current.theme_version}": current, f"candidate {sheet.name}@{sheet.version}": wanted},
+            list(snapshot or []),
+            profile,
+            tool_versions,
+            timeout,
+        )
+        target = _stills.write_stills_sheet(rendered, proj, _stills.stills_dir(proj) / "stills.html")
+    except SpecError as exc:
+        fail(str(exc))
+    for path, a, b in _stills.token_diff(rendered[0].style, rendered[1].style):
+        out.print(f"  {path}: {json.dumps(a)} -> {json.dumps(b)}")
+    for still in rendered:
+        status = still.manifest.result.status
+        out.print(
+            f"{still.label}: {status}, {len(still.manifest.result.checkpoints)} checkpoint(s), job {still.manifest.job.job_id}"
+        )
+    out.print(f"stills: {target}")
+    if any(still.manifest.result.status != "succeeded" for still in rendered):
+        raise typer.Exit(1)
+
+
+@style_app.command("publish")
+def style_publish(
+    candidate: Annotated[Path, typer.Argument(help="The candidate style.yaml to publish.")],
+    ref: Annotated[str, typer.Argument(help="The published reference, name@version.")],
+    styles_dir: Annotated[
+        Path | None, typer.Option(help="The styles directory to publish into (default: the nearest `styles/`).")
+    ] = None,
+) -> None:
+    """Copy an accepted candidate into `styles/<name>/<version>/`; a published version is never overwritten."""
+    from scianim.styles import stills as _stills
+
+    target_root = styles_dir
+    if target_root is None:
+        for parent in (candidate.resolve().parent, *candidate.resolve().parents):
+            if (parent / "styles").is_dir():
+                target_root = parent / "styles"
+                break
+    if target_root is None:
+        fail("no `styles/` directory above the candidate; pass --styles-dir")
+    try:
+        written = _stills.publish_candidate(candidate, ref, target_root)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"published {ref} -> {written}")
 
 
 @app.command()

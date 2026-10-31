@@ -206,3 +206,37 @@ def test_gabor_filter_renders_in_segments(workspace: Path, scianim) -> None:
     # group once faded is asserted directly by the bridge test on the AxesFade track.)
     first = next(i for i in records["with_axes"].layout if i.object_id == "gabor_surface")
     assert first.bbox != surface.bbox
+
+
+def test_style_stills_render_a_candidate_beside_the_pinned_sheet(workspace: Path, scianim) -> None:
+    project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
+    assert scianim("codegen", str(project)).returncode == 0
+    candidate = workspace / "candidate" / "style.yaml"
+    candidate.parent.mkdir(exist_ok=True)
+    candidate.write_text(
+        'schema_version: "1.0"\nname: tomas_scientific\nversion: "0.6.0"\ninherits: tomas_scientific@0.5.0\n'
+        'palette:\n  emphasis: "#D9772A"\n'
+    )
+    result = scianim(
+        "style",
+        "stills",
+        str(project),
+        "--candidate",
+        str(candidate),
+        "--snapshot",
+        "circuit_shown",
+        "--profile",
+        "storyboard",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "palette.emphasis" in result.stdout
+    sheets = sorted((project / "renders" / "working").glob("stills_*/stills.html"))
+    assert sheets and sheets[-1].read_text().count("<img") == 2
+    published = scianim(
+        "style", "publish", str(candidate), "tomas_scientific@0.6.0", "--styles-dir", str(workspace / "styles")
+    )
+    assert published.returncode == 0 and (workspace / "styles" / "tomas_scientific" / "0.6.0" / "style.yaml").exists()
+    again = scianim(
+        "style", "publish", str(candidate), "tomas_scientific@0.6.0", "--styles-dir", str(workspace / "styles")
+    )
+    assert again.returncode != 0

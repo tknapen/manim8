@@ -212,7 +212,7 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 - [ ] E. Voiceover: postponed (ADR-035 reserved).
 - [ ] F. Review-to-revision loop (ADR-036).
 - [ ] G. Distribution and versioning under the name manim8 (ADR-037).
-- [ ] H. Personal signature process (ADR-038).
+- [x] H. Personal signature process: `style stills` and `style publish` (ADR-038).
 
 ## Core automated test matrix
 
