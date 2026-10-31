@@ -664,3 +664,32 @@ clips that matter, and publishing is a copy, so the history of versions stays a 
 The candidate tokens to put forward first are the emphasis orange against the blue, the camera's starting
 angles and the light's azimuth, the motion ramp and hold, and the label sizes.
 
+## ADR-036: Feedback becomes proposals by rules
+
+**Status:** accepted, 31 October 2026
+
+**Context.** The loop brief, storyboard, render, review, revision ran with a person turning review comments
+into proposals by hand (or an external agent reading the context bundle). The spec asks for the loop to
+close without anyone editing YAML, and ADR-020 keeps every model call out of the control plane.
+
+**Decision.** `scianim propose from-feedback <project> [--job ID] [--apply]` and
+`POST /api/projects/{id}/proposals/from-feedback` read the open feedback records and the live inspection of
+the latest render and write typed `Proposal` files under `proposals/`, one per item a rule can address: an
+object outside the safe zone is drawn smaller when its kind has a `size_fraction`, else moved to the centre
+when it has an anchor; of two overlapping objects the larger sized one gives way, or two text-like objects on
+one anchor part to opposite corners; a comment that names one of the object's numeric parameters and a
+value (`set width_fraction to 0.5`, `sigma = 1.2`) is taken at its word, including parameters the storyboard
+left at their default; a motion called too fast or too slow has its duration changed by a fixed factor, never
+into the next action on the same object. Each proposal carries its rule as rationale, its chosen value as
+an uncertainty, and the feedback ids it answers in `in_response_to`; it is validated against the contracts
+before it is written and dropped with a reason when the patch would not validate. Everything else is listed
+as unresolved with the question a person or an external agent must answer; a scientific concern is never
+patched by a rule. A feedback record counts as addressed once a pending or applied proposal names it, so
+records stay write-once, and the API reports `addressed_by` beside each record. `--apply` applies every
+generated proposal that validates.
+
+**Why.** The rules cover the findings the inspector already produces and the comments that carry their own
+answer, which is where a model adds nothing; what remains unresolved is exactly the input a model or a person
+needs, and the context bundle already lists it. Deriving "addressed" from proposals keeps one source of
+truth for what answered what.
+

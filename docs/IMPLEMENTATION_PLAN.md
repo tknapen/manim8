@@ -210,7 +210,7 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 - [ ] C. Splicing and cache honesty (ADR-033).
 - [ ] D. Scene actions: move, fade, transform an equation, data-bound sweeps; the `drop_impact` example (ADR-034).
 - [ ] E. Voiceover: postponed (ADR-035 reserved).
-- [ ] F. Review-to-revision loop (ADR-036).
+- [x] F. Review-to-revision loop: `propose from-feedback` by rules, in the CLI, the API and the review UI (ADR-036).
 - [ ] G. Distribution and versioning under the name manim8 (ADR-037).
 - [x] H. Personal signature process: `style stills` and `style publish` (ADR-038).
 

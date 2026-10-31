@@ -984,6 +984,52 @@ def propose_apply(
     out.print(f"record: {proj.root / 'proposals' / 'applied' / (loaded.id + '.yaml')}")
 
 
+@propose_app.command("from-feedback")
+def propose_from_feedback(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    job: Annotated[
+        str | None, typer.Option(help="Render whose inspection to read (default: the latest succeeded).")
+    ] = None,
+    apply: Annotated[bool, typer.Option(help="Apply every generated proposal that validates.")] = False,
+) -> None:
+    """Turn open feedback and the latest inspection into typed proposals by rules, without a model; list what no
+    rule can answer (ADR-036)."""
+    from scianim.agent.feedback_proposals import generate
+
+    proj, report = _prepare(project, require_family=False)
+    if report.storyboard is None or report.animation is None:
+        print_report(report, str(project))
+        fail("the project needs a valid animation.yaml and storyboard.yaml")
+    manifest = manifest_for_ref(proj, job) if job else manifest_for_ref(proj, "working")
+    try:
+        generated = generate(proj, report, manifest)
+    except SpecError as exc:
+        fail(str(exc))
+    for proposal, path in zip(generated.proposals, generated.written, strict=True):
+        answers = (
+            f" (answers {', '.join(proposal.in_response_to)})" if proposal.in_response_to else " (from inspection)"
+        )
+        out.print(f"[green]proposal[/green] {proposal.id}: {proposal.summary}{answers}\n  {path}")
+    for item in generated.unresolved:
+        where = " ".join(x for x in (item.snapshot_id, item.object_id, item.feedback_id) if x)
+        tag = "[magenta]science[/magenta]" if item.science else "[yellow]unresolved[/yellow]"
+        out.print(f"{tag} {where}: {item.reason}" + (f'\n  "{item.text}"' if item.text else ""))
+    if not generated.proposals and not generated.unresolved:
+        out.print("nothing open: no feedback awaits an answer and the inspection is clean")
+    if apply:
+        for proposal in generated.proposals:
+            try:
+                applied = apply_proposal(proj, proposal)
+            except SpecError as exc:
+                fail(str(exc))
+            out.print(
+                f"[green]applied[/green] {proposal.id}"
+                + (" (scientific review required)" if applied.scientific_review_required else "")
+            )
+        if generated.proposals:
+            out.print("regenerate the scene with `scianim codegen` and render again to see the change")
+
+
 @propose_app.command("list")
 def propose_list(project: Annotated[Path, typer.Argument(help="Project directory.")]) -> None:
     """Pending proposal files and applied proposals with their science flag."""

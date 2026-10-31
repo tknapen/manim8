@@ -105,6 +105,16 @@ The review server takes the same `workers` field in a job request. Manim's per-p
 `.scianim/media` does not know when the renderer's code changed; after updating SciAnim, `scianim clean
 --media` keeps old segments out of new movies.
 
+```bash
+scianim propose from-feedback <project>            # open feedback and inspection findings -> proposals by rules
+scianim propose from-feedback <project> --apply    # and apply the ones that validate
+```
+
+Comments that carry their own answer (`set width_fraction to 0.5`, "outside the safe zone", "too slow") and the
+inspector's layout warnings become typed proposals under `proposals/`, each naming the feedback it answers;
+what no rule can read is listed as unresolved for a person or an external agent, and a scientific concern is
+never patched by a rule. A record counts as addressed once a proposal names it.
+
 ## Making something move
 
 A figure can show two conditions side by side; an animation can vary one quantity while the viewer watches the

@@ -33,6 +33,7 @@ export default function Review({ id, jobId, snapshotId }: { id: string; jobId?: 
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [proposalNote, setProposalNote] = useState<string>("");
   const [selected, setSelected] = useState<string | undefined>(snapshotId);
   useEffect(() => {
     setSelected(snapshotId);
@@ -414,6 +415,31 @@ export default function Review({ id, jobId, snapshotId }: { id: string; jobId?: 
           </div>
           <div>
             <h3>Feedback on this snapshot ({feedback.length})</h3>
+            <div className="toolbar" style={{ margin: "0 0 8px" }}>
+              <button
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const made = await api.proposeFromFeedback(id);
+                    setProposalNote(
+                      `${made.proposals.length} proposal(s) written` +
+                        (made.unresolved.length ? `, ${made.unresolved.length} item(s) need a person` : "") +
+                        (made.proposals.length ? `: ${made.proposals.map((p) => p.id).join(", ")}` : ""),
+                    );
+                  } catch (e) {
+                    setProposalNote(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                disabled={busy}
+                title="Turn open feedback and the inspection findings into proposals by rules; nothing is applied"
+                data-testid="propose-from-feedback"
+              >
+                Propose from feedback
+              </button>
+              {proposalNote ? <span className="meta">{proposalNote}</span> : null}
+            </div>
             <div className="feedback-list" data-testid="feedback-list">
               {feedback.length === 0 ? <Empty>none yet</Empty> : null}
               {[...feedback].reverse().map((f) => (
