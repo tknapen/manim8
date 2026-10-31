@@ -1,7 +1,7 @@
 # Work plan: the next stages, written for parallel implementation
 
-**Status:** draft for review, 31 October 2026. Baseline at the time of writing: `claude/scianim-handoff` at
-`3f4307a` (`default@0.5.0`, parallel video renders, ADR-001 to ADR-030).
+**Status:** agreed with the author on 31 October 2026 (decisions in section 12). Baseline at the time of
+writing: `claude/scianim-handoff` at `3f4307a` (`default@0.5.0`, parallel video renders, ADR-001 to ADR-030).
 
 This plan turns the open items of `IMPLEMENTATION_PLAN.md` into work packages that separate agents can
 implement at the same time. Each package names what it owns, what it may touch, the contract it exposes to the
@@ -22,14 +22,15 @@ ends with an ADR (numbers reserved below), regenerated schemas where contracts c
 | B | Raster surfaces, depth-correct frames, vectorised sampling | L (4–6) | 0 | `components/surfaces.py`, new `raster.py`, `expressions.py` | 032 |
 | C | Splicing and cache honesty | M (3) | 0, A | `render/splice.py` (new), `planning/dependencies.py`, media fingerprint | 033 |
 | D | Scene actions: move, fade, transform, data sweeps | L (4–6) | 0 | `storyboard.py` actions, `codegen`, `checks.py`, tracks in `scene.py`, `equations.py` | 034 |
-| E | Voiceover: audio files, marks, local TTS | L (5; phases 1–2 are M) | 0 | `animation.py` audio block, new `audio.py`, `planning/timing.py` | 035 |
+| E | Voiceover: audio files, marks, local TTS | L (5) | postponed, not scheduled | `animation.py` audio block, new `audio.py`, `planning/timing.py` | 035 (reserved) |
 | F | Review-to-revision loop | M (3) | 0 | `agent/feedback_proposals.py` (new), proposal kinds, UI button | 036 |
 | G | Distribution and versioning | M (3 + CI time) | 0 | `pyproject.toml` files, workflows, `families/resolve.py` sources, `migrate` | 037 |
 | H | Personal signature process | S–M (1–2) | 0 | `style stills` and `style publish` commands, `styles/` | 038 |
 
 Conflicts to manage (section 11 has the rules): A and B both touch the camera orbit in `scene.py`; A and C both
 plan parts in `render/parallel.py`; A and D both add tracks to `scene.py`; everyone adds to `cli.py` and to
-`scianim_core/jobs.py`. The seam package removes the first three by landing the hooks both sides need.
+`scianim_core/jobs.py`. The seam package removes the first three by landing the hooks both sides need. When E
+is scheduled, its seam (a movie-finishing hook in `video.py` where audio is muxed) is added then.
 
 ## 2. Package 0: seams
 
@@ -50,17 +51,14 @@ One small pull request, reviewed before the others branch. Nothing here changes 
 3. **A camera hook.** `SnapshotScene.camera_moved()` is called by `CameraOrbit.apply` after it sets the camera,
    and forwards to `component.on_camera()` for every registered component that defines it (today none).
    Needed by B (a raster surface redraws when the camera moves). Files: `scene.py`, `components/base.py`.
-4. **A movie-finishing hook.** `video.py` gains `finish_movie(path: Path, ctx) -> Path`, called on the joined
-   movie by both `collect_video_outputs` and `merge_video_outputs` before probing; today it returns the path
-   unchanged. Needed by E (audio is muxed there) and keeps A and C out of E's way.
-5. **Part planning signature.** `render/parallel.py` exposes
+4. **Part planning signature.** `render/parallel.py` exposes
    `plan_parts(plays, weights, workers, *, reusable: frozenset[int] = frozenset()) -> list[PartRange]` as the
    one function that decides ranges; today it wraps `part_ranges`. A extends it with frame windows, C passes
    `reusable` (plays whose segments will be spliced in, never part of a range).
-6. **Integration test markers.** `pyproject.toml` declares markers `video`, `surface`, `audio`, `loop`,
-   `bundle` beside `integration`, and the existing tests are tagged, so a package runs its subset
+5. **Integration test markers.** `pyproject.toml` declares markers `video`, `surface`, `loop`, `bundle`
+   beside `integration`, and the existing tests are tagged, so a package runs its subset
    (`pytest tests/integration -m "integration and video"`) and the full suite runs before a merge.
-7. **Plan lines.** `IMPLEMENTATION_PLAN.md` gains one unchecked line per package under a new "Milestone 9:
+6. **Plan lines.** `IMPLEMENTATION_PLAN.md` gains one unchecked line per package under a new "Milestone 9:
    toward a full-featured package" heading, so each package later ticks its own line without conflicts.
 
 Acceptance for the seam: all suites green; a two-worker render of the orientation example still matches the
@@ -151,9 +149,11 @@ size takes 97 ms on this machine; a box downsample (`Image.reduce(2)`) and the a
   coordinates; the frame lines move into the raster. `fade_axes` fades the raster's frame alpha and the labels.
 - The layout report takes the projected vertex extents directly (exact, and cheaper than today's point
   projection).
-- Selection: `ManimSettings.surface_renderer: Literal["cairo", "raster"]`, default `cairo` until acceptance,
-  then `raster`; `scianim render|snapshot --surface-renderer` overrides; the value enters the cache key.
-  The Cairo path stays for parity checks and for themes that want vector output.
+- Selection: `ManimSettings.surface_renderer: Literal["cairo", "raster"]`, chosen with `scianim
+  render|snapshot --surface-renderer` and the API field; the value enters the cache key. The two renderers are
+  equals: the same tests run on both, the specimen tool can compose from either, and neither is deprecated.
+  The default stays `cairo` so that no output changes until the author has reviewed raster stills; the
+  decision to switch the default is deferred and is not part of this package.
 - Vectorised sampling: `compile_expression(..., arrays=True)` compiles against a NumPy namespace
   (`np.exp`, `np.where` for the comparisons the grammar allows) and returns a callable over arrays;
   `function_image.array()` and the surface grid evaluate in one call. The plan pass gets faster too.
@@ -175,14 +175,15 @@ painter's order puts the near cells last, and that a frame segment behind a ridg
 component switch and the camera hook. (5) Layout report from projected vertices; the existing layout tests
 (ink-only box, lift) must still pass on both paths. (6) Integration: Gabor `rotating` under both renderers;
 the projected bounding boxes agree within two percent of the frame; the raster frame renders in under 0.4 s
-at the snapshot size. (7) Remake the `default@0.5.0` specimen only if the look is accepted as the default;
-otherwise the specimen stays Cairo and the ADR says so. (8) ADR-032, guide, plan line.
+at the snapshot size. (7) Compose a raster twin of the `default@0.5.0` specimen beside the Cairo one
+(`specimen_raster.png`, not replacing the published specimen) for the author's review. (8) ADR-032, guide,
+plan line.
 
 **Acceptance.** Gabor at 80 cells, 1080p, 60 fps, one process: under five minutes; with four workers and A,
 about two. The `rotating`, `moved` and `with_axes` checkpoints reviewed side by side with the Cairo ones, the
 frame lines hidden where the surface covers them.
 
-**Risks and decisions.** Anti-aliasing differs from Cairo's (supersampling versus analytic coverage); the
+**Risks.** Anti-aliasing differs from Cairo's (supersampling versus analytic coverage); the
 specimen decides whether raster becomes the default. Pillow's polygon has no sub-pixel coordinates; the 2×
 supersample is the mitigation, 3× is the fallback at three times the fill cost. Transparent surfaces
 (`surface_opacity` below one) need back-to-front blending, which painter's order gives for free.
@@ -262,15 +263,31 @@ another, and sweep a parameter of a data-bound plot.
   the validator warns above ten thousand rows.
 - Registry version 0.5.0. `codegen` emits `begin_move`, `begin_fade`, `begin_transform` and the existing
   `begin_vary` for data parameters; `check_actions` extends the overlap and hold rules to the new kinds; the
-  server's `action_summary` and the review UI show them; the user guide gets one example each. One example
-  exercises all four: a fifth example project `response_normalisation_steps` (two scenes, fifteen seconds) or
-  an extension of `divisive_normalization` (recommended: the extension, so the existing acceptance tests cover
-  it).
+  server's `action_summary` and the review UI show them; the user guide gets one example each.
+- **The fifth example, `drop_impact`** (the author's choice: something visually appealing, a drop of water
+  falling onto a water surface and bouncing back). One scene of about twenty seconds in a new project folder
+  of the example family (it needs no new environment). A `surface_plot` is the water: its expression is a
+  damped radial capillary wave with time as a parameter, `h(r, t) = A exp(-r / lambda) cos(k r - omega t)
+  exp(-t / tau)` for `t` after impact, plus a central Gaussian column whose height follows a pulse after
+  impact (the rebound, the Worthington jet of the physics literature); the equation is shown and its terms are
+  emphasised as the sweep runs. Above it a `sphere`, a new small registered kind placed in the data
+  coordinates of an anchor surface (`anchor: <surface id>`, `position: [x, y, z]`, `radius_fraction`,
+  `style_role`), falls with `move_object` (`to_point` in the anchor's coordinates, so `move_object` covers
+  flat objects by anchor or offset and anchored 3D objects by point), fades at impact (`fade_object`), the
+  ripples spread (`vary_parameter t`), the column rises and a smaller sphere pinches off, climbs and falls
+  back (two more moves), and the rings fade while the camera orbits slowly. The caption and the data label say
+  what it is: an analytic model of the surface, not a fluid simulation; the example's `animation.yaml` says so
+  in its scientific notes. The clip exercises move, fade, the surface sweep and term emphasis; a
+  `transform_equation` turns the drop's free-fall equation into the wave equation at impact. The data-bound
+  sweep is exercised by one added action in `divisive_normalization`, which has the CSV. The specimen tool's
+  frame list gains two `drop_impact` checkpoints (ten frames, three rows).
 
 **Contracts.** The action models above; `DataBinding` parameterised transforms; `REGISTRY_VERSION = "0.5.0"`.
 Schemas regenerated.
 
-**Files owned.** `scianim_core/storyboard.py` (actions), `scianim_core/components.py` (bindings, version),
+**Files owned.** `scianim_core/storyboard.py` (actions), `scianim_core/components.py` (bindings, the `sphere`
+kind, version), a new `components/solids.py` (the sphere),
+`examples/families/computational_neuroscience/drop_impact/` (new),
 `src/scianim/codegen/generate.py`, `src/scianim/planning/checks.py`, `src/scianim/server/app.py`
 (`action_summary`), `ui/src/views/Overview.tsx` (action labels), bridge `scene.py` (tracks and `begin_*`
 methods, appended after the existing ones), `components/equations.py`, `components/plots.py` (data
@@ -278,20 +295,27 @@ recompute), tests (`tests/unit/test_actions.py`, bridge `test_sweeps.py`, integr
 extended example), `examples/`, docs, ADR-034.
 
 **Steps.** (1) Models and validator rules with unit tests. (2) `MoveTrack` and `FadeTrack` faces with codegen
-and bridge tests. (3) Data-bound sweeps. (4) `transform_equation`: typesetting correspondence first (a bridge
-test that two occurrences of `theta` map to two in the target and `phi` fades out), then the track. (5) The
-example, its snapshots and the integration assertion that the transformed equation's checkpoint is exact.
-(6) ADR, guide, registry docs in the spec (section 10.4), plan line.
+and bridge tests, including the anchored 3D move. (3) The `sphere` kind. (4) Data-bound sweeps. (5)
+`transform_equation`: typesetting correspondence first (a bridge test that two occurrences of `theta` map to
+two in the target and `phi` fades out), then the track. (6) The `drop_impact` example, its snapshots, a
+storyboard-profile video for the author to review, and the integration assertion that the transformed
+equation's checkpoint is exact. (7) ADR, guide, registry docs in the spec (section 10.4), plan line. The
+example depends on B for render time only: a per-frame surface rebuild is slow under Cairo but correct, so
+the example is authored at 48 cells until B lands.
 
-**Acceptance.** The extended example validates, renders its checkpoints exactly, and the sampled video frames
-at the transform's end show the target equation with the emphasised term coloured. `scianim validate` refuses
+**Acceptance.** `drop_impact` validates, renders its checkpoints exactly, and the sampled video frames at the
+transform's end show the target equation with the emphasised term coloured; the author has seen the clip. `scianim validate` refuses
 an emphasis of a symbol absent from the active equation with a message naming both equations.
 
 **Risks.** Equation transforms are the hard part: Typst output groups glyphs per symbol only where we wrapped
 them, so the grammar of what can be matched is "named symbols"; everything else is shape matching, which can
 look arbitrary. The ADR should state that limit.
 
-## 7. Package E: voiceover
+## 7. Package E: voiceover (postponed)
+
+**Postponed by the author on 31 October 2026: no speech or soundtrack work for now.** The design below is kept
+so that the package can be scheduled later without re-deriving it; nothing in the other packages depends on
+it, and its seam (a movie-finishing hook) is added when it starts.
 
 **Goal.** Narration becomes sound: first from audio files the author supplies, then with marks that align
 actions to speech, then with a local speech engine. No path requires a paid service.
@@ -407,8 +431,10 @@ Tests: unit (migrate on fixture documents), CI jobs as the test.
 **Acceptance.** A GitHub Actions run on macOS and Linux installs the built wheels into an empty environment
 and renders the divisive-normalization checkpoints and a storyboard-profile video from the installed CLI.
 
-**Decisions for the author.** Package names on PyPI (`scianim`, `scianim-core`, `scianim-bridge`), the first
-public version (`0.1.0`), and Windows.
+**Decisions taken provisionally** (the author deferred them; nothing blocks the package): the names
+`scianim`, `scianim-core` and `scianim-bridge` (availability on PyPI checked at the first release), first
+public version `0.1.0`, Windows documented as unsupported. The package builds and tests wheels without
+publishing; publishing needs a PyPI token from the author when the time comes.
 
 ## 10. Package H: personal signature process
 
@@ -436,7 +462,7 @@ style hashes, publish refuses overwrite), integration (renders two snapshots and
    `stage/h-signature`, each from `claude/scianim-handoff` after the seam package merges; rebase on it daily;
    one pull request per package, squash-merged with its ADR.
 2. **Merge order.** 0, then A, B, D, H, F in any order as they finish, C after A, G when the CI matrix is
-   green, E last (it adds dependencies and the only optional system requirement).
+   green. E is not scheduled.
 3. **Shared files are append-only.** `scianim_core/jobs.py`, `storyboard.py`, `animation.py`: new fields
    with defaults, appended at the end of a class, never reordered. `cli.py`: new commands at the end of their
    group. `scene.py`: new tracks appended after `RevealTrack`, new `begin_*` methods after `begin_orbit`.
@@ -451,10 +477,17 @@ style hashes, publish refuses overwrite), integration (renders two snapshots and
 7. **Reserved ADR numbers** are listed in the map; a package that needs a second ADR takes the next free
    number after 038 and says so in its pull request.
 
-## 12. Decisions the author should take before branching
+## 12. Decisions taken, and what remains with the author
 
-- B: whether raster surfaces may become the default once the specimen is reviewed, or stay opt-in.
-- D: extend `divisive_normalization` or add a fifth example for the new actions.
-- E: Piper as the bundled engine, and whether phase 3 is in scope now.
-- G: PyPI names, the first public version, Windows.
-- H: the first candidate tokens to review.
+Taken on 31 October 2026:
+
+- B: the two surface renderers are equals; the default stays `cairo` until the author has reviewed raster
+  stills, and switching the default is a later decision outside the package.
+- D: the new actions get a fifth example, `drop_impact` (a drop falling onto a water surface and rebounding,
+  an analytic model labelled as such); the data-bound sweep is shown in `divisive_normalization`.
+- E: postponed; no speech or soundtrack work now.
+- G and H: provisional defaults as written in their sections; nothing is needed from the author to start.
+
+Nothing is required from the author before the packages branch. Later, three reviews and one credential:
+the raster stills beside the Cairo ones (B), the `drop_impact` clip (D), the signature stills (H), and a PyPI
+token at the first public release (G).
