@@ -98,7 +98,9 @@ def manim_settings(ctx: _context.JobContext, project_root: Path) -> dict[str, An
         settings["output_file"] = f"{job.job_id}.part{part.index}"
         settings["from_animation_number"] = part.first_play
         settings["upto_animation_number"] = part.last_play
-        # The merge reads the segments after this process has ended; Manim must not prune them.
+    if ctx.mode in ("part", "video"):
+        # Segments outlive the render: the merge reads a part's after its process has ended, and a later render
+        # may splice a serial render's. Manim must not prune them (`scianim clean --media` does).
         settings["max_files_cached"] = -1
     return settings
 
@@ -138,9 +140,9 @@ def write_subtitles(scene: Any, ctx: _context.JobContext) -> str | None:
 
 
 def collect_segments(scene: Any, ctx: _context.JobContext, errors: list[str]) -> list[SegmentRecord]:
-    """The segment Manim encoded for each play in this part's range (`None` marks a fast-forwarded play)."""
+    """The segment Manim encoded for each play the worker was to draw: a part's range, or every play of a serial
+    video render (`None` in Manim's list marks a fast-forwarded play)."""
     part = ctx.job.part
-    assert part is not None
     by_index = {e["index"]: e for e in scene.play_log}
     root = ctx.project_root.resolve()
     segments: list[SegmentRecord] = []
@@ -164,12 +166,15 @@ def collect_segments(scene: Any, ctx: _context.JobContext, errors: list[str]) ->
             SegmentRecord(play_index=index, scene_id=entry["scene_id"], path=relative, frames=int(entry["frames"]))
         )
     drawn = {segment.play_index for segment in segments}
-    wanted = set(range(part.first_play, part.last_play + 1))
-    if drawn != wanted:
-        errors.append(
-            f"part {part.index} was to draw plays {part.first_play}-{part.last_play} but drew {sorted(drawn)}; "
-            "the scene did not play the same way as in the planning pass"
-        )
+    if part is not None:
+        wanted = set(range(part.first_play, part.last_play + 1))
+        if drawn != wanted:
+            errors.append(
+                f"part {part.index} was to draw plays {part.first_play}-{part.last_play} but drew {sorted(drawn)}; "
+                "the scene did not play the same way as in the planning pass"
+            )
+    elif drawn != set(by_index):
+        errors.append(f"Manim left segments for plays {sorted(drawn)} but the scene logged {sorted(by_index)}")
     return segments
 
 
@@ -251,6 +256,7 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
                     warnings.extend(outputs.warnings)
                     errors.extend(outputs.errors)
                     _timing_verdict(ctx, timing, errors, warnings)
+                    segments = collect_segments(scene, ctx, errors)
                     if not errors:
                         status = "succeeded"
                 elif ctx.mode == "plan":

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from scianim.server.app import create_app
 from scianim_core import ArtifactManifest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.video]
 
 
 def _manifest(project: Path, job_dir_text: str) -> ArtifactManifest:
@@ -129,6 +129,9 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     two = latest()
     assert two.job.job_id != one.job.job_id and two.job.workers == 2 and two.job.operation == "render_video"
     assert two.job.cache_key == one.job.cache_key and two.result.status == "succeeded"
+    # A serial render reports its segments too, one per play, so a later render can splice them.
+    assert [s.play_index for s in one.result.segments] == [p.index for p in one.result.plays]
+    assert all((project / s.path).exists() for s in one.result.segments)
 
     ranges = [(r.part.first_play, r.part.last_play) for r in two.result.parts]
     assert len(ranges) == 2 and ranges[0][0] == 0 and ranges[0][1] + 1 == ranges[1][0]

@@ -9,7 +9,7 @@ import pytest
 
 from scianim_core import ArtifactManifest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.surface]
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 

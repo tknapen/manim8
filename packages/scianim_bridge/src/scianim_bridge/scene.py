@@ -19,7 +19,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from manim import DOWN, LEFT, UP, Animation, FadeIn, FadeOut, ManimColor, Mobject, Text, ThreeDScene, VGroup, config
+from manim import DOWN, LEFT, UP, Animation, FadeIn, ManimColor, Mobject, Text, ThreeDScene, VGroup, config
 from manim.utils.rate_functions import ease_in_out_sine, ease_out_cubic, linear, smooth
 
 from scianim_bridge import context as _context
@@ -253,6 +253,66 @@ class CameraOrbit(Track):
             camera.set_theta(self.start_theta + (self.to_theta - self.start_theta) * eased)
         if self.to_phi is not None:
             camera.set_phi(self.start_phi + (self.to_phi - self.start_phi) * eased)
+        self.scene.camera_moved()
+
+
+@dataclass
+class FadeTrack(Track):
+    """An object's ink eased between two opacities: every member keeps its own fill and stroke opacity scaled by
+    the same factor, so a surface's wash and a label's text fade together. With `remove`, the group leaves the
+    scene when the fade reaches zero. `end_scene` fades with it; `fade_object` (ADR-034) is its storyboard face.
+    """
+
+    component: Component = field(kw_only=True)
+    start_factor: float = field(kw_only=True)
+    end_factor: float = field(kw_only=True)
+    easing: Callable[[float], float] = field(kw_only=True)
+    remove: bool = field(default=False, kw_only=True)
+    originals: list[tuple[Mobject, Any, Any, Any]] | None = None
+
+    @property
+    def mobject(self) -> Mobject:
+        return self.component.group
+
+    def _capture(self) -> None:
+        if self.component.ink_originals is not None:
+            self.originals = self.component.ink_originals
+            return
+        self.originals = []
+        for member in self.component.group.get_family():
+            if hasattr(member, "get_fill_opacities"):
+                self.originals.append(
+                    (
+                        member,
+                        member.get_fill_opacities().copy(),
+                        member.get_stroke_opacities().copy(),
+                        member.get_stroke_opacities(background=True).copy(),
+                    )
+                )
+            elif hasattr(member, "set_opacity"):
+                self.originals.append((member, float(getattr(member, "fill_opacity", 1.0)), None, None))
+        self.component.ink_originals = self.originals
+
+    def apply(self, fraction: float) -> None:
+        if self.originals is None:
+            self._capture()
+        eased = self.easing(min(1.0, max(0.0, fraction)))
+        factor = self.start_factor + (self.end_factor - self.start_factor) * eased
+        for member, fill, stroke, background in self.originals or []:
+            if stroke is None:
+                member.set_opacity(fill * factor)
+            else:
+                member.set_fill(opacity=fill * factor, family=False)
+                member.set_stroke(opacity=stroke * factor, family=False)
+                member.set_stroke(opacity=background * factor, family=False, background=True)
+
+    def finish(self) -> None:
+        if self.end_factor <= 0.0:
+            self.component.visible = False
+            if self.remove:
+                self.scene.remove(self.component.group)
+        else:
+            self.component.visible = True
 
 
 @dataclass
@@ -456,12 +516,51 @@ class SnapshotScene(ThreeDScene):
         if visible and not keep:
             transition = self.tokens.t.motion.transition_seconds
             frames = max(1, min(self.frames(transition), self.frames(end_seconds - self.clock)))
-            self.play_frames(frames, *[FadeOut(c.group) for c in visible])
-            for component in visible:
-                component.visible = False
+            tracks = [
+                self.begin_fade(
+                    component, visible=False, duration_seconds=frames / float(config.frame_rate), remove=True
+                )
+                for component in visible
+            ]
+            self.run_until(self.clock + frames / float(config.frame_rate), tracks)
         self.wait_until(end_seconds)
 
+    def camera_moved(self) -> None:
+        """The camera has a new viewpoint: objects that draw themselves for one (raster surfaces) redraw."""
+        for component in self.objects.values():
+            if component.on_camera is not None:
+                component.on_camera()
+
     # --- tracks -------------------------------------------------------------------------------
+    def begin_fade(
+        self,
+        component: Component,
+        *,
+        visible: bool,
+        duration_seconds: float | None = None,
+        remove: bool = False,
+        easing: str | None = None,
+        action_id: str | None = None,
+    ) -> FadeTrack:
+        """Start fading an object out (or back in) now; `run_until` plays it, alone or beside other tracks."""
+        motion = self.tokens.t.motion
+        duration = duration_seconds if duration_seconds is not None else motion.transition_seconds
+        track = FadeTrack(
+            scene=self,
+            track_id=action_id or f"fade:{component.object_id}",
+            at_seconds=self.clock,
+            duration_seconds=max(duration, self.frame_seconds),
+            component=component,
+            start_factor=0.0 if visible else 1.0,
+            end_factor=1.0 if visible else 0.0,
+            easing=state_easing(easing or motion.easing),
+            remove=remove,
+        )
+        if visible and component.group not in self.mobjects:
+            self.add(component.group)
+        track.apply(0.0)
+        return track
+
     def begin_reveal(self, component: Component, duration_seconds: float | None = None) -> RevealTrack:
         """Start revealing an object now; `run_until` plays the fade, alone or beside other tracks."""
         duration = duration_seconds if duration_seconds is not None else self.tokens.t.motion.reveal_seconds

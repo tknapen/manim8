@@ -143,6 +143,22 @@ def part_ranges(plays: Sequence[PlayRecord], workers: int, weights: Sequence[flo
     ]
 
 
+def plan_parts(
+    plays: Sequence[PlayRecord],
+    weights: Sequence[float] | None,
+    workers: int,
+    *,
+    reusable: frozenset[int] = frozenset(),
+) -> list[PartRange]:
+    """The one place that decides what each worker draws: contiguous ranges of plays balanced by weight.
+
+    `reusable` names plays whose segments an earlier render supplies, so no range has to draw them (splicing,
+    ADR-033); until that lands, no play is reusable."""
+    if reusable:
+        raise NotImplementedError("splicing reusable segments into a render is not implemented yet (ADR-033)")
+    return part_ranges(plays, workers, weights)
+
+
 # --- derived jobs -------------------------------------------------------------------------------
 def stage_paths(project: Project, parent: JobPaths, name: str, output_dir: Path | None = None) -> JobPaths:
     """Where a stage keeps its job file, logs and result: under the parent job's directory."""
@@ -311,7 +327,7 @@ def run_parallel_video(
     if plan.status != "succeeded":
         raise SpecError(plan_paths.log_file, "the planning pass failed:\n" + "\n".join(plan.errors))
     measured = measured_weights(project, plan.plays)
-    ranges = part_ranges(plan.plays, job.workers, measured[0] if measured else None)
+    ranges = plan_parts(plan.plays, measured[0] if measured else None, job.workers)
     balance = f"balanced by the play times measured in {measured[1]}" if measured else "balanced by frames"
     total_frames = sum(play.frames for play in plan.plays)
     lines.append(
@@ -385,6 +401,7 @@ __all__ = [
     "part_job",
     "part_ranges",
     "plan_job",
+    "plan_parts",
     "resolve_workers",
     "run_parallel_video",
     "same_plays",

@@ -195,3 +195,13 @@ def test_api_accepts_a_worker_count_for_videos(workspace) -> None:
     assert all_cores.status_code == 202 and all_cores.json()["workers"] >= 1
     stills = client.post("/api/projects/divisive_normalization/jobs", json={"workers": 4})
     assert stills.status_code == 202 and stills.json()["workers"] == 1  # stills render in one pass
+
+
+def test_plan_parts_is_the_one_range_planner() -> None:
+    from scianim.render.parallel import plan_parts
+
+    plays = _plays([30, 30, 30, 30])
+    assert [(r.first_play, r.last_play) for r in plan_parts(plays, None, 2)] == [(0, 1), (2, 3)]
+    assert [(r.first_play, r.last_play) for r in plan_parts(plays, [1.0, 1.0, 1.0, 30.0], 2)] == [(0, 2), (3, 3)]
+    with pytest.raises(NotImplementedError, match="ADR-033"):
+        plan_parts(plays, None, 2, reusable=frozenset({0}))

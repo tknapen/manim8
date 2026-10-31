@@ -83,6 +83,10 @@ class Component:
     axes: VGroup | None = None
     """The frame, ticks and labels that a `fade_axes` action fades, when the object draws them as a separable
     group (surfaces do); None for everything else."""
+    on_camera: Callable[[], None] | None = None
+    """Called after the camera moves (an orbit), for objects that redraw themselves for a viewpoint."""
+    ink_originals: list[tuple[Any, Any, Any, Any]] | None = None
+    """Every member's full fill and stroke opacity, captured by the first fade, so a later fade-in restores it."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)

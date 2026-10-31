@@ -12,7 +12,7 @@ import pytest
 from scianim.config.loader import load_yaml
 from scianim_core import ArtifactManifest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.loop]
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "agent_loop"
 

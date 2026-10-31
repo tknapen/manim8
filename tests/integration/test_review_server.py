@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from scianim.server.app import create_app
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.loop]
 
 
 def test_render_annotate_and_approve_through_the_api(workspace: Path, scianim) -> None:

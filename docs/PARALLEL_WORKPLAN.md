@@ -431,9 +431,11 @@ Tests: unit (migrate on fixture documents), CI jobs as the test.
 **Acceptance.** A GitHub Actions run on macOS and Linux installs the built wheels into an empty environment
 and renders the divisive-normalization checkpoints and a storyboard-profile video from the installed CLI.
 
-**Decisions taken provisionally** (the author deferred them; nothing blocks the package): the names
-`scianim`, `scianim-core` and `scianim-bridge` (availability on PyPI checked at the first release), first
-public version `0.1.0`, Windows documented as unsupported. The package builds and tests wheels without
+**Decisions taken.** The product and distribution name is **manim8** (the author's choice): PyPI
+distributions `manim8`, `manim8-core` and `manim8-bridge` (availability checked at the first release). The
+import packages (`scianim`, `scianim_core`, `scianim_bridge`) and the `scianim` command keep their names until
+this package decides whether to rename them in the same release (a mechanical but repository-wide change; the
+ADR weighs it). Provisionally: first public version `0.1.0`, Windows documented as unsupported. The package builds and tests wheels without
 publishing; publishing needs a PyPI token from the author when the time comes.
 
 ## 10. Package H: personal signature process
@@ -486,7 +488,8 @@ Taken on 31 October 2026:
 - D: the new actions get a fifth example, `drop_impact` (a drop falling onto a water surface and rebounding,
   an analytic model labelled as such); the data-bound sweep is shown in `divisive_normalization`.
 - E: postponed; no speech or soundtrack work now.
-- G and H: provisional defaults as written in their sections; nothing is needed from the author to start.
+- G: the name is `manim8` for the product and the distributions; the import and command names are decided
+  inside the package. H: provisional defaults as written in its section.
 
 Nothing is required from the author before the packages branch. Later, three reviews and one credential:
 the raster stills beside the Cairo ones (B), the `drop_impact` clip (D), the signature stills (H), and a PyPI

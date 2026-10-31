@@ -62,7 +62,13 @@ ignore = ["RUF012", "B008", "E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: requires a synced family environment"]
+markers = [
+    "integration: requires a synced family environment",
+    "video: renders videos (the long ones)",
+    "surface: renders surfaces and the orbiting camera",
+    "loop: the agent loop and the review server",
+    "bundle: export and import of bundles",
+]
 addopts = "-ra"
 
 [tool.mypy]

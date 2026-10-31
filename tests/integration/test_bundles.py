@@ -8,7 +8,7 @@ import pytest
 
 from scianim_core import ArtifactManifest
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.bundle]
 
 
 def _latest(project: Path) -> ArtifactManifest:

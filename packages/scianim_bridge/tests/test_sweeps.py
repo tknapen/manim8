@@ -573,3 +573,52 @@ def test_diverging_fill_is_grey_at_zero_and_coloured_at_the_extremes() -> None:
         strengths = [distance(f, "muted") for f in sorted(faces, key=lambda f: abs(f.get_center()[0]))]
         assert all(b >= a - 1e-6 for a, b in pairwise(strengths))
         assert ink(by_x[0]) != ink(by_x[-1])
+
+
+def test_fade_track_scales_every_member_and_removes_the_group() -> None:
+    """The seam for `end_scene` and `fade_object`: ink eases to nothing, then the group leaves the scene."""
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        plot = C.function_plot(scene, "plot", params=PLOT)
+        scene.add(plot.group)
+        plot.visible = True
+        line = plot.group[2][0]["line_graph"]
+        before = float(line.get_stroke_opacity())
+        track = scene.begin_fade(plot, visible=False, duration_seconds=1.0, remove=True)
+        assert track.mobject is plot.group and float(line.get_stroke_opacity()) == pytest.approx(before)
+        track.apply(0.5)
+        assert 0.0 < float(line.get_stroke_opacity()) < before
+        track.apply(1.0)
+        assert float(line.get_stroke_opacity()) == pytest.approx(0.0)
+        track.finish()
+        assert plot.visible is False and plot.group not in scene.mobjects
+        back = scene.begin_fade(plot, visible=True, duration_seconds=1.0)
+        back.apply(1.0)
+        back.finish()
+        assert plot.visible is True and plot.group in scene.mobjects
+        assert float(line.get_stroke_opacity()) == pytest.approx(before)
+
+
+def test_camera_hook_fires_on_every_orbit_step() -> None:
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        plot = C.function_plot(scene, "plot", params=PLOT)
+        calls: list[int] = []
+        plot.on_camera = lambda: calls.append(1)
+        scene.ensure_camera()
+        orbit = scene.begin_orbit(
+            to_theta_degrees=10, to_phi_degrees=None, at_seconds=0, duration_seconds=2, action_id="o"
+        )
+        orbit.apply(0.5)
+        orbit.apply(1.0)
+        assert len(calls) >= 2

@@ -200,6 +200,20 @@ synthetic CSV, three proposals) through the CLI alone, and the resulting project
 
 **Acceptance:** the Gabor clip's seven checkpoints are exact with the readouts stacked, the value held through the lead-in and the surface's projected box inside the frame; the pRF checkpoint inside the concurrent segment shows two readouts between their end values; the loop example's turning grating and marker share one parameter value.
 
+## Milestone 9 — toward a full-featured package
+
+The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line each; the seams landed first.
+
+- [x] Seams: segments reported by every video render and kept; a `FadeTrack` under `end_scene`; a camera hook for objects that redraw for a viewpoint; `plan_parts` as the one range planner; integration test markers.
+- [ ] A. Frame windows across workers (ADR-031).
+- [ ] B. Raster surfaces, depth-correct frames, vectorised sampling; the two renderers equal (ADR-032).
+- [ ] C. Splicing and cache honesty (ADR-033).
+- [ ] D. Scene actions: move, fade, transform an equation, data-bound sweeps; the `drop_impact` example (ADR-034).
+- [ ] E. Voiceover: postponed (ADR-035 reserved).
+- [ ] F. Review-to-revision loop (ADR-036).
+- [ ] G. Distribution and versioning under the name manim8 (ADR-037).
+- [ ] H. Personal signature process (ADR-038).
+
 ## Core automated test matrix
 
 | Test | Category | Minimum assertion |
