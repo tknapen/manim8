@@ -378,3 +378,25 @@ def test_function_image_samples_in_one_call_and_the_cairo_frame_is_cut_into_piec
             assert len(lines) > 5 * CAIRO_FRAME_PIECES
         assert all(m.shade_in_3d for m in unlit.axes.submobjects[0].submobjects)
         assert not any(m.shade_in_3d for m in lit.axes.submobjects[0].submobjects)
+
+
+def test_a_sphere_anchors_to_either_renderer_at_the_same_world_point() -> None:
+    """ADR-034's `sphere` reads its position through the anchor surface's data-to-world map; both renderers expose
+    the same map, so a drop over raster water sits where it sits over Cairo water."""
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    points = [(0.0, 0.0, 0.5), (1.0, -1.5, 0.0), (-2.0, 2.0, 1.0)]
+    placed: dict[str, list[np.ndarray]] = {}
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        for renderer in ("cairo", "raster"):
+            scene = _lit_scene(renderer)
+            water = C.surface_plot(scene, "water", params=GABOR)
+            assert water.to_world is not None
+            placed[renderer] = [np.asarray(water.to_world(p), dtype=float) for p in points]
+            drop = C.sphere(scene, "drop", params={"anchor": "water", "position": [0.0, 0.0, 0.5]})
+            assert np.allclose(drop.group.get_center(), placed[renderer][0], atol=1e-6)
+    for a, b in zip(placed["cairo"], placed["raster"], strict=True):
+        assert np.allclose(a, b, atol=1e-6)
