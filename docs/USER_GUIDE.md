@@ -101,9 +101,7 @@ counts little); every render records how long each play took and whether it was 
 per-play cache, and the next parallel render of the same clip balances its parts by the measured times of the
 drawn plays. The Gabor clip at a 24-cell mesh and 30 fps took 414 s in one process and 145 s with four
 workers on four cores (the parts took 90 to 124 s; the planning pass and the join add about ten seconds).
-The review server takes the same `workers` field in a job request. Manim's per-play cache under
-`.scianim/media` does not know when the renderer's code changed; after updating SciAnim, `scianim clean
---media` keeps old segments out of new movies.
+The review server takes the same `workers` field in a job request.
 
 A part's share is a window of frames, not a run of whole plays, so one long sweep can be shared by several
 workers (ADR-031): the planner cuts a play of tracks or a still wait at a frame, keeping at least half a
@@ -116,6 +114,13 @@ byte-identical); the review stills remain what the scene showed at that moment. 
 the storyboard profile, six workers on four cores took 31 s against 32 s in one process, each part taking 16
 to 19 s; at that size the process start and the planning pass are most of a part's time, and the gain grows
 with the cost of a frame.
+
+Every finished segment goes into a segment store under `.scianim/segments/`, shared by all renders of the
+project drawn by the same code at the same settings. Before drawing a play, a worker looks it up there by
+Manim's content hash, so a render after a change draws only the plays the change touched, whatever the
+number of workers; the report says how many plays were drawn and how many came from the store. The store and
+Manim's cache are keyed by a fingerprint of the bridge's code, so updating SciAnim never reuses pictures drawn
+by the old code; `scianim clean` removes both.
 
 ```bash
 scianim propose from-feedback <project>            # open feedback and inspection findings -> proposals by rules

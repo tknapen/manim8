@@ -1289,6 +1289,18 @@
       "title": "Schema Version",
       "type": "string"
     },
+    "segment_store": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Segment Store"
+    },
     "snapshot_ids": {
       "default": [],
       "items": {

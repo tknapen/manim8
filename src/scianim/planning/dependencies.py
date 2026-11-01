@@ -7,11 +7,13 @@ tells the reviewer and the agent which scenes to look at again, and never marks 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from scianim.planning.checks import Report
 from scianim.project import Project
 from scianim.revisions.store import RevisionSources, compute_hashes
 from scianim_core import AnimationSpec, Storyboard
+from scianim_core.hashing import sha256_json
 
 
 @dataclass
@@ -116,3 +118,55 @@ def compare_with_revision(project: Project, report: Report, revision: RevisionSo
 
 
 __all__ = ["DependencyReport", "SceneChange", "changed_scenes", "compare_with_revision"]
+
+
+def _strings(value: Any) -> set[str]:
+    """Every string anywhere in a JSON-like value (keys excluded)."""
+    found: set[str] = set()
+    if isinstance(value, str):
+        found.add(value)
+    elif isinstance(value, dict):
+        for item in value.values():
+            found |= _strings(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            found |= _strings(item)
+    return found
+
+
+def scene_fingerprints(
+    spec: AnimationSpec,
+    storyboard: Storyboard,
+    *,
+    style_hash: str,
+    data_hashes: dict[str, str],
+    custom_hashes: dict[str, str],
+) -> dict[str, str]:
+    """A hash per scene of everything that decides its pictures (ADR-033): the scene's own mapping, the
+    equations and sources it names (with the data files' contents), the custom builders when it uses one, the
+    resolved style, the output settings, and the camera moves of the scenes before it, which are the only
+    state a scene hands to the next (earlier objects are faded out at a scene's end). A render compares them
+    with the previous render's to predict which scenes it can take from the segment store; the store itself
+    is keyed by Manim's hash of each play, so a wrong prediction costs balance, never correctness."""
+    equations = {e.id: e.model_dump(mode="json") for e in spec.equations}
+    sources = {s.id: s.model_dump(mode="json") for s in spec.sources}
+    output = spec.output.model_dump(mode="json")
+    camera: list[Any] = []
+    prints: dict[str, str] = {}
+    for scene in storyboard.scenes:
+        mapping = scene.model_dump(mode="json")
+        named = _strings(mapping)
+        uses_custom = any(o.kind == "custom" for o in scene.objects)
+        payload = {
+            "scene": mapping,
+            "equations": {eid: equations[eid] for eid in sorted(named & set(equations))},
+            "sources": {sid: sources[sid] for sid in sorted(named & set(sources))},
+            "data": {sid: data_hashes[sid] for sid in sorted(named & set(data_hashes))},
+            "custom": dict(sorted(custom_hashes.items())) if uses_custom else {},
+            "style": style_hash,
+            "output": output,
+            "camera_before": list(camera),
+        }
+        prints[scene.id] = sha256_json(payload)
+        camera += [a.model_dump(mode="json") for a in scene.actions if a.kind == "orbit_camera"]
+    return prints

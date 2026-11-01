@@ -189,8 +189,10 @@ def test_plan_parts_expresses_windows_in_the_split_numbering() -> None:
     assert _windows(plan_parts(estimated, [1.0, 1.0, 1.0, 30.0], 2, frame_rate=FPS)) == [(0, 104), (105, 119)]
     with pytest.raises(ValueError, match="one weight per play"):
         plan_parts(estimated, [1.0], 2)
-    with pytest.raises(NotImplementedError, match="ADR-033"):
-        plan_parts(plays, None, 2, reusable=frozenset({0}))
+    # Plays the segment store will supply weigh next to nothing and are never cut (ADR-033): with the heavy middle
+    # play reused, the cost sits in the outer plays and the boundary lands on the reused play's edge.
+    reused = plan_parts(plays, [60.0, 900.0, 60.0], 2, reusable=frozenset({1}), frame_rate=FPS)
+    assert _windows(reused) == [(0, 59), (60, 209)] and _pieces(reused) == [(0, 0), (1, 2)]
     assert same_plays(estimated, _plays([30, 30, 30, 30], static=[False, True, True, False]))
     assert not same_plays(estimated, _plays([30, 30, 30, 30]))  # a wait became a play: not the same scene
     assert not same_plays(estimated, _plays([30, 30, 30]))

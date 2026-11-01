@@ -167,6 +167,10 @@ class RenderJob(StrictModel):
     """`render_video_part` only: the range this worker draws."""
     merge: MergeInputs | None = None
     """`merge_video` only: the segments to join."""
+    segment_store: RelPath | None = None
+    """A directory of finished video segments shared by every render of the project with the same settings and
+    the same bridge code (ADR-033): workers look a play up there before drawing it, and publish what they drew.
+    `None` renders without it."""
 
     @model_validator(mode="after")
     def _stage_fields_match_operation(self) -> RenderJob:
@@ -262,6 +266,10 @@ class ToolVersions(StrictModel):
     scianim_core: str | None = None
     typst: str | None = None
     av: str | None = None
+    bridge_fingerprint: str | None = None
+    """Hash of the bridge's source and the renderer's library versions: the code that turns a scene into pixels
+    (ADR-033). It enters the cache key and names the media and segment directories, so a change of renderer
+    code never reuses pictures drawn by the old code."""
 
 
 class WorkerResult(StrictModel):
@@ -297,6 +305,9 @@ class InputHashes(StrictModel):
     data_files: dict[Slug, Sha256] = {}
     custom_code: dict[str, Sha256] = {}
     lockfile: Sha256 | None = None
+    scene_fingerprints: dict[Slug, Sha256] = {}
+    """Per storyboard scene, a hash of everything that decides its pictures (ADR-033); a later render predicts
+    which scenes it can take from the segment store by comparing them."""
 
 
 class ArtifactManifest(StrictModel):

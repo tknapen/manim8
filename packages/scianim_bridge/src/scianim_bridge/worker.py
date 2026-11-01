@@ -41,7 +41,30 @@ def tool_versions() -> ToolVersions:
         scianim_core=scianim_core.__version__,
         typst=_version("typst"),
         av=_version("av"),
+        bridge_fingerprint=_fingerprint(),
     )
+
+
+def _fingerprint() -> str | None:
+    try:
+        from scianim_bridge.segment_store import code_fingerprint
+
+        return code_fingerprint()
+    except Exception:
+        return None
+
+
+def publish_segments(ctx: _context.JobContext, segments: list[SegmentRecord], warnings: list[str]) -> None:
+    """Offer every finished segment to the project's segment store (ADR-033)."""
+    store = ctx.job.segment_store
+    if not store or not segments:
+        return
+    from scianim_bridge.segment_store import publish
+
+    try:
+        publish([ctx.project_root / segment.path for segment in segments], ctx.project_root / store)
+    except OSError as exc:
+        warnings.append(f"segments could not be added to the store {store}: {exc}")
 
 
 def emit(event: str, **data: object) -> None:
@@ -263,6 +286,7 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
                     errors.extend(outputs.errors)
                     _timing_verdict(ctx, timing, errors, warnings)
                     segments = collect_segments(scene, ctx, errors)
+                    publish_segments(ctx, segments, warnings)
                     if not errors:
                         status = "succeeded"
                 elif ctx.mode == "plan":
@@ -273,6 +297,7 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
                         errors.append(f"{job.scene_class}.construct plays nothing; there is nothing to render")
                 elif ctx.mode == "part":
                     segments = collect_segments(scene, ctx, errors)
+                    publish_segments(ctx, segments, warnings)
                     if not errors:
                         status = "succeeded"
                 else:

@@ -450,6 +450,17 @@
           "title": "Scene Code",
           "type": "string"
         },
+        "scene_fingerprints": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]{0,63}$": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "title": "Scene Fingerprints",
+          "type": "object"
+        },
         "storyboard": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Storyboard",
@@ -1237,6 +1248,18 @@
           "title": "Schema Version",
           "type": "string"
         },
+        "segment_store": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segment Store"
+        },
         "snapshot_ids": {
           "default": [],
           "items": {
@@ -1747,6 +1770,18 @@
           ],
           "default": null,
           "title": "Av"
+        },
+        "bridge_fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bridge Fingerprint"
         },
         "manim": {
           "anyOf": [

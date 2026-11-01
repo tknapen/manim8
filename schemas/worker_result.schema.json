@@ -643,6 +643,18 @@
           "default": null,
           "title": "Av"
         },
+        "bridge_fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bridge Fingerprint"
+        },
         "manim": {
           "anyOf": [
             {

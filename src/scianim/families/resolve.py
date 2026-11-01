@@ -33,6 +33,11 @@ for name in ("manim", "av", "typst", "manimpango", "cairo", "scianim_bridge", "s
     except Exception as exc:  # noqa: BLE001 - report any import failure
         out[name] = None
         out.setdefault("errors", {})[name] = f"{type(exc).__name__}: {exc}"[:200]
+try:
+    from scianim_bridge.segment_store import code_fingerprint
+    out["bridge_fingerprint"] = code_fingerprint()
+except Exception:  # noqa: BLE001 - an older bridge has no fingerprint
+    out["bridge_fingerprint"] = None
 print(json.dumps(out))
 """
 

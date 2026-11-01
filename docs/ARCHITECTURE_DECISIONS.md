@@ -786,6 +786,62 @@ renderers from drifting apart in colour, and one cache key per renderer keeps a 
 drew what. The Cairo path is left as it is, cells unsorted under the light included, because the published
 specimen was made from it and no output may change before the author has looked at the alternative.
 
+## ADR-033: A segment store shared by every render, keyed by the drawing code
+
+**Status:** accepted, 1 November 2026
+
+**Context.** The work plan asked for splicing: reuse the section videos of scenes a change does not touch. Two
+facts changed the design. First, Manim already keeps a per-play cache: before drawing a play it hashes the
+scene's mobjects, the animations and the camera, and skips the drawing when a segment of that name exists in
+its media directory, so a serial re-render already redrew only the plays whose content changed. What it lacked
+was reach: every part of a parallel render draws into a media directory of its own, so a part found nothing
+drawn by another part, by an earlier render with another partition, or by a serial render. Those directories
+cannot simply be shared, because Manim's segment encoder writes straight to the final path, and two plays with
+identical content (two still waits with nothing changing between them) share a name, so one part could take
+another's half-written file for a finished one. Second, both caches were blind to the code that draws: Manim's
+hash covers the scene's content, not the camera and component code that turns it into pixels, and the
+scene-level cache key named the bridge's version string but not its code, so after a change of drawing code a
+render could return pictures made by the old code.
+
+**Decision.** A project-wide segment store, `.scianim/segments/<key>/`, where `<key>` hashes the bridge's code
+fingerprint and the render settings (size, rate, background, codec, surface renderer). Workers keep their
+private media directories. A worker of a video or part render publishes each finished segment into the store
+by linking or copying it to a temporary name and renaming it into place, so the store only ever holds complete
+files; and before drawing a play, Manim's cache lookup, extended in the bridge (`segment_store.install`),
+consults the store when its own directory misses, linking a hit into the private directory, after which Manim
+proceeds as for any cached play. Any render, serial or parallel and however it is partitioned, therefore reuses
+every play whose content is unchanged, and a play is never reused when its content changed, because the name
+is Manim's content hash. The bridge's code fingerprint (`ToolVersions.bridge_fingerprint`: a hash of every
+source file of the installed bridge and the versions of Manim, PyAV, Typst, Cairo, ManimPango, Pillow and
+NumPy, reported by the environment probe) enters the scene-level cache key and names both the media directory
+(`.scianim/media/<revision>/<fingerprint>`) and, through the key, the store. Every video manifest records a
+fingerprint per storyboard scene (`InputHashes.scene_fingerprints`: the scene's mapping, the equations and
+sources it names with the data files' contents, custom builders when it uses one, the resolved style, the
+output settings and the camera moves of earlier scenes, the only state one scene hands to the next). A
+parallel render compares them with the latest render that used the same store; the plays of unchanged scenes
+whose play structure is also unchanged are passed to `plan_parts` as reusable, where they weigh next to nothing
+and are never cut, because a piece of a play has a new hash and would miss the store. The prediction steers
+the planner only; whether a play is drawn is decided by the hash when a worker reaches it. The CLI reports how
+many plays were drawn and how many came from the store, and the worker log names the scenes predicted
+unchanged. `scianim clean --media` removes the store with Manim's cache. Section files are still joined from
+segments by the merge, so no separate splicing of sections is needed.
+
+Measured on the orientation clip at the storyboard profile: a serial render drew all 27 plays (720 frames) in
+41.9 s; after the target of the last sweep changed, a two-worker render drew 7 plays (210 frames) and took the
+other 20 from the store, in 35.4 s on a machine running two other test suites. The scenes before the change
+were predicted unchanged, and the sampled frames of their checkpoints were byte-identical to the first
+render's. At this size the planning pass and the start of the workers are most of a render's time; the
+saving is in drawing, and grows with the cost of a frame.
+
+**Why.** Content addressing already existed at the right granularity, the play; what was missing was a place
+every worker could read and that nobody could see half written, and a key that includes the code. A store
+written only by atomic renames gives the first; the fingerprint gives the second, at the price of redrawing
+everything after any change of bridge code, which is exactly when a drawing could differ. Scene fingerprints
+serve the planner rather than correctness because correctness is better served by the hash Manim computes from
+the state actually reached; a fingerprint that missed some influence would at worst misplace a window
+boundary. Splicing section files was dropped because segments already compose sections in the merge, and a
+second, coarser cache beside the per-play one would add a way to be wrong without saving any drawing.
+
 ## ADR-034: Scene actions that move, fade and transform; data-bound sweeps; the `sphere` kind
 
 **Status:** accepted, 31 October 2026
