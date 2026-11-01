@@ -225,6 +225,11 @@ def _roles_for(tokens: Tokens, primary: str, count: int) -> list[str]:
     return roles[:count]
 
 
+class DataPlotComponent(ParametricComponent):
+    """A `scientific_plot` whose binding names parameters: `set_parameters` recomputes the series from the table
+    with the transforms at the new values and redraws the curves in the fixed axes (ADR-034)."""
+
+
 def scientific_plot(
     scene: SnapshotScene,
     object_id: str,
@@ -233,10 +238,15 @@ def scientific_plot(
     params: dict[str, Any] | None = None,
     data: dict[str, Any] | None = None,
     equation: dict[str, Any] | None = None,
-) -> Component:
+) -> DataPlotComponent:
     p = params_for("scientific_plot", params)
     tokens = scene.tokens
-    series, _ = _series(scene, data, object_id)
+    series, binding = _series(scene, data, object_id)
+    parameters = binding.parameters()
+    if parameters and p.y_range is None:
+        raise ValueError(
+            f"object '{object_id}': give it a y_range; its data binding names parameters {sorted(parameters)}"
+        )
     xs = [v for s in series for v in s.x]
     ys = [v for s in series for v in s.y]
     x_range = (
@@ -249,10 +259,31 @@ def scientific_plot(
     axes, labels = _axes_with_labels(
         tokens, x_range, y_range, (x1 - x0) * p.width_fraction, (y1 - y0) * p.height_fraction, p.x_label, p.y_label
     )
-    group = VGroup(labels)
+    # The invisible axes travel with the group, so a recompute can redraw the curves in the axes' frame.
+    group = VGroup(axes, labels)
     roles = _roles_for(tokens, style_role, len(series))
-    for s, role in zip(series, roles, strict=True):
-        group.add(_curve(tokens, axes, s.x, s.y, tokens.color(role), p.show_points))
+    low, high = y_range[0], y_range[1]
+    clipped: set[str] = set()
+
+    def curves_for(fresh: list[Series]) -> tuple[list[VGroup], list[str]]:
+        warnings: list[str] = []
+        drawn = []
+        for s, role in zip(fresh, roles, strict=True):
+            sy = s.y
+            if parameters and (min(sy) < low or max(sy) > high):
+                label = str(s.label)
+                if label not in clipped:
+                    clipped.add(label)
+                    warnings.append(
+                        f"object '{object_id}': series '{label}' leaves y_range [{low:g}, {high:g}]; it is clipped at the edge"
+                    )
+                sy = [min(max(y, low), high) for y in sy]
+            drawn.append(_curve(tokens, axes, s.x, sy, tokens.color(role), p.show_points))
+        return drawn, warnings
+
+    curves, _ = curves_for(series)
+    for curve in curves:
+        group.add(curve)
     if p.show_legend and len(series) > 1:
         group.add(
             _legend(
@@ -267,7 +298,36 @@ def scientific_plot(
     font_px = tokens.smallest_text_px(
         *_text_roles(caption=bool(p.data_label), annotation=p.show_legend and len(series) > 1)
     )
-    return register(scene, Component(object_id, "scientific_plot", group, text=None, font_px=font_px, text_like=False))
+    table = scene.ctx.table(binding.source) if scene.ctx is not None else None
+
+    def rebuild(values: dict[str, float]) -> list[str]:
+        """Recompute the series with the transforms at `values` and redraw the curves; the axes never change."""
+        if table is None:
+            return []
+        fresh = apply_binding(table, binding, values)
+        if len(fresh) != len(curves):
+            raise ValueError(
+                f"object '{object_id}': the transforms yield {len(fresh)} series for parameters {values}, "
+                f"{len(curves)} at their defaults; a sweep may not change the grouping"
+            )
+        drawn, warnings = curves_for(fresh)
+        for index, (old, new) in enumerate(zip(curves, drawn, strict=True)):
+            scene.swap_member(group, old, new)
+            curves[index] = new
+        return warnings
+
+    component = DataPlotComponent(
+        object_id,
+        "scientific_plot",
+        group,
+        text=None,
+        font_px=font_px,
+        text_like=False,
+        parameters=dict(parameters),
+        rebuild=rebuild,
+    )
+    register(scene, component)
+    return component
 
 
 class FunctionPlotComponent(ParametricComponent):

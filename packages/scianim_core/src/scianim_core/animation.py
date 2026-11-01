@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import Field, model_validator
@@ -58,6 +59,15 @@ class Equation(StrictModel):
 
     def source_for(self, engine: Literal["typst", "latex"]) -> str | None:
         return self.typst if engine == "typst" else self.latex
+
+    def mentions(self, symbol: str, engine: Literal["typst", "latex"]) -> bool:
+        """Whether `symbol` occurs as a whole word in the source for `engine`: the test that makes a highlighted
+        term addressable (the renderer wraps exactly these occurrences), so an emphasis of a symbol the shown
+        equation does not mention is refused before rendering."""
+        source = self.source_for(engine)
+        if source is None:
+            return False
+        return re.search(rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])", source) is not None
 
 
 class SourceRef(StrictModel):

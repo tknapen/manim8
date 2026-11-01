@@ -37,7 +37,7 @@ from scianim.render.manifests import (
 from scianim.server.runner import JobRequest, JobRunner
 from scianim_core import ArtifactManifest, CheckpointRecord
 from scianim_core.feedback import FeedbackKind, Region, ReviewStatus, Severity
-from scianim_core.storyboard import FadeAxes, OrbitCamera, SceneAction
+from scianim_core.storyboard import FadeAxes, FadeObject, MoveObject, OrbitCamera, SceneAction, TransformEquation
 
 STATIC_DIR = Path(__file__).parent / "static"
 SLUG = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -86,6 +86,17 @@ def action_summary(action: SceneAction) -> str:
         return "camera " + ", ".join(parts)
     if isinstance(action, FadeAxes):
         return f"axes of {action.target} fade {'in' if action.visible else 'out'}"
+    if isinstance(action, MoveObject):
+        if action.to_anchor is not None:
+            return f"{action.target} moves to {action.to_anchor.replace('_', ' ')}"
+        if action.by is not None:
+            return f"{action.target} moves by ({action.by[0]:g}, {action.by[1]:g}) of the safe frame"
+        assert action.to_point is not None
+        return f"{action.target} moves to ({', '.join(f'{v:g}' for v in action.to_point)})"
+    if isinstance(action, FadeObject):
+        return f"{action.target} fades {'in' if action.visible else 'out'}"
+    if isinstance(action, TransformEquation):
+        return f"{action.target} becomes equation {action.to} ({action.match.replace('_', ' ')})"
     text = f"{action.target}.{action.parameter} to {action.to:g}"
     if action.emphasize:
         text += ", emphasizing " + ", ".join(action.emphasize)

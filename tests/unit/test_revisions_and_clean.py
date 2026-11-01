@@ -39,7 +39,12 @@ def test_create_list_and_render_from_revision(project_copy: Project) -> None:
         create_revision(project_copy, report, "again")
     create_revision(project_copy, report, "forced", allow_empty=True)
     storyboard = project_copy.storyboard_path
-    storyboard.write_text(storyboard.read_text().replace("at_seconds: 4\n", "at_seconds: 5\n"))
+    storyboard.write_text(
+        storyboard.read_text().replace(
+            "      - id: excitation_visible\n        at_seconds: 4\n",
+            "      - id: excitation_visible\n        at_seconds: 5\n",
+        )
+    )
     report = prepared(project_copy)
     third = create_revision(project_copy, report, "move the first checkpoint")
     assert [r.id for r in list_revisions(project_copy)] == ["rev_0001", "rev_0002", "rev_0003"]

@@ -45,6 +45,8 @@ from scianim_core.revisions import RevisionHashes, RevisionRecord
 from scianim_core.sources import Inference, SourceExtract
 from scianim_core.storyboard import (
     FadeAxes,
+    FadeObject,
+    MoveObject,
     Narration,
     OrbitCamera,
     Scene,
@@ -52,6 +54,7 @@ from scianim_core.storyboard import (
     SceneObject,
     Snapshot,
     Storyboard,
+    TransformEquation,
     VaryParameter,
 )
 from scianim_core.style import ResolvedStyle, StyleSheet, StyleTokens, split_style_ref
@@ -75,6 +78,7 @@ __all__ = [
     "Constraint",
     "Equation",
     "FadeAxes",
+    "FadeObject",
     "FamilyManifest",
     "FeedbackRecord",
     "GroupManifest",
@@ -85,6 +89,7 @@ __all__ = [
     "ManimSettings",
     "MergeInputs",
     "Milestone",
+    "MoveObject",
     "Narration",
     "OmittedSource",
     "OrbitCamera",
@@ -122,6 +127,7 @@ __all__ = [
     "SystemRequirement",
     "TimingReport",
     "ToolVersions",
+    "TransformEquation",
     "VaryParameter",
     "VideoRecord",
     "WorkerResult",

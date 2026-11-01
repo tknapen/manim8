@@ -139,10 +139,14 @@ class Charts(StrictModel):
     show_units_when_provided: bool = True
 
 
-Easing = Literal["linear", "ease_in_out_sine", "smooth", "ease_out_cubic", "eased_linear"]
+Easing = Literal[
+    "linear", "ease_in_out_sine", "smooth", "ease_out_cubic", "eased_linear", "ease_in_quad", "ease_out_quad"
+]
 """Rate profiles. `smooth` and `ease_in_out_sine` ease over the whole window; `eased_linear` is constant speed
 with a slow-in and a slow-out of `motion.ramp_seconds` each, for long continuous motions such as a camera orbit;
-`linear` moves at constant speed from the first frame to the last and reads as mechanical."""
+`linear` moves at constant speed from the first frame to the last and reads as mechanical. `ease_in_quad` and
+`ease_out_quad` are the two halves of a parabola: a body falling from rest, and one thrown up that slows to its
+apex; a `move_object` action uses them for ballistic motion (ADR-034)."""
 
 
 class Motion(StrictModel):

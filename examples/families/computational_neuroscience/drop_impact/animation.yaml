@@ -1,0 +1,108 @@
+schema_version: "1.0"
+id: drop_impact
+title: "A drop falls onto still water"
+sources: []
+output:
+  duration_seconds: 20
+  width_px: 1920
+  height_px: 1080
+  aspect_ratio: "16:9"
+  fps: 30
+  container: mp4
+  video_codec: h264
+  audio: none
+style:
+  name: tomas_scientific
+  version: "0.5.0"
+  overrides: {}
+equations:
+  - id: free_fall
+    typst: "z(t) = z_0 - 1/2 g t^2"
+    latex: "z(t) = z_0 - \\tfrac{1}{2} g t^2"
+    symbols:
+      z: {meaning: "height of the drop above the surface", units: "cm"}
+      z_0: {meaning: "release height", units: "cm"}
+      g: {meaning: "gravitational acceleration", units: "cm/s^2"}
+      t: {meaning: "time", units: "s"}
+  - id: splash
+    typst: >-
+      & h(x, y, t) = -A Theta(t) e^(-t / tau_0) e^(-(r - c t)^2 / w^2) cos(k (r - c t))
+      + H (t_(+) / t_j)^4 e^(4 (1 - t_(+) / t_j)) e^(-r^2 / (2 s^2)) \
+      & r = sqrt(x^2 + y^2), quad Theta(t) = (1 + tanh(t / t_r)) / 2, quad t_(+) = max(t, 0)
+    latex: >-
+      h(x, y, t) &= -A \Theta(t) e^{-t/\tau_0} e^{-(r - c t)^2 / w^2} \cos(k (r - c t))
+      + H (t_+ / t_j)^4 e^{4 (1 - t_+ / t_j)} e^{-r^2 / (2 s^2)} \\
+      r &= \sqrt{x^2 + y^2}, \quad \Theta(t) = \tfrac{1}{2}(1 + \tanh(t / t_r)), \quad t_+ = \max(t, 0)
+    symbols:
+      h: {meaning: "height of the water surface", units: "cm"}
+      x: {meaning: "horizontal position", units: "cm"}
+      y: {meaning: "horizontal position", units: "cm"}
+      t: {meaning: "time after impact (negative before it)", units: "s"}
+      r: {meaning: "distance from the point of impact", units: "cm"}
+      A: {meaning: "depth of the crater and height of the ring wave", units: "cm"}
+      Theta: {meaning: "smooth step that switches the ring wave on at impact"}
+      t_r: {meaning: "rise time of the step", units: "s"}
+      tau_0: {meaning: "damping time of the ring wave", units: "s"}
+      c: {meaning: "speed of the ring wave", units: "cm/s"}
+      w: {meaning: "width of the ring wave packet", units: "cm"}
+      k: {meaning: "wavenumber of the ripples inside the packet", units: "rad/cm"}
+      H: {meaning: "peak height of the rebound column", units: "cm"}
+      t_j: {meaning: "time at which the column peaks", units: "s"}
+      s: {meaning: "width of the rebound column", units: "cm"}
+audience: graduate_neuroscience
+objective: >-
+  A brief clip of one event: a drop falls onto still water, a crater opens, a ring wave spreads outward and a
+  thin column rebounds from the centre, sheds a smaller drop that climbs and falls back, and the rings fade
+  while the camera turns slowly. The surface is an analytic model, written out as the equation beside it, with
+  time as the one parameter that varies; it is not a fluid simulation and the clip must say so.
+scientific_constraints:
+  - id: analytic_model
+    kind: hard
+    equation: splash
+    text: >-
+      The water surface is the analytic expression shown, an outward-travelling damped wave packet plus a
+      rebound column whose height follows a pulse after impact. It is a cartoon of the mechanism (the crater,
+      the capillary ring wave and the Worthington jet of a drop impact), not a solution of the fluid equations
+      and not a measurement; the caption and the data label say so. The ring wave is switched on by a smooth
+      step at impact so that the surface is flat before the drop lands; the column's pulse rises as the fourth
+      power of time so that the jet follows the crater rather than accompanying it.
+  - id: equation_exact
+    kind: hard
+    equation: splash
+    text: "Show the free-fall equation and then the surface model exactly as stored; the term that drives the picture carries the accent colour."
+  - id: fixed_box
+    kind: hard
+    text: "Keep the x, y and height ranges fixed while time varies, whether or not the axes are shown."
+  - id: time_scale
+    kind: preferred
+    text: >-
+      Model time t runs slower than the clip (about one model second over nine seconds of clip, at a constant
+      rate through the event), and the fall of the drop is choreographed rather than computed from z(t); the
+      readout of t is the model's time, not the clip's.
+timeline:
+  - id: start
+    at_seconds: 0
+    tolerance_seconds: 0
+    kind: hard
+    instruction: "Still water inside its labelled box, the drop above it, the free-fall equation at the top left."
+  - id: impact
+    at_seconds: 5.5
+    tolerance_seconds: 0.5
+    kind: preferred
+    instruction: "The drop reaches the surface and vanishes; the free-fall equation becomes the surface model."
+  - id: rebound
+    at_seconds: 8.5
+    tolerance_seconds: 1
+    kind: preferred
+    instruction: "The central column is at its tallest and a smaller drop leaves its tip."
+  - id: rings
+    at_seconds: 14
+    tolerance_seconds: 2
+    kind: preferred
+    instruction: "The ring wave has crossed most of the box; the column has sunk back."
+direction:
+  tone: "Quiet; one event watched closely"
+  avoid:
+    - "Any suggestion that the surface is simulated or measured"
+    - "Decorative motion beyond the slow orbit"
+extensions: {}

@@ -1,7 +1,7 @@
 """`SnapshotScene`: a Manim scene with a clock, registered objects, scene sections and concurrent tracks.
 
 A track is anything that unfolds over a storyboard window: a reveal, a parameter sweep, a camera orbit, an
-axes fade.
+axes fade, a move, a fade of an object, the transform of one equation into another.
 Generated code begins tracks at their start times and calls `run_until(t, tracks)` for each segment between
 breakpoints (track starts and ends, checkpoints), so several tracks advance together and a checkpoint inside
 any of them is reached by the real animation flow at the exact frame. Every track exposes `apply(fraction)`
@@ -19,13 +19,28 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from manim import DOWN, LEFT, UP, Animation, FadeIn, ManimColor, Mobject, Text, ThreeDScene, VGroup, config
-from manim.utils.rate_functions import ease_in_out_sine, ease_out_cubic, linear, smooth
+import numpy as np
+from manim import (
+    DOWN,
+    LEFT,
+    UP,
+    Animation,
+    FadeIn,
+    FadeOut,
+    ManimColor,
+    Mobject,
+    Text,
+    ThreeDScene,
+    Transform,
+    VGroup,
+    config,
+)
+from manim.utils.rate_functions import ease_in_out_sine, ease_in_quad, ease_out_cubic, ease_out_quad, linear, smooth
 
 from scianim_bridge import context as _context
 from scianim_bridge.camera import SnapshotCamera
 from scianim_bridge.components.base import Component, ParametricComponent, pretty_symbol
-from scianim_bridge.components.equations import EquationComponent
+from scianim_bridge.components.equations import Correspondence, EquationComponent, match_equations, typeset_equation
 from scianim_bridge.tokens import Tokens
 from scianim_core.timing import frames_for
 
@@ -39,6 +54,8 @@ EASINGS: dict[str, Callable[[float], float]] = {
     "ease_in_out_sine": ease_in_out_sine,
     "smooth": smooth,
     "ease_out_cubic": ease_out_cubic,
+    "ease_in_quad": ease_in_quad,
+    "ease_out_quad": ease_out_quad,
 }
 
 
@@ -176,10 +193,42 @@ class Sweep(Track):
     blend: Callable[[float], float] = field(default=smooth, kw_only=True)
     """Profile of the colour hand-over during the pulse's rise."""
     readouts_settled: bool = field(default=False, kw_only=True)
+    emphasis_sources: list[tuple[EquationComponent, str]] = field(default_factory=list, kw_only=True)
+    """For each entry of `emphasized`, the equation object and symbol it came from, so a `transform_equation`
+    that replaces the glyphs can point the sweep at the new ones (ADR-034)."""
+    released_sources: list[EquationComponent] = field(default_factory=list, kw_only=True)
+    """For each entry of `released`, the equation object it belongs to."""
 
     @property
     def mobject(self) -> Mobject:
         return self.component.group
+
+    def retarget(self, equation: EquationComponent) -> None:
+        """The equation object was transformed: emphasize the new occurrences of the same symbol, in colour."""
+        if not self.emphasis_sources and not self.released_sources:
+            return
+        emphasized: list[tuple[Mobject, Mobject]] = []
+        sources: list[tuple[EquationComponent, str]] = []
+        for (part, pristine), (source, symbol) in zip(self.emphasized, self.emphasis_sources, strict=True):
+            if source is not equation:
+                emphasized.append((part, pristine))
+                sources.append((source, symbol))
+                continue
+            fresh = equation.highlights.get(symbol)
+            if fresh is None:  # not shown right now (a transform is replacing the glyphs): an empty placeholder
+                fresh = VGroup()
+            elif self.active_color is not None:
+                fresh.set_color(self.active_color)
+            emphasized.append((fresh, fresh.copy()))
+            sources.append((source, symbol))
+        self.emphasized, self.emphasis_sources = emphasized, sources
+        kept = [
+            (entry, source)
+            for entry, source in zip(self.released, self.released_sources, strict=True)
+            if source is not equation
+        ]
+        self.released = [entry for entry, _ in kept]
+        self.released_sources = [source for _, source in kept]
 
     def progress_at(self, fraction: float) -> float:
         """Progress of the value in [0, 1] at a window fraction: zero through the lead-in, then linear in time."""
@@ -305,6 +354,9 @@ class FadeTrack(Track):
                 member.set_fill(opacity=fill * factor, family=False)
                 member.set_stroke(opacity=stroke * factor, family=False)
                 member.set_stroke(opacity=background * factor, family=False, background=True)
+        self.component.ink_factor = factor
+        if self.component.on_ink is not None:
+            self.component.on_ink()
 
     def finish(self) -> None:
         if self.end_factor <= 0.0:
@@ -368,6 +420,118 @@ class RevealTrack(Track):
             self.animation.finish()
 
 
+@dataclass
+class MoveTrack(Track):
+    """One `move_object` action: a position eased from where the object was when the window opened to an absolute
+    target. For a flat object the position is its centre in the frame; for an anchored solid it is a point in the
+    anchor surface's data coordinates, which `setter` places (ADR-034)."""
+
+    component: Component = field(kw_only=True)
+    start: np.ndarray = field(kw_only=True)
+    target: np.ndarray = field(kw_only=True)
+    setter: Callable[[np.ndarray], Any] = field(kw_only=True)
+    easing: Callable[[float], float] = field(kw_only=True)
+
+    @property
+    def mobject(self) -> Mobject:
+        return self.component.group
+
+    def position_at(self, fraction: float) -> np.ndarray:
+        eased = self.easing(min(1.0, max(0.0, fraction)))
+        return self.start + (self.target - self.start) * eased
+
+    def apply(self, fraction: float) -> None:
+        self.setter(self.position_at(fraction))
+
+
+@dataclass
+class TransformTrack(Track):
+    """One `transform_equation` action. When it starts, the shown formula leaves the object's group and a group
+    of transitional pieces takes its place: a copy of every old glyph (or symbol occurrence) that has a partner
+    glides and recolours into a copy of that partner, unpaired old glyphs fade out, unpaired new glyphs fade in.
+    When it finishes, the pieces leave and the freshly typeset new formula is installed, so the object ends in
+    the same state in fast-forward and when rendered frame by frame (ADR-029), and its highlights are the new
+    per-symbol groups (ADR-034)."""
+
+    component: EquationComponent = field(kw_only=True)
+    new_formula: Mobject = field(kw_only=True)
+    new_parts: dict[str, Mobject] = field(kw_only=True)
+    new_equation_id: str = field(kw_only=True)
+    new_text: str | None = field(kw_only=True)
+    correspondence: Correspondence = field(kw_only=True)
+    easing: Callable[[float], float] = field(kw_only=True)
+    transition: VGroup = field(default_factory=VGroup)
+    animations: list[Animation] = field(default_factory=list)
+    started: bool = False
+    done: bool = False
+    index: int = 0
+
+    @property
+    def mobject(self) -> Mobject:
+        return self.component.group
+
+    def _start(self) -> None:
+        self.started = True
+        group = self.component.group
+        old = self.component.formula
+        self.index = (
+            group.submobjects.index(old) if old is not None and old in group.submobjects else len(group.submobjects)
+        )
+        for old_piece, new_piece in self.correspondence.pairs:
+            piece, target = old_piece.copy(), new_piece.copy()
+            self.transition.add(piece)
+            self.animations.append(Transform(piece, target, rate_func=linear))
+        for old_piece in self.correspondence.vanishing:
+            piece = old_piece.copy()
+            self.transition.add(piece)
+            self.animations.append(FadeOut(piece, rate_func=linear))
+        for new_piece in self.correspondence.appearing:
+            piece = new_piece.copy()
+            self.transition.add(piece)
+            self.animations.append(FadeIn(piece, rate_func=linear))
+        if old is not None and old in group.submobjects:
+            group.remove(old)
+            self.scene.retire(old)
+        group.insert(self.index, self.transition)
+        for animation in self.animations:
+            animation.begin()
+        self.scene.fix_in_frame(group)
+        # Sweeps that emphasize this object hold placeholders until the new glyphs are installed; otherwise
+        # their per-frame `become` would bring the retired glyphs back.
+        self.component.highlights = {}
+        for sweep in self.scene._sweeps:
+            sweep.retarget(self.component)
+
+    def apply(self, fraction: float) -> None:
+        if self.done:
+            return
+        if not self.started:
+            self._start()
+        eased = self.easing(min(1.0, max(0.0, fraction)))
+        for animation in self.animations:
+            animation.interpolate(eased)
+
+    def finish(self) -> None:
+        if self.done:
+            return
+        if not self.started:
+            self._start()
+        for animation in self.animations:
+            animation.finish()
+        group = self.component.group
+        group.remove(self.transition)
+        self.scene.retire(self.transition)
+        group.insert(self.index, self.new_formula)
+        self.component.formula = self.new_formula
+        self.component.highlights = self.new_parts
+        self.component.equation_id = self.new_equation_id
+        if self.component.text_is_formula:
+            self.component.text = self.new_text
+        self.scene.fix_in_frame(group)
+        self.scene.equation_replaced(self.component)
+        self.done = True
+
+
 class SnapshotScene(ThreeDScene):
     """Base class for generated scenes.
 
@@ -399,6 +563,8 @@ class SnapshotScene(ThreeDScene):
         action that lit each one and its readout."""
         self._axes_opacity: dict[str, float] = {}
         self._camera_set = False
+        self._sweeps: list[Sweep] = []
+        """The sweeps begun in the current storyboard scene, so a transformed equation can retarget them."""
 
     # --- context ------------------------------------------------------------------------------
     @property
@@ -487,6 +653,7 @@ class SnapshotScene(ThreeDScene):
         self._readout_anchors = {}
         self._active_terms = {}
         self._axes_opacity = {}
+        self._sweeps = []
         self.next_section(scene_id)
         if start_seconds is not None and abs(self.clock - start_seconds) > self.frame_seconds:
             self.timing_warnings.append(
@@ -618,7 +785,9 @@ class SnapshotScene(ThreeDScene):
         motion = tokens.t.motion
         total = lead_in_seconds + duration_seconds
         emphasized: list[tuple[Mobject, Mobject]] = []
+        emphasis_sources: list[tuple[EquationComponent, str]] = []
         released: list[tuple[Mobject, Mobject]] = []
+        released_sources: list[EquationComponent] = []
         released_readouts: list[tuple[Readout, ManimColor, ManimColor]] = []
         base_color: ManimColor | None = None
         active_color: ManimColor | None = None
@@ -631,6 +800,7 @@ class SnapshotScene(ThreeDScene):
                 )
             part = eq.highlights[parameter]
             emphasized.append((part, part.copy()))
+            emphasis_sources.append((eq, parameter))
             if units is None:
                 units = eq.symbol_units.get(parameter)
             if eq.highlight_color is not None and not emphasized[:-1]:
@@ -645,6 +815,7 @@ class SnapshotScene(ThreeDScene):
                     if symbol != parameter:
                         prior = eq.highlights[symbol]
                         released.append((prior, prior.copy().set_color(eq.base_color)))
+                        released_sources.append(eq)
                     if earlier is not None:
                         released_readouts.append((earlier, earlier.color, tokens.color("secondary_text")))
         readout: Readout | None = None
@@ -718,7 +889,10 @@ class SnapshotScene(ThreeDScene):
             base_color=base_color,
             active_color=active_color,
             blend=state_easing(motion.easing),
+            emphasis_sources=emphasis_sources,
+            released_sources=released_sources,
         )
+        self._sweeps.append(sweep)
         sweep.apply(0.0)
         return sweep
 
@@ -732,12 +906,9 @@ class SnapshotScene(ThreeDScene):
         """
         group = readout.component.group
         fresh = Text(text, **self.tokens.text_kwargs(readout.typeface, readout.color))
-        fixed = getattr(self.renderer.camera, "fixed_in_frame_mobjects", None)
         for old in list(group.submobjects):
             group.remove(old)
-            if fixed is not None:
-                for member in old.get_family():
-                    fixed.discard(member)
+            self.retire(old)
         group.add(fresh)
         readout.place()
         readout.component.text = text
@@ -812,6 +983,182 @@ class SnapshotScene(ThreeDScene):
         self.bring_to_back(orbit.dummy)  # everything after it in draw order, which is everything, re-draws per frame
         orbit.apply(0.0)
         return orbit
+
+    def begin_move(
+        self,
+        component: Component,
+        *,
+        to_anchor: str | None = None,
+        by: Sequence[float] | None = None,
+        to_point: Sequence[float] | None = None,
+        at_seconds: float,
+        duration_seconds: float,
+        action_id: str,
+        easing: Easing | None = None,
+    ) -> MoveTrack:
+        """Start a `move_object` action from where the object is now: a flat object to an anchor of the safe area
+        or by an offset in fractions of it, an anchored solid to a point in its surface's coordinates."""
+        motion = self.tokens.t.motion
+        setter: Callable[[np.ndarray], Any]
+        if to_point is not None:
+            place_at = getattr(component, "place_at", None)
+            if place_at is None or getattr(component, "to_world", None) is None:
+                raise ValueError(
+                    f"action '{action_id}': '{component.object_id}' is a {component.kind}, which is not anchored in a "
+                    "surface's coordinates; to_point moves a sphere"
+                )
+            start = np.asarray(component.data_point, dtype=float)  # type: ignore[attr-defined]
+            target = np.asarray(to_point, dtype=float)
+            setter = place_at
+        else:
+            if component.three_d:
+                raise ValueError(
+                    f"action '{action_id}': '{component.object_id}' is a {component.kind}, which turns with the camera; "
+                    "to_anchor and by move flat objects in the frame"
+                )
+            group = component.group
+            start = np.asarray(group.get_center(), dtype=float)
+            if to_anchor is not None:
+                probe = group.copy()
+                self.tokens.place(probe, to_anchor)  # type: ignore[arg-type]
+                target = np.asarray(probe.get_center(), dtype=float)
+            else:
+                if by is None:
+                    raise ValueError(f"action '{action_id}': move_object needs to_anchor, by or to_point")
+                x0, y0, x1, y1 = self.tokens.safe_rect()
+                target = start + np.array([by[0] * (x1 - x0), by[1] * (y1 - y0), 0.0])
+            setter = group.move_to
+        track = MoveTrack(
+            scene=self,
+            track_id=action_id,
+            at_seconds=at_seconds,
+            duration_seconds=duration_seconds,
+            component=component,
+            start=start,
+            target=target,
+            setter=setter,
+            easing=rate_function(easing or motion.easing, duration_seconds, motion.ramp_seconds),
+        )
+        track.apply(0.0)
+        return track
+
+    def begin_fade_object(
+        self,
+        component: Component,
+        *,
+        visible: bool,
+        at_seconds: float,
+        duration_seconds: float,
+        action_id: str,
+        easing: Easing | None = None,
+    ) -> FadeTrack:
+        """Start a `fade_object` action on the storyboard window: the object's ink goes to nothing and the group
+        leaves the scene (it stays registered, invisible), or comes back to full ink."""
+        motion = self.tokens.t.motion
+        track = FadeTrack(
+            scene=self,
+            track_id=action_id,
+            at_seconds=at_seconds,
+            duration_seconds=max(duration_seconds, self.frame_seconds),
+            component=component,
+            start_factor=0.0 if visible else 1.0,
+            end_factor=1.0 if visible else 0.0,
+            easing=state_easing(easing or motion.easing),
+            remove=True,
+        )
+        if visible and component.group not in self.mobjects:
+            self.add(component.group)
+        track.apply(0.0)
+        return track
+
+    def begin_transform(
+        self,
+        component: Component,
+        *,
+        to: str,
+        at_seconds: float,
+        duration_seconds: float,
+        action_id: str,
+        match: str = "by_symbol",
+        easing: Easing | None = None,
+    ) -> TransformTrack:
+        """Start a `transform_equation` action: typeset the target equation with the object's highlighted symbols,
+        place it where the formula belongs, pair the glyphs (`match_equations`) and glide between them."""
+        if not isinstance(component, EquationComponent) or component.formula is None or component.place_formula is None:
+            raise ValueError(
+                f"action '{action_id}': '{component.object_id}' is a {component.kind} that shows no equation to transform"
+            )
+        if self.ctx is None:
+            raise RuntimeError("no job context")
+        try:
+            equation = self.ctx.equations[to]
+        except KeyError:
+            raise KeyError(
+                f"action '{action_id}': equation '{to}' is not in the job; known: {sorted(self.ctx.equations)}"
+            ) from None
+        tokens = self.tokens
+        if component.base_color is None or component.highlight_color is None:
+            raise ValueError(f"action '{action_id}': '{component.object_id}' has no inks recorded")
+        new_formula, new_parts = typeset_equation(
+            tokens,
+            equation,
+            component.highlight_names,
+            component.base_color,
+            component.highlight_color,
+            component.px_at_1080p,
+            component.highlight_mode,
+        )
+        component.place_formula(new_formula)
+        correspondence = match_equations(component.formula, component.highlights, new_formula, new_parts, match)
+        # A paired occurrence keeps the colour it has now (lit or not) while it glides.
+        for old_piece, new_piece in correspondence.pairs[: sum(correspondence.matched_symbols.values())]:
+            new_piece.set_color(old_piece.get_fill_color())
+        motion = tokens.t.motion
+        track = TransformTrack(
+            scene=self,
+            track_id=action_id,
+            at_seconds=at_seconds,
+            duration_seconds=duration_seconds,
+            component=component,
+            new_formula=new_formula,
+            new_parts=new_parts,
+            new_equation_id=to,
+            new_text=equation.source_for(tokens.t.typography.equation.engine),
+            correspondence=correspondence,
+            easing=state_easing(easing or motion.easing),
+        )
+        track.apply(0.0)
+        return track
+
+    def retire(self, mobject: Mobject) -> None:
+        """Hide a mobject that has just left a group. Manim's Cairo renderer lists every family member once at the
+        start of a play and keeps drawing that list until the play ends, so a member removed mid-play is still
+        drawn; hidden, and still fixed in frame if it was, it draws nothing, whereas one dropped from the fixed
+        set would be drawn projected through the camera as a ghost."""
+        with contextlib.suppress(Exception):
+            mobject.set_opacity(0)
+
+    def swap_member(self, group: Mobject, old: Mobject, new: Mobject) -> None:
+        """Replace one member of a registered object's group by a fresh one, in place and fixed like the group."""
+        index = group.submobjects.index(old)
+        group.remove(old)
+        self.retire(old)
+        group.insert(index, new)
+        if group in getattr(self.renderer.camera, "fixed_in_frame_mobjects", set()):
+            self.fix_in_frame(group)
+
+    def equation_replaced(self, component: EquationComponent) -> None:
+        """An equation object shows a new equation: terms that hold the colour keep it where the symbol still
+        occurs, running sweeps that emphasize the object move to the new glyphs, vanished symbols are forgotten."""
+        terms = self._active_terms.get(component.object_id, {})
+        for symbol in list(terms):
+            part = component.highlights.get(symbol)
+            if part is None:
+                del terms[symbol]
+            elif component.highlight_color is not None:
+                part.set_color(component.highlight_color)
+        for sweep in self._sweeps:
+            sweep.retarget(component)
 
     def run_until(self, seconds: float, tracks: Sequence[Track]) -> None:
         """Advance every track to the storyboard time `seconds` in one play, frame-exact."""

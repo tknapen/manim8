@@ -151,6 +151,8 @@ def test_codegen_orders_timed_reveals_and_checkpoints(project_copy: Project) -> 
         "self.wait_until(3.85)",
         "self.wait_until(4)",
         'checkpoint(self, "excitation_visible", expected_time=4)',
+        "self.run_until(5.3, [gain])",  # the data-bound gain sweep begins after the checkpoint at the same time
+        "self.wait_until(5.3)",
         "self.wait_until(5.35)",
     ]
 

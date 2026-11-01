@@ -193,6 +193,7 @@ def test_index_rebuild_and_refresh(rendered_project, workspace: Path) -> None:
     index.rebuild()
     assert {p.id for p in index.projects()} == {
         "divisive_normalization",
+        "drop_impact",
         "gabor_filter",
         "prf_tuning",
         "orientation_tuning",
@@ -267,6 +268,7 @@ def test_review_api_end_to_end_without_rendering(rendered_project, workspace: Pa
     ws = client.get("/api/workspace").json()
     assert {p["id"] for p in ws["projects"]} == {
         "divisive_normalization",
+        "drop_impact",
         "gabor_filter",
         "prf_tuning",
         "orientation_tuning",
@@ -372,6 +374,7 @@ def test_index_with_another_schema_version_is_rebuilt(workspace: Path) -> None:
     index.rebuild()
     assert {p.id for p in index.projects()} == {
         "divisive_normalization",
+        "drop_impact",
         "gabor_filter",
         "prf_tuning",
         "orientation_tuning",

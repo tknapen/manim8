@@ -6,6 +6,7 @@ import ast
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from scianim.config.loader import SpecError
 from scianim.families.resolve import FamilyContext, GroupContext, locate_family, resolve_asset
@@ -20,10 +21,12 @@ from scianim_core.components import (
     FunctionPlotParams,
     NetworkGraphParams,
 )
-from scianim_core.storyboard import Scene, VaryParameter
+from scianim_core.storyboard import MoveObject, Scene, SceneObject, TransformEquation, VaryParameter
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
+LARGE_TABLE_ROWS = 10_000
+"""A data-bound sweep recomputes its series from the table on every frame; above this many rows it is slow."""
 
 
 @dataclass
@@ -77,6 +80,11 @@ def csv_columns(path: Path) -> list[str]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.reader(handle)
         return next(reader, [])
+
+
+def csv_row_count(path: Path) -> int:
+    with path.open(newline="", encoding="utf-8") as handle:
+        return max(0, sum(1 for _ in csv.reader(handle)) - 1)
 
 
 def builder_module_exists(module_name: str, project: Project, family: FamilyContext | None) -> bool:
@@ -154,6 +162,14 @@ def check_storyboard(
                             report.error(
                                 f"object '{obj.id}': columns {missing} not in {source.path} (has {sorted(columns)})"
                             )
+                        if obj.data.parameters():
+                            rows = csv_row_count(path)
+                            if rows > LARGE_TABLE_ROWS:
+                                report.warn(
+                                    f"object '{obj.id}': its binding names parameters {sorted(obj.data.parameters())} "
+                                    f"and {source.path} has {rows} rows; a sweep recomputes the series every frame, "
+                                    f"which is slow above {LARGE_TABLE_ROWS} rows"
+                                )
             if obj.equation is not None:
                 equation = equations.get(obj.equation.id)
                 if equation is None:
@@ -215,6 +231,7 @@ def check_storyboard(
                     report.error(f"object '{obj.id}': custom builder module '{module_name}' not found in {where}")
         if style is not None:
             check_actions(scene, style, animation.output.fps, report)
+            check_equation_transforms(scene, equations, style.tokens.typography.equation.engine, report)
     for constraint in animation.scientific_constraints:
         if constraint.equation and not any(
             o.equation and o.equation.id == constraint.equation for o in storyboard.objects()
@@ -270,18 +287,81 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
                 "give the lead-in at least the pulse"
             )
     if motion.hold_seconds > 0:
-        sweeps = [a for a in scene.actions if isinstance(a, VaryParameter)]
-        for earlier in sweeps:
-            for later in sweeps:
-                if later is earlier or later.target != earlier.target:
+        motions = [a for a in scene.actions if isinstance(a, VaryParameter | MoveObject)]
+        for earlier in motions:
+            for later in motions:
+                if later is earlier or later.target != earlier.target or type(later) is not type(earlier):
                     continue
-                rest = later.moves_at_seconds - earlier.end_seconds
+                starts = later.moves_at_seconds if isinstance(later, VaryParameter) else later.at_seconds
+                rest = starts - earlier.end_seconds
                 if -1e-9 <= rest < motion.hold_seconds - 1e-9:
                     report.warn(
                         f"action '{later.id}' moves '{later.target}' {rest:.2f}s after '{earlier.id}' has finished; "
                         f"the style asks for a rest of {motion.hold_seconds:g}s so the end state is seen before it "
-                        "changes again: start it later or lengthen its lead-in"
+                        "changes again: start it later"
+                        + (" or lengthen its lead-in" if isinstance(later, VaryParameter) else "")
                     )
+
+
+def active_equation(scene: Scene, obj: SceneObject, at_seconds: float) -> tuple[str, str | None]:
+    """The equation `obj` shows at `at_seconds`, and the id of the transform that put it there (None when it is
+    the one declared on the object): the last `transform_equation` of the object that has ended by then."""
+    assert obj.equation is not None
+    current, via = obj.equation.id, None
+    for action in sorted(scene.actions, key=lambda a: a.at_seconds):
+        if (
+            isinstance(action, TransformEquation)
+            and action.target == obj.id
+            and action.end_seconds <= at_seconds + 1e-9
+        ):
+            current, via = action.to, action.id
+    return current, via
+
+
+def check_equation_transforms(scene: Scene, equations: dict[str, Any], engine: str, report: Report) -> None:
+    """Every `transform_equation` names a declared equation with a source for the style's engine, and every
+    emphasis resolves against the equation its object shows when the action begins (ADR-034)."""
+    objects = {o.id: o for o in scene.objects}
+    for action in scene.actions:
+        if isinstance(action, TransformEquation):
+            target = objects[action.target]
+            equation = equations.get(action.to)
+            if equation is None:
+                report.error(
+                    f"action '{action.id}': equation '{action.to}' is not declared in animation.yaml equations"
+                )
+                continue
+            if equation.source_for(engine) is None:  # type: ignore[arg-type]
+                report.error(
+                    f"action '{action.id}': equation '{action.to}' has no '{engine}' source but the style uses that engine"
+                )
+            shown, _ = active_equation(scene, target, action.at_seconds)
+            if shown == action.to:
+                report.warn(f"action '{action.id}' transforms '{target.id}' into '{action.to}', which it already shows")
+            assert target.equation is not None
+            silent = [h for h in target.equation.highlight if not equation.mentions(h, engine)]  # type: ignore[arg-type]
+            if silent:
+                report.note(
+                    f"action '{action.id}': highlighted symbols {silent} do not occur in '{action.to}', so they cannot be "
+                    "emphasized after the transform"
+                )
+        elif isinstance(action, VaryParameter):
+            for object_id in action.emphasize:
+                obj = objects[object_id]
+                assert obj.equation is not None
+                shown, via = active_equation(scene, obj, action.at_seconds)
+                equation = equations.get(shown)
+                if equation is None or equation.mentions(action.parameter, engine):  # type: ignore[arg-type]
+                    continue
+                how = (
+                    f"transformed from '{obj.equation.id}' by '{via}'"
+                    if via is not None
+                    else "the equation declared on the object"
+                )
+                report.error(
+                    f"action '{action.id}' emphasizes '{action.parameter}' on '{object_id}', but at {action.at_seconds:g}s "
+                    f"that object shows equation '{shown}' ({how}), which has no symbol '{action.parameter}'"
+                )
 
 
 def check_markers(storyboard: Storyboard, scene_module: Path, report: Report) -> None:

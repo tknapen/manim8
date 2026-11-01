@@ -15,6 +15,7 @@ from scianim.planning.timing import propose_timing
 from scianim.project import Project
 from scianim_core import Storyboard
 from scianim_core.components import FunctionPlotParams, validate_params
+from scianim_core.storyboard import MoveObject, TransformEquation
 
 PLOT: dict[str, Any] = {
     "x_label": "x",
@@ -314,3 +315,343 @@ def test_codegen_emits_axes_fades_and_lead_ins(project_copy: Project, tmp_path) 
     module = tmp_path / "scene.py"
     module.write_text(code)
     assert checkpoint_markers(module) == ["lit", "halfway"]
+
+
+# --- ADR-034: move, fade, transform an equation, data-bound sweeps, the sphere -------------------------------
+
+SPHERE: dict[str, Any] = {"anchor": "surface", "position": [0, 0, 1.5], "radius_fraction": 0.03}
+MOVE: dict[str, Any] = {
+    "id": "fall",
+    "kind": "move_object",
+    "target": "ball",
+    "to_point": [0, 0, 0],
+    "at_seconds": 3,
+    "duration_seconds": 2,
+    "easing": "ease_in_quad",
+}
+FADE_OUT: dict[str, Any] = {
+    "id": "vanish",
+    "kind": "fade_object",
+    "target": "ball",
+    "at_seconds": 5,
+    "duration_seconds": 0.3,
+}
+MORPH: dict[str, Any] = {
+    "id": "morph",
+    "kind": "transform_equation",
+    "target": "label",
+    "to": "wave",
+    "at_seconds": 5,
+    "duration_seconds": 0.8,
+}
+
+
+def _world_objects(**sphere_extra: Any) -> list[dict[str, Any]]:
+    return [
+        *_surface_objects(),
+        {"id": "ball", "kind": "sphere", "params": copy.deepcopy(SPHERE), **sphere_extra},
+        {"id": "note", "kind": "text_caption", "params": {"text": "note", "anchor": "top_left"}},
+    ]
+
+
+def test_sphere_anchor_rules() -> None:
+    storyboard = Storyboard.model_validate(_storyboard(actions=[], objects=_world_objects()))
+    ball = storyboard.objects()[2]
+    assert ball.kind == "sphere" and ball.typed_params().position == (0, 0, 1.5)
+    with pytest.raises(ValueError, match="must name a surface_plot declared earlier"):
+        Storyboard.model_validate(_storyboard(actions=[], objects=_world_objects()[::-1]))
+    with pytest.raises(ValueError, match="must name a surface_plot declared earlier"):
+        objects = _world_objects()
+        objects[2]["params"]["anchor"] = "label"
+        Storyboard.model_validate(_storyboard(actions=[], objects=objects))
+    with pytest.raises(ValueError, match="before its anchor"):
+        objects = _world_objects()
+        objects[0]["reveal_at_seconds"] = 4
+        Storyboard.model_validate(_storyboard(actions=[], objects=objects))
+    with pytest.raises(ValueError, match="radius_fraction"):
+        validate_params("sphere", {**SPHERE, "radius_fraction": 0})
+
+
+def test_move_fade_and_transform_validation() -> None:
+    board = Storyboard.model_validate(_storyboard(actions=[MOVE, FADE_OUT, MORPH], objects=_world_objects()))
+    fall, vanish, morph = board.actions()
+    assert fall.end_seconds == 5 and vanish.visible is False and morph.match == "by_symbol" and morph.end_seconds == 5.8
+
+    def rejected(message: str, *actions: dict[str, Any], objects: list[dict[str, Any]] | None = None) -> None:
+        with pytest.raises(ValueError, match=message):
+            Storyboard.model_validate(_storyboard(actions=list(actions), objects=objects or _world_objects()))
+
+    rejected("exactly one of to_anchor, by or to_point", {**MOVE, "to_point": None})
+    rejected("exactly one of to_anchor, by or to_point", {**MOVE, "by": [0.1, 0]})
+    rejected("to_point moves an object anchored", {**MOVE, "target": "note"})
+    rejected("turns with the camera", {**MOVE, "target": "surface", "to_point": None, "to_anchor": "center"})
+    rejected(
+        "turns with the camera; to_anchor and by move flat objects in the frame, a sphere moves to_point",
+        {**MOVE, "to_point": None, "by": [0.1, 0]},
+    )
+    rejected("not an object", {**MOVE, "target": "ghost"})
+    rejected("starts before its target", {**MOVE, "at_seconds": 1}, objects=_world_objects(reveal_at_seconds=2))
+    rejected("starts before its target", {**FADE_OUT, "at_seconds": 1}, objects=_world_objects(reveal_at_seconds=2))
+    rejected("outside scene", {**FADE_OUT, "at_seconds": 19.9})
+    rejected("needs an equation_block or equation_label", {**MORPH, "target": "note"})
+    rejected(
+        "symbol definitions",
+        {**MORPH, "target": "block"},
+        objects=[
+            *_world_objects(),
+            {
+                "id": "block",
+                "kind": "equation_block",
+                "equation": {"id": "gaussian"},
+                "params": {"define_symbols": True},
+            },
+        ],
+    )
+    # Flat objects move by anchor or offset; a sphere by point. Easing names are checked.
+    Storyboard.model_validate(
+        _storyboard(
+            actions=[
+                {**MOVE, "id": "slide", "target": "note", "to_point": None, "to_anchor": "bottom_left"},
+                {**MOVE, "id": "nudge", "target": "note", "to_point": None, "by": [0.1, -0.05], "at_seconds": 6},
+            ],
+            objects=_world_objects(),
+        )
+    )
+    rejected("easing", {**MOVE, "easing": "parabolic"})
+    # Overlaps: two moves, two fades or two transforms of one object; a sweep may not start inside a transform.
+    rejected("moves 'fall' and 'again' of 'ball' overlap", MOVE, {**MOVE, "id": "again", "at_seconds": 4})
+    rejected(
+        "fades 'vanish' and 'back' of 'ball' overlap",
+        FADE_OUT,
+        {**FADE_OUT, "id": "back", "visible": True, "at_seconds": 5.2},
+    )
+    rejected("transforms 'morph' and 'twice' of 'label' overlap", MORPH, {**MORPH, "id": "twice", "at_seconds": 5.5})
+    rejected(
+        "starts at 5.4s, inside 'morph'",
+        MORPH,
+        {**SWEEP, "target": "surface", "at_seconds": 5.4, "duration_seconds": 3},
+    )
+    # A sweep already running when the transform begins, or starting when it ends, is fine; so is a move beside a fade.
+    Storyboard.model_validate(
+        _storyboard(
+            actions=[MORPH, {**SWEEP, "target": "surface", "at_seconds": 4}, MOVE, FADE_OUT],
+            objects=_world_objects(),
+        )
+    )
+    Storyboard.model_validate(
+        _storyboard(actions=[MORPH, {**SWEEP, "target": "surface", "at_seconds": 5.8}], objects=_world_objects())
+    )
+
+
+DATA_PLOT: dict[str, Any] = {
+    "id": "curve",
+    "kind": "scientific_plot",
+    "data": {
+        "source": "responses",
+        "encoding": {"x": "excitation_E", "y": "response_r"},
+        "transforms": [
+            {"op": "filter", "column": "condition", "equals": "low_pool"},
+            {"op": "scale", "column": "response_r", "by": {"parameter": "g", "default": 1}},
+            {"op": "smooth", "column": "response_r", "window": {"parameter": "w", "default": 0}},
+        ],
+    },
+    "params": {"x_label": "E", "y_label": "r", "y_range": [0, 8]},
+}
+GAIN: dict[str, Any] = {
+    "id": "gain",
+    "kind": "vary_parameter",
+    "target": "curve",
+    "parameter": "g",
+    "to": 1.5,
+    "at_seconds": 4,
+    "duration_seconds": 1.3,
+}
+
+
+def test_data_bound_sweeps() -> None:
+    board = Storyboard.model_validate(_storyboard(actions=[GAIN], objects=[DATA_PLOT]))
+    curve = board.objects()[0]
+    assert curve.data is not None and curve.data.parameters() == {"g": 1.0, "w": 0.0}
+    with pytest.raises(ValueError, match="give 'curve' a y_range"):
+        plot = copy.deepcopy(DATA_PLOT)
+        del plot["params"]["y_range"]
+        Storyboard.model_validate(_storyboard(actions=[GAIN], objects=[plot]))
+    with pytest.raises(ValueError, match="declares no parameter 'k'"):
+        Storyboard.model_validate(_storyboard(actions=[{**GAIN, "parameter": "k"}], objects=[DATA_PLOT]))
+    with pytest.raises(ValueError, match="a data binding whose transforms name parameters"):
+        plot = copy.deepcopy(DATA_PLOT)
+        plot["data"]["transforms"] = plot["data"]["transforms"][:1]
+        Storyboard.model_validate(_storyboard(actions=[GAIN], objects=[plot]))
+    with pytest.raises(ValueError, match="two defaults"):
+        plot = copy.deepcopy(DATA_PLOT)
+        plot["data"]["transforms"][2]["window"] = {"parameter": "g", "default": 2}
+        Storyboard.model_validate(_storyboard(actions=[], objects=[plot]))
+    with pytest.raises(ValueError, match="built-in function"):
+        plot = copy.deepcopy(DATA_PLOT)
+        plot["data"]["transforms"][1]["by"] = {"parameter": "pi", "default": 2}
+        Storyboard.model_validate(_storyboard(actions=[], objects=[plot]))
+    # A plain number still works, and an unknown op is refused.
+    plot = copy.deepcopy(DATA_PLOT)
+    plot["data"]["transforms"][1]["by"] = 2
+    assert Storyboard.model_validate(_storyboard(actions=[], objects=[plot])).objects()[0].data.parameters() == {
+        "w": 0.0
+    }
+    with pytest.raises(ValueError, match="op"):
+        plot["data"]["transforms"][1]["op"] = "square"
+        Storyboard.model_validate(_storyboard(actions=[], objects=[plot]))
+
+
+def test_codegen_emits_moves_fades_and_transforms(project_copy: Project, tmp_path) -> None:
+    report = validate_project(project_copy)
+    assert report.animation and report.style
+    storyboard = Storyboard.model_validate(
+        _storyboard(
+            objects=_world_objects(),
+            actions=[
+                MOVE,
+                FADE_OUT,
+                MORPH,
+                {
+                    **MOVE,
+                    "id": "slide",
+                    "target": "note",
+                    "to_point": None,
+                    "to_anchor": "bottom_left",
+                    "at_seconds": 10.1,
+                    "duration_seconds": 1.2,
+                    "easing": None,
+                },
+                {**FADE_OUT, "id": "note_away", "target": "note", "at_seconds": 11.3},
+            ],
+            snapshots=[{"id": "midfall", "at_seconds": 4, "description": "inside the fall"}],
+        )
+    )
+    code = generate_scene_module(report.animation, storyboard, report.style)
+    lines = [line.strip() for line in code.splitlines() if line.strip()]
+    assert (
+        "fall = self.begin_move(ball, to_anchor=None, by=None, to_point=[0.0, 0.0, 0.0], at_seconds=3, "
+        "duration_seconds=2, action_id=\"fall\", easing='ease_in_quad')"
+    ) in lines
+    assert "self.run_until(4, [fall])" in lines and 'checkpoint(self, "midfall", expected_time=4)' in lines
+    assert "self.run_until(5, [fall])" in lines
+    assert (
+        'vanish = self.begin_fade_object(ball, visible=False, at_seconds=5, duration_seconds=0.3, action_id="vanish", '
+        "easing=None)"
+    ) in lines
+    assert (
+        'morph = self.begin_transform(label, to="wave", at_seconds=5, duration_seconds=0.8, action_id="morph", '
+        'match="by_symbol", easing=None)'
+    ) in lines
+    assert "self.run_until(5.3, [vanish, morph])" in lines and "self.run_until(5.8, [morph])" in lines
+    assert (
+        "slide = self.begin_move(note, to_anchor='bottom_left', by=None, to_point=None, at_seconds=10.1, "
+        'duration_seconds=1.2, action_id="slide", easing=None)'
+    ) in lines
+    # 10.1 + 1.2 is not 11.3 in floating point; the two breakpoints collapse into one and the fade begins once.
+    assert code.count("note_away = self.begin_fade_object(") == 1
+    assert "self.run_until(11.6, [note_away])" in lines
+    module = tmp_path / "scene.py"
+    module.write_text(code)
+    assert checkpoint_markers(module) == ["midfall"]
+
+
+def test_project_checks_follow_the_equation_an_object_shows(project_copy: Project) -> None:
+    """A transform changes which equation an emphasis resolves against; the message names both equations."""
+    report = validate_project(project_copy)
+    assert report.ok and report.animation and report.storyboard, report.errors
+    animation = report.animation.model_copy(deep=True)
+    animation.equations.append(
+        animation.equations[0].model_copy(
+            update={"id": "gain_only", "typst": "r = g E", "latex": "r = g E", "symbols": {}}
+        )
+    )
+    storyboard = report.storyboard.model_copy(deep=True)
+    scene = storyboard.scenes[1]  # the normalization scene: response_curve with P and sigma, the equation block
+    scene.objects[1].reveal_at_seconds = None
+    scene.actions = [
+        scene.actions[0].model_copy(update={"at_seconds": 7, "duration_seconds": 2}),  # raise_pool, emphasizes P
+        TransformEquation(
+            id="to_gain",
+            kind="transform_equation",
+            target="normalization_equation",
+            to="gain_only",
+            at_seconds=9.5,
+            duration_seconds=0.5,
+        ),
+        scene.actions[1].model_copy(update={"at_seconds": 10.5, "duration_seconds": 2}),  # stabilize, emphasizes sigma
+    ]
+    checked = validate_project(
+        project_copy, animation=animation, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json"))
+    )
+    assert any(
+        "action 'stabilize' emphasizes 'sigma' on 'normalization_equation', but at 10.5s that object shows equation "
+        "'gain_only' (transformed from 'schematic_equation' by 'to_gain'), which has no symbol 'sigma'" in e
+        for e in checked.errors
+    ), checked.errors
+    assert any("highlighted symbols ['P', 'sigma'] do not occur in 'gain_only'" in n for n in checked.notices)
+    # An undeclared target equation is an error; transforming into the equation already shown is a warning.
+    scene.actions[1] = scene.actions[1].model_copy(update={"to": "nowhere"})
+    scene.actions.pop()
+    missing = validate_project(
+        project_copy, animation=animation, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json"))
+    )
+    assert any("equation 'nowhere' is not declared" in e for e in missing.errors), missing.errors
+    scene.actions[1] = scene.actions[1].model_copy(update={"to": "schematic_equation"})
+    same = validate_project(
+        project_copy, animation=animation, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json"))
+    )
+    assert same.ok and any("which it already shows" in w for w in same.warnings), (same.errors, same.warnings)
+
+
+def test_project_checks_rest_between_moves_and_large_tables(project_copy: Project) -> None:
+    report = validate_project(project_copy)
+    assert report.ok and report.animation and report.storyboard and report.style, report.errors
+    # The example's data-bound gain sweep validates clean; a second move hard on the heels of the first does not rest.
+    assert any(a.id == "gain" and a.kind == "vary_parameter" for a in report.storyboard.actions())
+    storyboard = report.storyboard.model_copy(deep=True)
+    scene = storyboard.scenes[0]
+    scene.actions = [
+        *scene.actions,
+        MoveObject(
+            id="slide", kind="move_object", target="drive_note", by=(0.1, 0), at_seconds=2.5, duration_seconds=1
+        ),
+        MoveObject(
+            id="back", kind="move_object", target="drive_note", by=(-0.1, 0), at_seconds=3.6, duration_seconds=1
+        ),
+    ]
+    hurried = validate_project(project_copy, storyboard=Storyboard.model_validate(storyboard.model_dump(mode="json")))
+    assert any("action 'back' moves 'drive_note' 0.10s after 'slide' has finished" in w for w in hurried.warnings), (
+        hurried.warnings
+    )
+    # A parameterised binding on a table above ten thousand rows is slow per frame; the checks say so.
+    big = project_copy.root / "data" / "big.csv"
+    big.write_text("excitation_E,response_r,condition\n" + "".join(f"{i},{i / 2},low_pool\n" for i in range(10_001)))
+    animation = report.animation.model_copy(deep=True)
+    animation.sources[0] = animation.sources[0].model_copy(update={"path": "data/big.csv"})
+    slow = validate_project(project_copy, animation=animation)
+    assert any("10001 rows" in w and "slow above 10000 rows" in w for w in slow.warnings), slow.warnings
+
+
+def test_action_summaries_for_the_review_ui() -> None:
+    from scianim.server.app import action_summary
+
+    board = Storyboard.model_validate(
+        _storyboard(
+            actions=[
+                MOVE,
+                FADE_OUT,
+                MORPH,
+                {**MOVE, "id": "slide", "target": "note", "to_point": None, "to_anchor": "bottom_left"},
+                {**MOVE, "id": "nudge", "target": "note", "to_point": None, "by": [0.1, -0.05], "at_seconds": 6},
+            ],
+            objects=_world_objects(),
+        )
+    )
+    summaries = [action_summary(a) for a in board.actions()]
+    assert summaries == [
+        "ball moves to (0, 0, 0)",
+        "ball fades out",
+        "label becomes equation wave (by symbol)",
+        "note moves to bottom left",
+        "note moves by (0.1, -0.05) of the safe frame",
+    ]

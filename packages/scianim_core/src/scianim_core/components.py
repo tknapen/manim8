@@ -19,7 +19,7 @@ from scianim_core.common import Slug, StrictModel
 from scianim_core.expressions import ALLOWED_CONSTANTS, ALLOWED_FUNCTIONS, compile_expression, validate_expression
 from scianim_core.style import Anchor
 
-REGISTRY_VERSION = "0.4.0"
+REGISTRY_VERSION = "0.5.0"
 
 ComponentKind = Literal[
     "text_caption",
@@ -34,6 +34,7 @@ ComponentKind = Literal[
     "schematic_population",
     "receptive_field_glyph",
     "network_graph",
+    "sphere",
     "custom",
 ]
 TextRole = Literal["title", "body", "caption"]
@@ -106,7 +107,13 @@ class ComparisonPlotParams(StrictModel):
 
 PARAMETER_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PARAMETRIC_KINDS: frozenset[str] = frozenset({"function_plot", "surface_plot", "function_image"})
-"""Kinds with named `parameters` that a `vary_parameter` action can sweep."""
+"""Kinds with named `parameters` that a `vary_parameter` action can sweep. A data-bound object whose binding's
+transforms name parameters can be swept too (ADR-034)."""
+WORLD_KINDS: frozenset[str] = frozenset({"surface_plot", "sphere"})
+"""Kinds that live in the rotating world and turn with the camera; a `move_object` by anchor or offset, which
+works in the frame, refuses them."""
+ANCHORED_KINDS: frozenset[str] = frozenset({"sphere"})
+"""Kinds placed in the data coordinates of an anchor surface; `move_object` moves them with `to_point`."""
 
 
 def check_parameters(parameters: dict[str, float], reserved: tuple[str, ...]) -> None:
@@ -363,6 +370,30 @@ class NetworkGraphParams(StrictModel):
         return self
 
 
+class SphereParams(StrictModel):
+    """A small solid sphere in the data coordinates of a `surface_plot` of the same scene (its `anchor`).
+
+    It turns with the camera like the surface does, is lit by the same soft light, and moves with a
+    `move_object` action whose `to_point` is given in the anchor's coordinates; a point may lie above the
+    anchor's box. Its ink is the object's `style_role`.
+    """
+
+    anchor: Slug
+    """A `surface_plot` declared earlier in the same scene."""
+    position: tuple[float, float, float]
+    """Centre in the anchor's data coordinates (x, y, z)."""
+    radius_fraction: float = Field(default=0.03, gt=0, le=0.25)
+    """Radius as a fraction of the safe frame height."""
+    resolution: int = Field(default=8, ge=4, le=32)
+    """Bands from pole to pole; twice as many around."""
+
+    @model_validator(mode="after")
+    def _finite(self) -> SphereParams:
+        if any(not math.isfinite(v) for v in self.position):
+            raise ValueError("position must be three finite numbers")
+        return self
+
+
 @dataclass(frozen=True)
 class ComponentDefinition:
     kind: str
@@ -498,6 +529,14 @@ REGISTRY: dict[str, ComponentDefinition] = {
         requires_equation=False,
         text_like=False,
         consumes=("palette.<style_role>", "palette.*", "typography.annotation", "geometry"),
+    ),
+    "sphere": ComponentDefinition(
+        kind="sphere",
+        params_model=SphereParams,
+        requires_data=False,
+        requires_equation=False,
+        text_like=False,
+        consumes=("palette.<style_role>", "palette.background", "palette.foreground", "three_d"),
     ),
     "custom": ComponentDefinition(
         kind="custom",

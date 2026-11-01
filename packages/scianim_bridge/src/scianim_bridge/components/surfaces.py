@@ -230,6 +230,7 @@ def surface_plot(
         axes=axes_group,
         parameters=dict(p.parameters),
         rebuild=rebuild,
+        to_world=lambda point: axes.c2p(*point),
     )
     register(scene, component)
     return component

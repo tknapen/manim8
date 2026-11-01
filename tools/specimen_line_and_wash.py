@@ -28,12 +28,16 @@ from typing import Any
 W = 320.0  # page width in mm; the height follows the content
 
 # Two checkpoints per example, in reading order; a missing id falls back to the first checkpoints of the job.
+# The published specimen of default@0.5.0 was composed before `drop_impact` existed (eight frames, two rows); the
+# plate is recomposed with its two frames once the author has reviewed that clip (ADR-034).
 FRAMES: list[tuple[str, list[str]]] = [
     ("gabor_filter", ["rotating", "moved"]),
     ("prf_tuning", ["moving", "grown"]),
     ("divisive_normalization", ["excitation_visible", "pool_raised"]),
     ("orientation_tuning", ["circuit_shown", "model_complete"]),
+    ("drop_impact", ["jet", "rings"]),
 ]
+NUMBER_WORDS = {8: "Eight", 9: "Nine", 10: "Ten", 11: "Eleven", 12: "Twelve"}
 
 PALETTE_ROLES = [
     "foreground",
@@ -119,10 +123,11 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     )
 
     cols, gutter, left, top = 4, 6.0, 12.0, 28.0
+    rows = max(1, -(-len(frames) // cols))
     fw = (W - 2 * left - (cols - 1) * gutter) / cols
     fh = fw * 9 / 16
     row_h = fh + 12.0
-    sy = top + 2 * row_h + 2.0  # palette strip
+    sy = top + rows * row_h + 2.0  # palette strip
     height = sy + 13.0 + left
 
     out: list[str] = []
@@ -134,11 +139,12 @@ def build(theme: str, frames: list[tuple[str, dict[str, Any], Path]], style: dic
     )
     out.append(
         f'#place(top + left, dx: 12mm, dy: 18.5mm, text(size: 6.2pt, fill: rgb("{secondary}"))'
-        "[Eight checkpoints rendered by the Manim bridge from the example clips, unretouched, at the snapshot profile. "
+        f"[{NUMBER_WORDS.get(len(frames), str(len(frames)))} checkpoints rendered by the Manim bridge from the example clips, "
+        "unretouched, at the snapshot profile. "
         f"Resolved layers: {typ_text(layers)}; style hash {typ_text(style['hash'][:19])}.{typ_text(override_note)}])\n"
     )
 
-    # 4 x 2 grid of frames with captions.
+    # A grid of frames with captions, four to a row.
     for i, (project, record, png) in enumerate(frames):
         r, c = divmod(i, cols)
         x, y = left + c * (fw + gutter), top + r * row_h

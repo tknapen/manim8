@@ -18,6 +18,8 @@
               "mapping": {
                 "filter": "#/$defs/FilterTransform",
                 "normalize": "#/$defs/NormalizeTransform",
+                "scale": "#/$defs/ScaleTransform",
+                "smooth": "#/$defs/SmoothTransform",
                 "sort": "#/$defs/SortTransform"
               },
               "propertyName": "op"
@@ -31,6 +33,12 @@
               },
               {
                 "$ref": "#/$defs/SortTransform"
+              },
+              {
+                "$ref": "#/$defs/ScaleTransform"
+              },
+              {
+                "$ref": "#/$defs/SmoothTransform"
               }
             ]
           },
@@ -144,7 +152,9 @@
                 "ease_in_out_sine",
                 "smooth",
                 "ease_out_cubic",
-                "eased_linear"
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
               ],
               "type": "string"
             },
@@ -186,6 +196,72 @@
       "title": "FadeAxes",
       "type": "object"
     },
+    "FadeObject": {
+      "additionalProperties": false,
+      "description": "Fade an object out (`visible: false`) or back in over a window (ADR-034). A faded object stays registered\nbut is absent from layout reports until a fade brings it back; two fades of one object may not overlap.\n`fade_axes` remains the special case for a surface's frame.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic",
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "fade_object",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "visible": {
+          "default": false,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "target",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "FadeObject",
+      "type": "object"
+    },
     "FilterTransform": {
       "additionalProperties": false,
       "properties": {
@@ -223,6 +299,137 @@
         "equals"
       ],
       "title": "FilterTransform",
+      "type": "object"
+    },
+    "MoveObject": {
+      "additionalProperties": false,
+      "description": "Move an object over a window (ADR-034).\n\nA flat object moves in the frame: to an `Anchor` of the safe area (`to_anchor`), or `by` an offset given as\nfractions of the safe frame's width and height. An object anchored in a surface's data coordinates (a\n`sphere`) moves `to_point`, a point in those coordinates. Exactly one of the three is given. The motion\nstarts from wherever the object is when the window opens and ends at the absolute target, so a checkpoint\ninside the window is reached by the real flow; readouts and emphasis placed relative to the object follow\nit while their own actions run. Two moves of one object may not overlap.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic",
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "move_object",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "to_anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "top_left",
+                "top_center",
+                "top_right",
+                "center_left",
+                "center",
+                "center_right",
+                "bottom_left",
+                "bottom_center",
+                "bottom_right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Anchor"
+        },
+        "to_point": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Point"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "target",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "MoveObject",
       "type": "object"
     },
     "Narration": {
@@ -293,7 +500,9 @@
                 "ease_in_out_sine",
                 "smooth",
                 "ease_out_cubic",
-                "eased_linear"
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
               ],
               "type": "string"
             },
@@ -350,6 +559,61 @@
       "title": "OrbitCamera",
       "type": "object"
     },
+    "ParameterRef": {
+      "additionalProperties": false,
+      "description": "A transform setting that a `vary_parameter` action can sweep: `{parameter: w, default: 5}` names the\nparameter and the value it has until an action moves it (ADR-034).",
+      "properties": {
+        "default": {
+          "title": "Default",
+          "type": "number"
+        },
+        "parameter": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Parameter",
+          "type": "string"
+        }
+      },
+      "required": [
+        "parameter",
+        "default"
+      ],
+      "title": "ParameterRef",
+      "type": "object"
+    },
+    "ScaleTransform": {
+      "additionalProperties": false,
+      "description": "Multiply a numeric column by a factor; a parameterised factor makes the plot sweepable.",
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/ParameterRef"
+            }
+          ],
+          "title": "By"
+        },
+        "column": {
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "op": {
+          "const": "scale",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "column",
+        "by"
+      ],
+      "title": "ScaleTransform",
+      "type": "object"
+    },
     "Scene": {
       "additionalProperties": false,
       "properties": {
@@ -359,7 +623,10 @@
             "discriminator": {
               "mapping": {
                 "fade_axes": "#/$defs/FadeAxes",
+                "fade_object": "#/$defs/FadeObject",
+                "move_object": "#/$defs/MoveObject",
                 "orbit_camera": "#/$defs/OrbitCamera",
+                "transform_equation": "#/$defs/TransformEquation",
                 "vary_parameter": "#/$defs/VaryParameter"
               },
               "propertyName": "kind"
@@ -373,6 +640,15 @@
               },
               {
                 "$ref": "#/$defs/FadeAxes"
+              },
+              {
+                "$ref": "#/$defs/MoveObject"
+              },
+              {
+                "$ref": "#/$defs/FadeObject"
+              },
+              {
+                "$ref": "#/$defs/TransformEquation"
               }
             ]
           },
@@ -492,6 +768,7 @@
             "schematic_population",
             "receptive_field_glyph",
             "network_graph",
+            "sphere",
             "custom"
           ],
           "title": "Kind",
@@ -535,6 +812,40 @@
         "kind"
       ],
       "title": "SceneObject",
+      "type": "object"
+    },
+    "SmoothTransform": {
+      "additionalProperties": false,
+      "description": "Gaussian smoothing of a numeric column along the row order, with the standard deviation `window` in\nrows; zero leaves the column as it is. Sort and filter first so the rows that are averaged belong together.",
+      "properties": {
+        "column": {
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "op": {
+          "const": "smooth",
+          "title": "Op",
+          "type": "string"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/ParameterRef"
+            }
+          ],
+          "title": "Window"
+        }
+      },
+      "required": [
+        "op",
+        "column",
+        "window"
+      ],
+      "title": "SmoothTransform",
       "type": "object"
     },
     "Snapshot": {
@@ -599,6 +910,82 @@
       "title": "SortTransform",
       "type": "object"
     },
+    "TransformEquation": {
+      "additionalProperties": false,
+      "description": "Turn the equation an `equation_block` or `equation_label` shows into another declared equation (ADR-034).\n\nThe target equation is typeset with the same highlighted symbols; occurrences of a highlighted symbol pair\nby name (`by_symbol`, the default: the first occurrence in the old equation goes to the first in the new,\nand so on) and every other glyph pairs by shape, so an `=` or a `2` glides to its new place; glyphs without\na partner fade out or in. Named symbols are the only parts matched by meaning; everything else is matched\nby shape, which can pair glyphs that merely look alike. Once the window closes the object shows the new\nequation, and later `vary_parameter` emphasis on it resolves symbols against that equation. A block that\nlists symbol definitions cannot be transformed; two transforms of one object may not overlap, and a sweep\nthat emphasizes the object may not start inside the window (its pulse would play on glyphs being replaced).",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic",
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "transform_equation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "match": {
+          "default": "by_symbol",
+          "enum": [
+            "by_symbol",
+            "by_shape"
+          ],
+          "title": "Match",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "to": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "target",
+        "to",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "TransformEquation",
+      "type": "object"
+    },
     "VaryParameter": {
       "additionalProperties": false,
       "description": "Vary one named parameter of a `function_plot`, `surface_plot` or `function_image` while the viewer watches.\n\nThe picture follows the value, the equation term named by `parameter` pulses once as the action begins,\nand a readout shows the running value. With a `lead_in_seconds`, the term lights up first and the value\nmoves only afterwards, which makes a clip of several such segments read as \"this term, then this one\". A\ncheckpoint inside the window splits the sweep at that frame, so it is still reached by the real animation\nflow. Actions run concurrently unless they drive the same parameter.",
@@ -621,7 +1008,9 @@
                 "ease_in_out_sine",
                 "smooth",
                 "ease_out_cubic",
-                "eased_linear"
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
               ],
               "type": "string"
             },

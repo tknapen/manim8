@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from itertools import combinations
 from typing import Annotated, Any, Literal
@@ -9,8 +10,19 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, model_validator
 
 from scianim_core.common import SchemaVersion, Slug, StrictModel, ensure_unique
-from scianim_core.components import PARAMETRIC_KINDS, REGISTRY, ComponentKind, FunctionPlotParams, validate_params
-from scianim_core.style import Easing
+from scianim_core.components import (
+    ANCHORED_KINDS,
+    PARAMETRIC_KINDS,
+    REGISTRY,
+    WORLD_KINDS,
+    ComponentKind,
+    EquationBlockParams,
+    FunctionPlotParams,
+    ScientificPlotParams,
+    check_parameters,
+    validate_params,
+)
+from scianim_core.style import Anchor, Easing
 
 MARK_PATTERN = re.compile(r'<mark\s+name="([A-Za-z0-9_]+)"\s*/>')
 SnapshotKind = Literal["manim_checkpoint", "sampled_video_frame"]
@@ -41,13 +53,59 @@ class SortTransform(StrictModel):
     descending: bool = False
 
 
-Transform = Annotated[FilterTransform | NormalizeTransform | SortTransform, Field(discriminator="op")]
+class ParameterRef(StrictModel):
+    """A transform setting that a `vary_parameter` action can sweep: `{parameter: w, default: 5}` names the
+    parameter and the value it has until an action moves it (ADR-034)."""
+
+    parameter: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    default: float = Field(allow_inf_nan=False)
+
+
+class ScaleTransform(StrictModel):
+    """Multiply a numeric column by a factor; a parameterised factor makes the plot sweepable."""
+
+    op: Literal["scale"]
+    column: str = Field(min_length=1)
+    by: float | ParameterRef = Field(union_mode="left_to_right")
+
+
+class SmoothTransform(StrictModel):
+    """Gaussian smoothing of a numeric column along the row order, with the standard deviation `window` in
+    rows; zero leaves the column as it is. Sort and filter first so the rows that are averaged belong together."""
+
+    op: Literal["smooth"]
+    column: str = Field(min_length=1)
+    window: float | ParameterRef = Field(union_mode="left_to_right")
+
+
+Transform = Annotated[
+    FilterTransform | NormalizeTransform | SortTransform | ScaleTransform | SmoothTransform, Field(discriminator="op")
+]
 
 
 class DataBinding(StrictModel):
     source: Slug
     encoding: DataEncoding
     transforms: list[Transform] = []
+
+    @model_validator(mode="after")
+    def _parameter_names(self) -> DataBinding:
+        check_parameters(self.parameters(), ())
+        return self
+
+    def parameters(self) -> dict[str, float]:
+        """The parameters the transforms name, with their defaults; a name used twice must agree on its default."""
+        found: dict[str, float] = {}
+        for transform in self.transforms:
+            for value in (getattr(transform, "by", None), getattr(transform, "window", None)):
+                if isinstance(value, ParameterRef):
+                    if value.parameter in found and found[value.parameter] != value.default:
+                        raise ValueError(
+                            f"parameter '{value.parameter}' is given two defaults ({found[value.parameter]:g} and "
+                            f"{value.default:g}) in one data binding"
+                        )
+                    found[value.parameter] = value.default
+        return found
 
 
 class EquationRef(StrictModel):
@@ -183,7 +241,96 @@ class FadeAxes(StrictModel):
         return self.at_seconds + self.duration_seconds
 
 
-SceneAction = Annotated[VaryParameter | OrbitCamera | FadeAxes, Field(discriminator="kind")]
+class MoveObject(StrictModel):
+    """Move an object over a window (ADR-034).
+
+    A flat object moves in the frame: to an `Anchor` of the safe area (`to_anchor`), or `by` an offset given as
+    fractions of the safe frame's width and height. An object anchored in a surface's data coordinates (a
+    `sphere`) moves `to_point`, a point in those coordinates. Exactly one of the three is given. The motion
+    starts from wherever the object is when the window opens and ends at the absolute target, so a checkpoint
+    inside the window is reached by the real flow; readouts and emphasis placed relative to the object follow
+    it while their own actions run. Two moves of one object may not overlap.
+    """
+
+    kind: Literal["move_object"]
+    id: Slug
+    target: Slug
+    to_anchor: Anchor | None = None
+    by: tuple[float, float] | None = None
+    """Offset as fractions of the safe frame: `[0.1, 0]` moves a tenth of the safe width to the right."""
+    to_point: tuple[float, float, float] | None = None
+    """Target centre in the anchor surface's data coordinates, for a `sphere`."""
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+    """Rate profile; omitted means the style's `motion.easing`. `ease_in_quad` falls from rest, `ease_out_quad`
+    rises to rest at the top: the two halves of a ballistic arc."""
+
+    @model_validator(mode="after")
+    def _one_destination(self) -> MoveObject:
+        given = [name for name in ("to_anchor", "by", "to_point") if getattr(self, name) is not None]
+        if len(given) != 1:
+            raise ValueError(f"move_object needs exactly one of to_anchor, by or to_point (given: {given or 'none'})")
+        for name in ("by", "to_point"):
+            values = getattr(self, name)
+            if values is not None and any(not math.isfinite(v) for v in values):
+                raise ValueError(f"move_object {name} must be finite numbers")
+        return self
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+class FadeObject(StrictModel):
+    """Fade an object out (`visible: false`) or back in over a window (ADR-034). A faded object stays registered
+    but is absent from layout reports until a fade brings it back; two fades of one object may not overlap.
+    `fade_axes` remains the special case for a surface's frame."""
+
+    kind: Literal["fade_object"]
+    id: Slug
+    target: Slug
+    visible: bool = False
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+class TransformEquation(StrictModel):
+    """Turn the equation an `equation_block` or `equation_label` shows into another declared equation (ADR-034).
+
+    The target equation is typeset with the same highlighted symbols; occurrences of a highlighted symbol pair
+    by name (`by_symbol`, the default: the first occurrence in the old equation goes to the first in the new,
+    and so on) and every other glyph pairs by shape, so an `=` or a `2` glides to its new place; glyphs without
+    a partner fade out or in. Named symbols are the only parts matched by meaning; everything else is matched
+    by shape, which can pair glyphs that merely look alike. Once the window closes the object shows the new
+    equation, and later `vary_parameter` emphasis on it resolves symbols against that equation. A block that
+    lists symbol definitions cannot be transformed; two transforms of one object may not overlap, and a sweep
+    that emphasizes the object may not start inside the window (its pulse would play on glyphs being replaced).
+    """
+
+    kind: Literal["transform_equation"]
+    id: Slug
+    target: Slug
+    to: Slug
+    """Id of an equation in animation.yaml."""
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    match: Literal["by_symbol", "by_shape"] = "by_symbol"
+    easing: Easing | None = None
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+SceneAction = Annotated[
+    VaryParameter | OrbitCamera | FadeAxes | MoveObject | FadeObject | TransformEquation, Field(discriminator="kind")
+]
 """Actions run concurrently; the validator refuses two that drive the same thing at once."""
 
 
@@ -250,6 +397,20 @@ class Scene(StrictModel):
                     raise ValueError(
                         f"object '{obj.id}': {key}='{ref}' must name an object declared earlier in scene '{self.id}'"
                     )
+            if obj.kind in ANCHORED_KINDS:
+                anchor = next((o for o in self.objects if o.id == obj.params.get("anchor")), None)
+                if anchor is None or anchor.id not in seen or anchor.kind != "surface_plot":
+                    raise ValueError(
+                        f"object '{obj.id}': anchor='{obj.params.get('anchor')}' must name a surface_plot declared "
+                        f"earlier in scene '{self.id}'"
+                    )
+                anchor_reveal = self.start_seconds if anchor.reveal_at_seconds is None else anchor.reveal_at_seconds
+                own_reveal = self.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+                if anchor_reveal > own_reveal + 1e-9:
+                    raise ValueError(
+                        f"object '{obj.id}' is revealed at {own_reveal:g}s, before its anchor '{anchor.id}' "
+                        f"at {anchor_reveal:g}s"
+                    )
             seen.append(obj.id)
         for snapshot in self.snapshots:
             if not (self.start_seconds <= snapshot.at_seconds <= self.end_seconds):
@@ -283,38 +444,63 @@ class Scene(StrictModel):
                 raise ValueError(
                     f"action '{action.id}': target '{action.target}' is not an object of scene '{self.id}'"
                 )
+            if reveal_time(target) > action.at_seconds:
+                raise ValueError(
+                    f"action '{action.id}' at {action.at_seconds:g}s starts before its target '{target.id}' "
+                    f"is revealed at {reveal_time(target):g}s"
+                )
             if isinstance(action, FadeAxes):
                 if target.kind != "surface_plot":
                     raise ValueError(
                         f"action '{action.id}': target '{target.id}' is a {target.kind}; fade_axes needs a surface_plot"
                     )
-                if reveal_time(target) > action.at_seconds:
+                continue
+            if isinstance(action, MoveObject):
+                if action.to_point is not None and target.kind not in ANCHORED_KINDS:
                     raise ValueError(
-                        f"action '{action.id}' at {action.at_seconds:g}s starts before its target '{target.id}' "
-                        f"is revealed at {reveal_time(target):g}s"
+                        f"action '{action.id}': target '{target.id}' is a {target.kind}; to_point moves an object "
+                        f"anchored in a surface's coordinates ({sorted(ANCHORED_KINDS)}); use to_anchor or by"
+                    )
+                if action.to_point is None and target.kind in WORLD_KINDS:
+                    raise ValueError(
+                        f"action '{action.id}': target '{target.id}' is a {target.kind}, which turns with the camera; "
+                        "to_anchor and by move flat objects in the frame"
+                        + (", a sphere moves to_point" if target.kind in ANCHORED_KINDS else "")
                     )
                 continue
-            if target.kind not in PARAMETRIC_KINDS:
+            if isinstance(action, FadeObject):
+                continue
+            if isinstance(action, TransformEquation):
+                if target.equation is None:
+                    raise ValueError(
+                        f"action '{action.id}': target '{target.id}' is a {target.kind} without an equation; "
+                        "transform_equation needs an equation_block or equation_label"
+                    )
+                params = target.typed_params()
+                if isinstance(params, EquationBlockParams) and params.define_symbols:
+                    raise ValueError(
+                        f"action '{action.id}': '{target.id}' lists symbol definitions (define_symbols), which would "
+                        "describe the old equation after the transform; turn them off or use another object"
+                    )
+                continue
+            params = target.typed_params()
+            declared = dict(getattr(params, "parameters", {}))
+            if target.data is not None:
+                declared.update(target.data.parameters())
+            if target.kind not in PARAMETRIC_KINDS and not (target.data is not None and target.data.parameters()):
                 raise ValueError(
                     f"action '{action.id}': target '{target.id}' is a {target.kind}; vary_parameter needs one of "
-                    f"{sorted(PARAMETRIC_KINDS)}"
+                    f"{sorted(PARAMETRIC_KINDS)} or a data binding whose transforms name parameters"
                 )
-            params = target.typed_params()
-            declared = getattr(params, "parameters", {})
             if action.parameter not in declared:
                 raise ValueError(
                     f"action '{action.id}': '{target.id}' declares no parameter '{action.parameter}' "
                     f"(declared: {sorted(declared) or 'none'})"
                 )
-            if isinstance(params, FunctionPlotParams) and params.y_range is None:
+            if isinstance(params, FunctionPlotParams | ScientificPlotParams) and params.y_range is None:
                 raise ValueError(
                     f"action '{action.id}': give '{target.id}' a y_range so the axes stay fixed while "
                     f"'{action.parameter}' varies"
-                )
-            if reveal_time(target) > action.at_seconds:
-                raise ValueError(
-                    f"action '{action.id}' at {action.at_seconds:g}s starts before its target '{target.id}' "
-                    f"is revealed at {reveal_time(target):g}s"
                 )
             for object_id in action.emphasize:
                 obj = objects.get(object_id)
@@ -340,6 +526,21 @@ class Scene(StrictModel):
                 raise ValueError(f"camera orbits '{first.id}' and '{second.id}' overlap; one orbit at a time")
             if isinstance(first, FadeAxes) and isinstance(second, FadeAxes) and first.target == second.target:
                 raise ValueError(f"axes fades '{first.id}' and '{second.id}' of '{first.target}' overlap")
+            for cls, what in ((MoveObject, "moves"), (FadeObject, "fades"), (TransformEquation, "transforms")):
+                if isinstance(first, cls) and isinstance(second, cls) and first.target == second.target:
+                    raise ValueError(f"{what} '{first.id}' and '{second.id}' of '{first.target}' overlap")
+            for transform, sweep in ((first, second), (second, first)):
+                if (
+                    isinstance(transform, TransformEquation)
+                    and isinstance(sweep, VaryParameter)
+                    and transform.target in sweep.emphasize
+                    and transform.at_seconds <= sweep.at_seconds < transform.end_seconds - 1e-9
+                ):
+                    raise ValueError(
+                        f"action '{sweep.id}' emphasizes '{transform.target}' and starts at {sweep.at_seconds:g}s, "
+                        f"inside '{transform.id}' ({transform.at_seconds:g}-{transform.end_seconds:g}s), which is "
+                        "replacing that equation's glyphs; start it when the transform has ended"
+                    )
             if (
                 isinstance(first, VaryParameter)
                 and isinstance(second, VaryParameter)

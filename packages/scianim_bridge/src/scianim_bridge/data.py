@@ -6,11 +6,12 @@ Every transformation is declared in the storyboard; nothing here infers semantic
 from __future__ import annotations
 
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from scianim_core.storyboard import DataBinding
+from scianim_core.storyboard import DataBinding, ParameterRef
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,24 @@ class DataTable:
         rows = tuple({**row, name: repr(v / divisor)} for row, v in zip(self.rows, values, strict=True))
         return DataTable(self.columns, rows, self.source)
 
+    def scale(self, name: str, by: float) -> DataTable:
+        values = self.numeric(name)
+        rows = tuple({**row, name: repr(v * by)} for row, v in zip(self.rows, values, strict=True))
+        return DataTable(self.columns, rows, self.source)
+
+    def smooth(self, name: str, window: float) -> DataTable:
+        """Gaussian smoothing along the row order with standard deviation `window` in rows; zero is the identity."""
+        values = self.numeric(name)
+        if window <= 1e-9 or len(values) < 2:
+            return self
+        smoothed = []
+        for i in range(len(values)):
+            weights = [math.exp(-((j - i) ** 2) / (2.0 * window * window)) for j in range(len(values))]
+            total = sum(weights)
+            smoothed.append(sum(w * v for w, v in zip(weights, values, strict=True)) / total)
+        rows = tuple({**row, name: repr(v)} for row, v in zip(self.rows, smoothed, strict=True))
+        return DataTable(self.columns, rows, self.source)
+
     def group_by(self, name: str) -> dict[str, DataTable]:
         self._require(name)
         groups: dict[str, list[dict[str, str]]] = {}
@@ -93,9 +112,19 @@ class Series:
     error: list[float] | None = None
 
 
-def apply_binding(table: DataTable, binding: DataBinding | dict[str, Any]) -> list[Series]:
-    """Apply the declared transforms, then split into one series per group value."""
+def _setting(value: float | ParameterRef, parameters: dict[str, float]) -> float:
+    if isinstance(value, ParameterRef):
+        return float(parameters.get(value.parameter, value.default))
+    return float(value)
+
+
+def apply_binding(
+    table: DataTable, binding: DataBinding | dict[str, Any], parameters: dict[str, float] | None = None
+) -> list[Series]:
+    """Apply the declared transforms, then split into one series per group value. `parameters` gives the current
+    values of the parameters the transforms name (a `vary_parameter` sweep); their defaults otherwise."""
     bound = binding if isinstance(binding, DataBinding) else DataBinding.model_validate(binding)
+    values = {**bound.parameters(), **(parameters or {})}
     for transform in bound.transforms:
         if transform.op == "filter":
             table = table.filter_equals(transform.column, transform.equals)
@@ -103,6 +132,10 @@ def apply_binding(table: DataTable, binding: DataBinding | dict[str, Any]) -> li
             table = table.normalize(transform.column, transform.by)
         elif transform.op == "sort":
             table = table.sort_by(transform.column, transform.descending)
+        elif transform.op == "scale":
+            table = table.scale(transform.column, _setting(transform.by, values))
+        elif transform.op == "smooth":
+            table = table.smooth(transform.column, _setting(transform.window, values))
     enc = bound.encoding
     groups = table.group_by(enc.group) if enc.group else {None: table}
     series: list[Series] = []

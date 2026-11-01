@@ -31,4 +31,5 @@ components:
   - network_graph
   - surface_plot
   - function_image
+  - sphere
 schema_extensions: []

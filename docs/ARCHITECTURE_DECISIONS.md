@@ -639,3 +639,106 @@ like a line of the same document, not a caption from another. Round ends and rim
 smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
 that a personal layer may revise, and the renderer honours them without reading a style's name.
 
+
+## ADR-034: Scene actions that move, fade and transform; data-bound sweeps; the `sphere` kind
+
+**Status:** accepted, 31 October 2026
+
+**Context.** ADR-022 left three action kinds open: moving an object, fading one out, and turning one equation
+into another. The clips so far vary parameters of analytic objects; a plot bound to a table could not move at
+all, and nothing in the registry could be placed in a surface's coordinates and travel through them. The fifth
+example wanted all of it at once: a drop that falls onto water, vanishes at impact, a ring wave and a rebound
+column from an analytic model whose equation replaces the drop's free-fall equation at the moment of impact,
+and a smaller drop that leaves the column, climbs and falls back.
+
+**Decision.** Three action kinds join the discriminated union, one small kind joins the registry, and data
+bindings learn parameters. The component registry is `0.5.0`.
+
+`move_object` moves a flat object in the frame, to an anchor of the safe area (`to_anchor`) or `by` an offset
+in fractions of the safe frame, or moves an object anchored in a surface's data coordinates `to_point` in those
+coordinates; exactly one of the three is given. The bridge's `MoveTrack` captures the position when the window
+opens and eases to the absolute target, so a checkpoint inside the window is reached by the real flow and a
+segment resumes without a seam. Surfaces and spheres, which turn with the camera, are refused by the frame
+forms; flat objects are refused by `to_point`. Two easings join the `Easing` contract, `ease_in_quad` and
+`ease_out_quad`, the two halves of a parabola: a body falling from rest and one thrown up that slows to its
+apex. They exist because the example shows a free-fall equation beside a falling drop, and a drop that slows
+into the surface under the style's `smooth` profile would contradict the equation it illustrates.
+
+`fade_object` is the storyboard face of the seam's `FadeTrack`: the object's ink eases to nothing and its
+group leaves the scene, or returns to full ink. A faded object stays registered with `visible = False`, so
+layout reports and inspection leave it out until a fade brings it back; `fade_axes` remains the special case
+for a surface's frame, which fades without the surface.
+
+`transform_equation` turns the equation an `equation_block` or `equation_label` shows into another declared
+equation. The bridge typesets the target with the object's highlighted symbols through the same per-occurrence
+groups (`_group_symbols`), places it where the formula belongs, and pairs the glyphs: with `by_symbol` the
+occurrences of each highlighted symbol pair by name and in order, the first `t` of the old equation gliding to
+the first of the new; everything still unpaired pairs by shape, left to right, using the centred and
+unit-height outline that Manim's own shape matching uses; glyphs without a partner fade out or in. A
+`TransformTrack` takes the old formula out of the object's group, animates copies of the pieces in a
+transitional group, and at its finish installs the freshly typeset new formula, so the object ends in the same
+state whether the window was fast-forwarded or rendered frame by frame (ADR-029). From then on the object's
+highlights are the new per-symbol groups: a sweep already emphasizing the object moves to the new occurrences
+and keeps their colour, terms that held the colour in `active` mode keep it where the symbol still occurs,
+and vanished symbols are forgotten. The limit of the matching is stated plainly: named symbols are the only
+parts matched by meaning, everything else is matched by looks, which can pair glyphs that merely resemble each
+other (an `s` with an `s` that means something else) and sends the rest through a fade. The validator keeps
+the equation an object shows over time and refuses an emphasis of a symbol the shown equation does not mention,
+naming the declared equation, the transform that replaced it and the one now shown; it refuses a transform of
+a block that lists symbol definitions (they would describe the old equation), two transforms of one object
+that overlap, and a sweep that emphasizes the object and would start inside the window, where its pulse would
+play on glyphs being replaced. `Equation.mentions` is the one test of addressability, the same word match the
+renderer wraps.
+
+Data-bound sweeps: a `DataBinding` transform setting may be a `ParameterRef` (`{parameter: g, default: 1}`).
+Two transforms take one: `scale` (multiply a column by a factor) and `smooth` (Gaussian smoothing along the row
+order with a standard deviation in rows). `DataBinding.parameters()` collects the names and defaults, a
+`vary_parameter` may target a data-bound object that declares them, and the plot must fix its `y_range`. The
+`scientific_plot` component recomputes its series from the table with the transforms at the new values on
+every frame and swaps fresh curves into its group inside the fixed axes, clipping at the range edge with a
+warning as `function_plot` does. Project checks warn above ten thousand rows.
+
+`sphere` is a small registered kind: a solid sphere at `position` in the data coordinates of an `anchor`
+surface declared earlier in the scene, with `radius_fraction` of the safe height, in the object's ink. Surfaces
+expose `to_world`, the map from their data coordinates to the world, and the sphere keeps that map, so a
+`move_object` with `to_point` places it exactly. It is lit by the one soft light of ADR-030 with the
+renderer's lamp switched off, and because a face without Manim's lamp is not depth-sorted, the sphere culls
+its own back faces against the camera's current rotation (rebuilt from the angles, since the camera's cached
+matrix is refreshed only when a frame is captured) after every camera move; a fade restores every face's ink
+from a record the component makes at build time, culled faces included.
+
+The fifth example, `drop_impact`, is one 20 s scene. The water is a `surface_plot` whose expression is the
+model written beside it: an outward-travelling damped ring wave packet, switched on by a smooth step in model
+time so that the surface is flat before the drop lands, plus a central Gaussian column whose height follows a
+pulse that rises as the fourth power of time after impact so the jet follows the crater. Model time `t` is the
+one parameter that varies, with the `eased_linear` profile so that the clock runs at a constant rate through
+the whole visible event; the drop, a sphere, falls with `ease_in_quad` and vanishes at impact, the free-fall
+equation becomes the model at that moment with `t` carrying the accent colour throughout, a smaller sphere
+leaves the column's tip, climbs with `ease_out_quad`, rests, falls back and merges, the axes leave early and
+the camera turns sixty degrees. The caption, the data label, the narration and the scientific notes say that
+it is an analytic cartoon of the mechanism, not a fluid simulation and not a measurement, and that model time
+runs slower than the clip. It is authored at 48 cells per axis. The data-bound sweep is shown by a `gain`
+action in `divisive_normalization`, whose synthetic response is scaled by `g` while the viewer watches. Along
+the way codegen learned to collapse breakpoints that differ by an ulp (10.1 + 1.2 is not 11.3), which had
+made a track begin twice, and the bridge learned that Manim's Cairo renderer lists every family member once
+at the start of a play and keeps drawing that list until the play ends: a member removed from a group mid-play
+(a readout's previous text, a swapped curve, a replaced formula) must be hidden rather than dropped from the
+camera's fixed-in-frame set, or it is drawn projected through the camera as a faint ghost in frame-by-frame
+renders while fast-forward, which never draws those frames, shows nothing; for the same reason the sphere hides
+its back faces instead of removing them.
+
+**Why.** Actions are the one list in which anything with a time belongs (ADR-022), so moves, fades and
+transforms take their place beside sweeps rather than becoming object parameters or a timeline of their own.
+A move to an absolute target captured at its start is what makes the motion a track like the others, split
+by checkpoints and resumable. The transform installs a fresh typeset rather than a mutated copy for the same
+reason readouts receive fresh text (ADR-029): a state that depends on the path taken to it breaks fast-forward,
+the per-play cache and parallel renders alike. Matching named symbols by name and everything else by shape is
+the honest statement of what the typesetter gives us: Typst groups glyphs per symbol only where we wrap them,
+so the grammar of meaning is "the highlighted symbols", and shape is the only other evidence; the ADR records
+that limit so nobody reads a glide of glyphs as a proof of correspondence. Parameterised transforms keep the
+scientific rule that every transformation of data is declared in YAML with its default, and a sweep merely
+moves a declared number. The sphere is the smallest solid that lets a scene show a thing meeting a surface,
+and anchoring it in the surface's coordinates keeps the storyboard in the units of the science. The example's
+model is a cartoon by design and says so wherever it can, because the thing the clip teaches is the sequence
+of mechanisms, and a fabricated likeness of a simulation would teach the wrong lesson about what the tool
+claims.

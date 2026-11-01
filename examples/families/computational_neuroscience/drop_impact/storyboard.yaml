@@ -1,0 +1,130 @@
+schema_version: "1.0"
+project_id: drop_impact
+based_on_animation_revision: "draft"
+scenes:
+  - id: splash
+    start_seconds: 0
+    end_seconds: 20
+    purpose: "A drop falls onto still water: crater, ring wave and rebound column, from an analytic model of the surface, under a slowly turning camera."
+    narration:
+      text: >-
+        A drop falls onto still water. Where it lands a crater opens and a ring wave runs outward, while the
+        water rebounds in a thin column that sheds a smaller drop before it sinks back. The surface here is an
+        analytic model of that mechanism, not a fluid simulation.
+    objects:
+      - id: water
+        kind: surface_plot
+        style_role: primary_signal
+        equation: {id: splash}
+        params:
+          x_label: "x (cm)"
+          y_label: "y (cm)"
+          z_label: "h (cm)"
+          x_range: [-3, 3]
+          y_range: [-3, 3]
+          z_range: [-0.5, 1.3]
+          expression: >-
+            -A * (1 + tanh(t / t_r)) / 2 * exp(-t / tau_0) * exp(-((sqrt(x^2 + y^2) - c * t)^2) / w^2)
+            * cos(k * (sqrt(x^2 + y^2) - c * t))
+            + H * (max(t, 0) / t_j)^4 * exp(4 * (1 - max(t, 0) / t_j)) * exp(-(x^2 + y^2) / (2 * s^2))
+          parameters: {t: -0.3, A: 0.4, t_r: 0.03, tau_0: 0.8, c: 2.5, w: 0.35, k: 9, H: 1.1, t_j: 0.3, s: 0.2}
+          resolution: 48
+          fill: by_height
+          data_label: "analytic model of the surface, not a fluid simulation; model time runs slower than the clip"
+          size_fraction: 0.78
+          lift_fraction: 0.1
+      - id: drop
+        kind: sphere
+        style_role: primary_signal
+        params: {anchor: water, position: [0, 0, 1.75], radius_fraction: 0.032}
+      - id: droplet
+        kind: sphere
+        style_role: primary_signal
+        params: {anchor: water, position: [0, 0, 1.15], radius_fraction: 0.018}
+        reveal_at_seconds: 8.5
+      - id: model
+        kind: equation_block
+        style_role: foreground
+        equation: {id: free_fall, highlight: [t], highlight_mode: active}
+        params: {anchor: top_left, scale: 0.7}
+      - id: caption
+        kind: text_caption
+        style_role: secondary_text
+        params: {text: "a drop meets still water", role: caption, anchor: top_right}
+    actions:
+      - id: orbit
+        kind: orbit_camera
+        to_theta_degrees: 15
+        at_seconds: 0
+        duration_seconds: 20
+      - id: axes_away
+        kind: fade_axes
+        target: water
+        at_seconds: 2
+        duration_seconds: 0.8
+      - id: clock
+        kind: vary_parameter
+        target: water
+        parameter: t
+        to: 1.2
+        at_seconds: 2.05
+        duration_seconds: 15
+        easing: eased_linear
+        emphasize: [model]
+        value_decimals: 2
+      - id: fall
+        kind: move_object
+        target: drop
+        to_point: [0, 0, 0]
+        at_seconds: 3
+        duration_seconds: 2.5
+        easing: ease_in_quad
+      - id: vanish
+        kind: fade_object
+        target: drop
+        at_seconds: 5.5
+        duration_seconds: 0.3
+      - id: impact
+        kind: transform_equation
+        target: model
+        to: splash
+        at_seconds: 5.5
+        duration_seconds: 0.8
+      - id: rise
+        kind: move_object
+        target: droplet
+        to_point: [0, 0, 1.45]
+        at_seconds: 8.5
+        duration_seconds: 1.1
+        easing: ease_out_quad
+      - id: fall_back
+        kind: move_object
+        target: droplet
+        to_point: [0, 0, 0.45]
+        at_seconds: 10.1
+        duration_seconds: 1.2
+        easing: ease_in_quad
+      - id: merge
+        kind: fade_object
+        target: droplet
+        at_seconds: 11.3
+        duration_seconds: 0.3
+    snapshots:
+      - id: still_water
+        at_seconds: 1.5
+        description: "Still water, flat inside its labelled box, the drop hanging above the centre; the free-fall equation at the top left with t in the line ink; the camera near its starting angle."
+      - id: falling
+        at_seconds: 4.6
+        description: "The axes have gone; the drop is part of the way down and accelerating; t in the free-fall equation carries the accent colour and the readout shows a negative t; the surface is still flat."
+      - id: impact_done
+        at_seconds: 6.3
+        description: "Just after impact: the drop has vanished, a crater is opening at the centre, and the equation at the top left is now the surface model with every t in the accent colour; the readout shows t near 0.09 s."
+      - id: jet
+        at_seconds: 9.5
+        description: "The rebound column stands tall in the middle of the first ring; the smaller drop has left its tip and is climbing; t near 0.44 s."
+      - id: rings
+        at_seconds: 14
+        description: "The ring wave is most of the way to the edge of the box, its crest lower than at first; the column has sunk back; the smaller drop is gone; t near 0.94 s."
+      - id: calm
+        at_seconds: 18.5
+        description: "The last of the ring at the edge of the box, the centre flat again; t = 1.20 s in the readout and the clock has stopped; the camera has turned sixty degrees."

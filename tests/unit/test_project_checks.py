@@ -95,8 +95,8 @@ def test_narration_overrun_is_a_warning(project_copy: Project) -> None:
 def test_custom_builder_found_in_family_components(project_copy: Project) -> None:
     rewrite(
         project_copy.storyboard_path,
-        "    snapshots:\n      - id: excitation_visible",
-        '      - id: sketch\n        kind: custom\n        params: {builder: "pool_sketch:build"}\n    snapshots:\n      - id: excitation_visible',
+        "    actions:\n      - id: gain",
+        '      - id: sketch\n        kind: custom\n        params: {builder: "pool_sketch:build"}\n    actions:\n      - id: gain',
     )
     report = validate_project(project_copy)
     assert any("custom builder module 'pool_sketch' not found" in e for e in report.errors)

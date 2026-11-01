@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 
+from scianim.workspace import rewrite_top_level_keys
 from scianim_core import ArtifactManifest
 
 pytestmark = [pytest.mark.integration, pytest.mark.surface]
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+REPO = Path(__file__).resolve().parents[2]
+FIXTURES = REPO / "tests" / "fixtures"
 
 
 def manifests(project: Path, revision: str) -> list[ArtifactManifest]:
@@ -206,3 +208,100 @@ def test_gabor_filter_renders_in_segments(workspace: Path, scianim) -> None:
     # group once faded is asserted directly by the bridge test on the AxesFade track.)
     first = next(i for i in records["with_axes"].layout if i.object_id == "gabor_surface")
     assert first.bbox != surface.bbox
+
+
+def _accent_pixels(png: Path, bbox, accent_hex: str) -> int:
+    """Pixels inside a normalized bbox within a short distance of the accent colour."""
+    from PIL import Image
+
+    accent = tuple(int(accent_hex[i : i + 2], 16) for i in (1, 3, 5))
+    with Image.open(png) as image:
+        rgb = image.convert("RGB")
+        w, h = rgb.size
+        box = (
+            int(bbox.x * w),
+            int(bbox.y * h),
+            int((bbox.x + bbox.width) * w) + 1,
+            int((bbox.y + bbox.height) * h) + 1,
+        )
+        pixels = rgb.crop(box).getdata()
+    return sum(1 for p in pixels if max(abs(p[i] - accent[i]) for i in range(3)) < 40)
+
+
+def test_drop_impact_moves_fades_and_transforms(workspace: Path, scianim) -> None:
+    """The fifth example (ADR-034): a sphere anchored to the surface falls (move_object by point) and vanishes
+    (fade_object), the free-fall equation becomes the surface model at impact (transform_equation) while a sweep of
+    model time keeps t emphasized, a smaller sphere rises and falls back, and the camera orbits: every checkpoint
+    exact, the transformed equation shown with t in the accent colour, faded objects absent from the layout."""
+    project = workspace / "families" / "computational_neuroscience" / "drop_impact"
+    assert scianim("validate", str(project)).returncode == 0
+    assert scianim("codegen", str(project)).returncode == 0
+    generated = (project / "code" / "scene_drop_impact.py").read_text()
+    assert "fall = self.begin_move(drop, to_anchor=None, by=None, to_point=[0.0, 0.0, 0.0]" in generated
+    assert "vanish = self.begin_fade_object(drop, visible=False, at_seconds=5.5" in generated
+    assert 'impact = self.begin_transform(model, to="splash", at_seconds=5.5, duration_seconds=0.8' in generated
+    assert "self.run_until(5.8, [orbit, clock, vanish, impact])" in generated
+    assert generated.count("merge = self.begin_fade_object(droplet") == 1
+    run = scianim("snapshot", str(project), "--all", "--no-cache")
+    assert run.returncode == 0, run.stdout + run.stderr
+    manifest = manifests(project, "working")[-1]
+    records = {c.snapshot_id: c for c in manifest.result.checkpoints}
+    assert list(records) == ["still_water", "falling", "impact_done", "jet", "rings", "calm"]
+    for record in records.values():
+        assert record.fidelity == "exact" and record.warnings == [], (record.snapshot_id, record.warnings)
+    still = {i.object_id: i for i in records["still_water"].layout}
+    assert set(still) == {"water", "drop", "model", "caption"}
+    assert still["drop"].kind == "sphere" and still["model"].text == "z(t) = z_0 - 1/2 g t^2"
+    falling = {i.object_id: i for i in records["falling"].layout}
+    assert falling["drop"].bbox.y > still["drop"].bbox.y + 0.05  # the drop has come down
+    assert falling["clock"].text.startswith("t = -0.")
+    done = {i.object_id: i for i in records["impact_done"].layout}
+    assert "drop" not in done, "the faded drop stays registered but leaves the layout report"
+    assert done["model"].text.startswith("& h(x, y, t) = -A Theta(t)")
+    assert done["model"].bbox.height > still["model"].bbox.height  # two lines now
+    assert done["clock"].text == "t = 0.09 s"
+    # The transformed equation shows t in the accent colour: accent pixels inside the block's box, and more of
+    # them than the one-line free-fall equation had with its single t.
+    accent = manifest.job.resolved_style.tokens.palette["emphasis"]
+    lit_after = _accent_pixels(project / records["impact_done"].png, done["model"].bbox, accent)
+    lit_before = _accent_pixels(project / records["falling"].png, falling["model"].bbox, accent)
+    assert lit_after > lit_before > 0, (lit_before, lit_after)
+    jet = {i.object_id: i for i in records["jet"].layout}
+    assert jet["droplet"].kind == "sphere" and jet["droplet"].bbox.y < jet["water"].bbox.y + 0.05
+    rings = {i.object_id: i for i in records["rings"].layout}
+    assert "droplet" not in rings and "drop" not in rings
+    calm = {i.object_id: i for i in records["calm"].layout}
+    assert calm["clock"].text == "t = 1.20 s"
+    assert records["still_water"].sha256 != records["impact_done"].sha256 != records["rings"].sha256
+    # The data-bound sweep of the other example: a checkpoint inside the gain sweep shows the readout and a
+    # curve recomputed from the table (its series scaled by g), with the axes fixed.
+    dn = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
+    example = (
+        REPO / "examples" / "families" / "computational_neuroscience" / "divisive_normalization" / "storyboard.yaml"
+    )
+    text = example.read_text()
+    assert "- {op: scale, column: response_r, by: {parameter: g, default: 1}}" in text
+    previous = (dn / "storyboard.yaml").read_text()  # an earlier test may have put the gallery storyboard here
+    (dn / "storyboard.yaml").write_text(
+        text.replace(
+            "      - id: excitation_visible\n",
+            '      - id: gain_rising\n        at_seconds: 5\n        description: "inside the gain sweep"\n'
+            "      - id: excitation_visible\n",
+            1,
+        )
+    )
+    rewrite_top_level_keys(dn / "storyboard.yaml", {"project_id": "divisive_normalization"})  # as workspace init does
+    try:
+        assert scianim("codegen", str(dn)).returncode == 0
+        gain = scianim("snapshot", str(dn), "--no-cache", "--id", "excitation_visible", "--id", "gain_rising")
+        assert gain.returncode == 0, gain.stdout + gain.stderr
+        before, inside = manifests(dn, "working")[-1].result.checkpoints
+        assert before.snapshot_id == "excitation_visible" and inside.snapshot_id == "gain_rising"
+        assert {i.object_id for i in before.layout} == {"drive_caption", "drive_note", "drive_curve"}
+        layout = {i.object_id: i for i in inside.layout}
+        assert layout["gain"].kind == "value_readout" and layout["gain"].text.startswith("gain g = 1.")
+        assert layout["gain"].text not in ("gain g = 1.0", "gain g = 1.5")
+        assert layout["drive_curve"].bbox == {i.object_id: i for i in before.layout}["drive_curve"].bbox
+        assert before.sha256 != inside.sha256 and inside.warnings == []
+    finally:
+        (dn / "storyboard.yaml").write_text(previous)

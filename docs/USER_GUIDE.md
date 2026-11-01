@@ -188,6 +188,61 @@ page. Surfaces render through Cairo as thousands of small cells: snapshots are q
 tens of minutes in one process, and the 80-cell Gabor mesh at 60 fps takes about two hours; `--workers`
 divides those times by somewhat less than the number of cores you give it.
 
+## Moving, fading and transforming things
+
+Three more action kinds (ADR-034) let a scene do what the drop clip (`drop_impact`) does: something falls,
+disappears, and the equation changes its mind. A `move_object` moves a flat object to an anchor of the safe
+area or by an offset in fractions of it, and moves a `sphere` (a small solid placed in the data coordinates of
+a surface) to a point in those coordinates; `ease_in_quad` and `ease_out_quad` are the two halves of a
+parabola, for things that fall or are thrown:
+
+```yaml
+objects:
+  - id: drop
+    kind: sphere
+    params: {anchor: water, position: [0, 0, 1.75], radius_fraction: 0.032}
+actions:
+  - {id: fall, kind: move_object, target: drop, to_point: [0, 0, 0], at_seconds: 3, duration_seconds: 2.5, easing: ease_in_quad}
+  - {id: aside, kind: move_object, target: caption, by: [0.1, 0], at_seconds: 6, duration_seconds: 1}
+```
+
+A `fade_object` fades any object out (`visible: false`) or back in; a faded object stays in the storyboard
+but leaves the layout report until it returns:
+
+```yaml
+  - {id: vanish, kind: fade_object, target: drop, at_seconds: 5.5, duration_seconds: 0.3}
+```
+
+A `transform_equation` turns the equation an `equation_block` or `equation_label` shows into another one
+declared in `animation.yaml`. Occurrences of the highlighted symbols glide to their namesakes in the new
+equation (the first `t` to the first `t`, and so on), every other glyph pairs by shape where one looks the same
+(an `=` to an `=`), and the rest fade out and in. Afterwards the object shows the new equation, and an emphasis
+on it refers to that equation: `scianim validate` refuses a `vary_parameter` that emphasizes a symbol the shown
+equation lacks, naming both equations. Named symbols are matched by meaning and everything else only by
+looks, so keep the highlights on the symbols that carry the story:
+
+```yaml
+  - {id: impact, kind: transform_equation, target: model, to: splash, at_seconds: 5.5, duration_seconds: 0.8}
+```
+
+A plot bound to a table can move too. A transform setting may name a parameter with its default, and a
+`vary_parameter` then sweeps it while the series is recomputed from the table on every frame (fix the
+`y_range`; small tables only):
+
+```yaml
+data:
+  source: responses
+  encoding: {x: excitation_E, y: response_r}
+  transforms:
+    - {op: filter, column: condition, equals: low_pool}
+    - {op: scale, column: response_r, by: {parameter: g, default: 1}}
+actions:
+  - {id: gain, kind: vary_parameter, target: drive_curve, parameter: g, to: 1.5, at_seconds: 4, duration_seconds: 1.3, value_label: "gain g"}
+```
+
+Two moves, two fades or two transforms of one object may not overlap, and `scianim validate` asks for the
+style's rest between two moves of one object as it does between two sweeps.
+
 ## Revisions, forks and comparison
 
 ```bash

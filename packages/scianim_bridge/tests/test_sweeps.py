@@ -622,3 +622,256 @@ def test_camera_hook_fires_on_every_orbit_step() -> None:
         orbit.apply(0.5)
         orbit.apply(1.0)
         assert len(calls) >= 2
+
+
+# --- ADR-034: moves, fades of objects, the sphere, equation transforms, data-bound sweeps -----------------------
+
+FLAT_SURFACE = {
+    "x_label": "x",
+    "y_label": "y",
+    "z_label": "h",
+    "x_range": [-3, 3],
+    "y_range": [-3, 3],
+    "z_range": [-1, 1],
+    "expression": "0 * x * y + a",
+    "parameters": {"a": 0},
+    "resolution": 4,
+}
+
+
+def test_move_track_flat_objects_and_an_anchored_sphere() -> None:
+    import numpy as np
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        note = C.text_caption(scene, "note", params={"text": "note", "anchor": "top_left"})
+        start = note.group.get_center().copy()
+        slide = scene.begin_move(
+            note, to_anchor="bottom_right", at_seconds=1, duration_seconds=2, action_id="slide", easing="linear"
+        )
+        slide.apply(0.5)
+        probe = note.group.copy()
+        scene.tokens.place(probe, "bottom_right")
+        target = probe.get_center()
+        assert note.group.get_center() == pytest.approx((start + target) / 2, abs=1e-6)
+        slide.apply(1.0)
+        assert note.group.get_center() == pytest.approx(target, abs=1e-6)
+        x0, y0, x1, y1 = scene.tokens.safe_rect()
+        nudge = scene.begin_move(
+            note, by=[0.1, -0.05], at_seconds=4, duration_seconds=1, action_id="nudge", easing="linear"
+        )
+        nudge.apply(1.0)
+        assert note.group.get_center() == pytest.approx(
+            target + np.array([0.1 * (x1 - x0), -0.05 * (y1 - y0), 0.0]), abs=1e-6
+        )
+        # A parabola: the fall covers a quarter of the distance in the first half of its window.
+        drop_easing = scene.begin_move(
+            note, by=[0, -0.1], at_seconds=6, duration_seconds=1, action_id="g", easing="ease_in_quad"
+        )
+        before = note.group.get_center().copy()
+        drop_easing.apply(0.5)
+        assert (before - note.group.get_center())[1] == pytest.approx(0.25 * 0.1 * (y1 - y0), abs=1e-6)
+
+        # A sphere lives in the anchor surface's coordinates and moves to a point in them.
+        surface = C.surface_plot(scene, "surface", params=FLAT_SURFACE)
+        ball = C.sphere(scene, "ball", params={"anchor": "surface", "position": [0, 0, 2], "radius_fraction": 0.04})
+        assert ball.three_d and ball.kind == "sphere" and surface.to_world is not None
+        axes = surface.group[0]
+        assert ball.mesh is not None and len(ball.visible_faces()) < len(ball.faces)  # the back faces are culled
+        kept = ball.visible_faces()
+        toward_camera = np.asarray(scene.renderer.camera.generate_rotation_matrix())[2]
+        assert all(n @ toward_camera > 0 for f, n in zip(ball.faces, ball.normals, strict=True) if f in kept)
+        assert all(n @ toward_camera <= 0 for f, n in zip(ball.faces, ball.normals, strict=True) if f not in kept)
+        centre = np.mean([f.get_center() for f in ball.faces], axis=0)
+        assert centre == pytest.approx(axes.c2p(0, 0, 2), abs=0.05)
+        fall = scene.begin_move(
+            ball, to_point=[1, -1, 0], at_seconds=3, duration_seconds=2, action_id="fall", easing="linear"
+        )
+        fall.apply(0.5)
+        assert ball.data_point == pytest.approx([0.5, -0.5, 1.0])
+        fall.apply(1.0)
+        fall.finish()
+        centre = np.mean([f.get_center() for f in ball.faces], axis=0)  # every face moved, culled ones included
+        assert centre == pytest.approx(axes.c2p(1, -1, 0), abs=0.05)
+        # Culling follows the camera, and a fade restores every face's ink.
+        scene.ensure_camera()
+        orbit = scene.begin_orbit(
+            to_theta_degrees=150, to_phi_degrees=None, at_seconds=0, duration_seconds=1, action_id="o"
+        )
+        orbit.apply(1.0)
+        turned = set(map(id, ball.visible_faces()))
+        assert turned != set(map(id, kept))
+        scene.add(ball.group)
+        ball.visible = True
+        away = scene.begin_fade_object(
+            ball, visible=False, at_seconds=5, duration_seconds=1, action_id="away", easing="linear"
+        )
+        away.apply(1.0)
+        away.finish()
+        assert ball.visible is False and ball.group not in scene.mobjects
+        back = scene.begin_fade_object(
+            ball, visible=True, at_seconds=7, duration_seconds=1, action_id="back", easing="linear"
+        )
+        back.apply(1.0)
+        back.finish()
+        assert ball.visible is True and ball.group in scene.mobjects
+        full = scene.tokens.t.three_d.surface_opacity
+        assert all(float(f.get_fill_opacity()) == pytest.approx(full) for f in ball.visible_faces())
+        assert len(ball.visible_faces()) < len(ball.faces)  # a fade does not bring the back faces out
+        halfway = scene.begin_fade_object(
+            ball, visible=False, at_seconds=9, duration_seconds=1, action_id="half", easing="linear"
+        )
+        halfway.apply(0.5)
+        assert all(float(f.get_fill_opacity()) == pytest.approx(full / 2) for f in ball.visible_faces())
+        with pytest.raises(ValueError, match="to_point moves a sphere"):
+            scene.begin_move(note, to_point=[0, 0, 0], at_seconds=0, duration_seconds=1, action_id="bad")
+        with pytest.raises(ValueError, match="turns with the camera"):
+            scene.begin_move(ball, to_anchor="center", at_seconds=0, duration_seconds=1, action_id="bad")
+
+
+def test_transform_equation_pairs_symbols_by_name_and_the_rest_by_shape() -> None:
+    from types import SimpleNamespace
+
+    from manim import config
+
+    from scianim_bridge import components as C
+    from scianim_bridge.components.equations import match_equations
+    from scianim_core.animation import Equation
+
+    before = Equation.model_validate(
+        {"id": "before", "typst": "g = cos(theta) + sin(theta) phi", "symbols": {"theta": {"meaning": "angle"}}}
+    )
+    after = Equation.model_validate(
+        {"id": "after", "typst": "g = cos(theta) sin(theta) + 2 sigma", "symbols": {"theta": {"meaning": "angle"}}}
+    )
+    accent = PALETTE["emphasis"]
+
+    def ink(part) -> str:
+        return part.get_family()[-1].get_fill_color().to_hex().upper()
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        scene.ctx = SimpleNamespace(equations={"before": before, "after": after})
+        surface = C.surface_plot(
+            scene,
+            "surface",
+            params={**FLAT_SURFACE, "expression": "0 * x * y * theta * phi", "parameters": {"theta": 0, "phi": 0}},
+        )
+        label = C.equation_label(
+            scene,
+            "label",
+            style_role="emphasis",
+            equation={"id": "before", "highlight": ["theta", "phi"], "highlight_mode": "active"},
+            params={"text": "angles", "anchor": "top_left"},
+        )
+        assert label.equation_id == "before" and label.formula is not None
+        old_formula, old_theta = label.formula, label.highlights["theta"]
+        new_formula, new_parts = C.equations.typeset_equation(
+            scene.tokens, after, ["theta", "phi"], label.base_color, label.highlight_color, label.px_at_1080p, "active"
+        )
+        match = match_equations(old_formula, label.highlights, new_formula, new_parts, "by_symbol")
+        # Both thetas pair by name; phi has no partner in the target and fades out; the "=" and "+" pair by shape.
+        assert match.matched_symbols == {"theta": 2}
+        assert len(match.pairs) >= 2 + 2
+        phi_glyphs = {id(g) for g in label.highlights["phi"].get_family() if len(g.points)}
+        assert phi_glyphs <= {id(g) for g in match.vanishing}
+        assert match.appearing, "sigma and the new glyphs fade in"
+        shapes = match_equations(old_formula, label.highlights, new_formula, new_parts, "by_shape")
+        assert shapes.matched_symbols == {}
+        assert len(shapes.pairs) >= 2
+
+        # A sweep lights theta; the transform runs while it holds the colour and hands the colour to the new glyphs.
+        sweep = scene.begin_vary(
+            surface,
+            "theta",
+            to=90.0,
+            at_seconds=1,
+            duration_seconds=8,
+            action_id="turn",
+            easing="linear",
+            emphasize=[label],
+        )
+        sweep.apply(0.5)
+        assert ink(old_theta) == accent
+        morph = scene.begin_transform(label, to="after", at_seconds=5, duration_seconds=1, action_id="morph")
+        assert old_formula not in label.group.submobjects and morph.transition in label.group.submobjects
+        assert float(old_theta.get_family()[-1].get_fill_opacity()) == 0.0  # retired glyphs draw nothing
+        sweep.apply(0.6)  # the running sweep holds a placeholder: the retired glyphs stay hidden
+        assert float(old_theta.get_family()[-1].get_fill_opacity()) == 0.0
+        morph.apply(0.5)
+        morph.apply(1.0)
+        morph.finish()
+        assert label.formula is morph.new_formula and morph.new_formula in label.group.submobjects
+        assert morph.transition not in label.group.submobjects
+        assert label.equation_id == "after" and label.text == "angles"
+        assert set(label.highlights) == {"theta", "phi"} and len(label.highlights["theta"].submobjects) == 2
+        assert len(label.highlights["phi"].submobjects) == 0
+        assert ink(label.highlights["theta"]) == accent  # the running sweep now emphasizes the new occurrences
+        assert sweep.emphasized[0][0] is label.highlights["theta"]
+        sweep.apply(0.9)
+        assert ink(label.highlights["theta"]) == accent and surface.parameters["theta"] == pytest.approx(81.0)
+        # In fast-forward and frame by frame the object ends in the same state: a fresh typeset of the target.
+        fixed = scene.renderer.camera.fixed_in_frame_mobjects
+        assert morph.new_formula in fixed  # the retired formula stays fixed, hidden, until the play ends
+        assert all(float(g.get_fill_opacity()) == 0.0 for g in old_formula.family_members_with_points())
+        with pytest.raises(KeyError, match="not in the job"):
+            scene.begin_transform(label, to="nowhere", at_seconds=7, duration_seconds=1, action_id="bad")
+        assert ink(label.highlights["theta"]) == accent
+
+
+def test_data_bound_plot_recomputes_its_series_from_the_table() -> None:
+    from types import SimpleNamespace
+
+    from manim import config
+
+    from scianim_bridge import components as C
+    from scianim_bridge.data import DataTable, apply_binding
+
+    rows = tuple({"E": str(i), "r": str(i / 2), "c": "low"} for i in range(6))
+    table = DataTable(("E", "r", "c"), rows, "toy.csv")
+    binding = {
+        "source": "toy",
+        "encoding": {"x": "E", "y": "r"},
+        "transforms": [
+            {"op": "filter", "column": "c", "equals": "low"},
+            {"op": "scale", "column": "r", "by": {"parameter": "g", "default": 1}},
+            {"op": "smooth", "column": "r", "window": {"parameter": "w", "default": 0}},
+        ],
+    }
+    [series] = apply_binding(table, binding)
+    assert series.y == pytest.approx([0, 0.5, 1, 1.5, 2, 2.5])
+    [doubled] = apply_binding(table, binding, {"g": 2})
+    assert doubled.y == pytest.approx([0, 1, 2, 3, 4, 5])
+    [smoothed] = apply_binding(table, binding, {"w": 1.0})
+    assert smoothed.y[0] > 0 and smoothed.y[-1] < 2.5 and smoothed.y[2] == pytest.approx(1.0, abs=0.05)
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        scene.ctx = SimpleNamespace(table=lambda source: table, equations={})
+        plot = C.scientific_plot(
+            scene,
+            "plot",
+            data=binding,
+            params={"x_label": "E", "y_label": "r", "y_range": [0, 4], "show_points": False},
+        )
+        assert plot.parameters == {"g": 1.0, "w": 0.0}
+        axes = plot.group[0]
+        curve = plot.group[2]
+
+        def height_at(x: float) -> float:
+            line = plot.group[2][0]["line_graph"]
+            nearest = min(line.points, key=lambda p: abs(p[0] - axes.c2p(x, 0)[0]))
+            return float(axes.p2c(nearest)[1])
+
+        assert height_at(4.0) == pytest.approx(2.0, abs=0.05)
+        assert plot.set_parameters(g=1.5) == []
+        assert plot.group[2] is not curve and height_at(4.0) == pytest.approx(3.0, abs=0.05)
+        warnings = plot.set_parameters(g=2.0)  # 5 * 2 / 2 = 5 leaves the fixed range
+        assert any("clipped" in w for w in warnings) and height_at(5.0) == pytest.approx(4.0, abs=0.05)
+        with pytest.raises(ValueError, match="give it a y_range"):
+            C.scientific_plot(scene, "bare", data=binding, params={"x_label": "E", "y_label": "r"})

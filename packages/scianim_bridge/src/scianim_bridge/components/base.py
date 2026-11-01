@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -87,6 +87,14 @@ class Component:
     """Called after the camera moves (an orbit), for objects that redraw themselves for a viewpoint."""
     ink_originals: list[tuple[Any, Any, Any, Any]] | None = None
     """Every member's full fill and stroke opacity, captured by the first fade, so a later fade-in restores it."""
+    to_world: Callable[[Sequence[float]], Any] | None = None
+    """Maps a point in the object's data coordinates to the world (surfaces set it), so another object, a
+    `sphere`, can be anchored to it and a `move_object` can move it `to_point` (ADR-034)."""
+    ink_factor: float = 1.0
+    """The factor a fade has applied to the object's full ink (1 when it is not fading)."""
+    on_ink: Callable[[], None] | None = None
+    """Called after a fade changes the object's ink, for objects that keep parts of themselves hidden (a
+    sphere's back faces) and must reapply that after every change."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)

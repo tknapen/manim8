@@ -208,7 +208,7 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 - [ ] A. Frame windows across workers (ADR-031).
 - [ ] B. Raster surfaces, depth-correct frames, vectorised sampling; the two renderers equal (ADR-032).
 - [ ] C. Splicing and cache honesty (ADR-033).
-- [ ] D. Scene actions: move, fade, transform an equation, data-bound sweeps; the `drop_impact` example (ADR-034).
+- [x] D. Scene actions: move, fade, transform an equation, data-bound sweeps; the `sphere` kind; the `drop_impact` example (ADR-034).
 - [ ] E. Voiceover: postponed (ADR-035 reserved).
 - [ ] F. Review-to-revision loop (ADR-036).
 - [ ] G. Distribution and versioning under the name manim8 (ADR-037).

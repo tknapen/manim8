@@ -443,7 +443,9 @@
                 "ease_in_out_sine",
                 "smooth",
                 "ease_out_cubic",
-                "eased_linear"
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
               ],
               "type": "string"
             },
@@ -461,7 +463,9 @@
             "ease_in_out_sine",
             "smooth",
             "ease_out_cubic",
-            "eased_linear"
+            "eased_linear",
+            "ease_in_quad",
+            "ease_out_quad"
           ],
           "title": "Easing",
           "type": "string"

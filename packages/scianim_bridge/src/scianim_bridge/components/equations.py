@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 from manim import DOWN, LEFT, ManimColor, Mobject, Text, VGroup
 
 from scianim_bridge.components.base import Component, params_for, place, pretty_symbol, register
@@ -27,6 +29,17 @@ class EquationComponent(Component):
     highlight_mode: str = "always"
     """`always`: highlighted terms keep the colour; `active`: only the term a running action emphasizes has it."""
     symbol_units: dict[str, str | None] = field(default_factory=dict)
+    equation_id: str = ""
+    """The equation shown now; a `transform_equation` action changes it (ADR-034)."""
+    formula: Mobject | None = None
+    """The typeset equation inside `group` (the label text, if any, is a separate member)."""
+    highlight_names: list[str] = field(default_factory=list)
+    """The symbols the storyboard asked to highlight; a transformed equation highlights those it mentions."""
+    px_at_1080p: float = 0.0
+    place_formula: Callable[[Mobject], None] | None = None
+    """Puts a freshly typeset formula where this object's formula belongs."""
+    text_is_formula: bool = False
+    """True when `text` (the layout report's text) is the equation source rather than a label."""
 
 
 def _group_symbols(source: str, symbols: list[str]) -> tuple[str, dict[str, list[str]]]:
@@ -85,6 +98,98 @@ def build_equation(
     return mobject, parts
 
 
+def typeset_equation(
+    tokens: Tokens,
+    equation: Equation,
+    highlight: list[str],
+    base_color: ManimColor,
+    highlight_color: ManimColor,
+    px_at_1080p: float,
+    highlight_mode: str,
+) -> tuple[Mobject, dict[str, Mobject]]:
+    """`build_equation` with the highlight mode applied: in `active` mode the terms wait in the equation's ink."""
+    main, parts = build_equation(tokens, equation, highlight, base_color, highlight_color, px_at_1080p)
+    if highlight_mode == "active":
+        for part in parts.values():
+            part.set_color(base_color)
+    return main, parts
+
+
+def shape_key(glyph: Mobject) -> bytes:
+    """A glyph's outline, centred and scaled to unit height and rounded, so two glyphs of the same character at
+    the same size share a key wherever they sit (the test Manim's shape matching uses)."""
+    points = np.asarray(glyph.points, dtype=float)
+    if not len(points):
+        return b""
+    centred = points - points.mean(axis=0)
+    height = float(centred[:, 1].max() - centred[:, 1].min())
+    if height > 1e-9:
+        centred = centred / height
+    return (np.round(centred, 3) + 0.0).tobytes()
+
+
+@dataclass
+class Correspondence:
+    """How one typeset equation becomes another: pieces that glide into partners, pieces that fade out, pieces
+    that fade in. `matched_symbols` counts the occurrences paired by name per symbol."""
+
+    pairs: list[tuple[Mobject, Mobject]] = field(default_factory=list)
+    vanishing: list[Mobject] = field(default_factory=list)
+    appearing: list[Mobject] = field(default_factory=list)
+    matched_symbols: dict[str, int] = field(default_factory=dict)
+
+
+def match_equations(
+    old: Mobject,
+    old_parts: dict[str, Mobject],
+    new: Mobject,
+    new_parts: dict[str, Mobject],
+    match: str = "by_symbol",
+) -> Correspondence:
+    """Pair the glyphs of `old` with those of `new`.
+
+    With `by_symbol`, the occurrences of each highlighted symbol pair by name and in order (the first `theta` of
+    the old equation goes to the first of the new, and so on; spare occurrences are left for the shape pass).
+    Everything still unpaired pairs by shape, left to right, so an `=` glides to the new `=` and a `2` to a `2`.
+    Glyphs without a partner fade: named symbols are matched by meaning, everything else only by looks.
+    """
+    result = Correspondence()
+    used_old: set[int] = set()
+    used_new: set[int] = set()
+
+    def leaves(mobject: Mobject) -> list[Mobject]:
+        return [m for m in mobject.get_family() if len(m.points) and not m.submobjects]
+
+    if match == "by_symbol":
+        for symbol, old_group in old_parts.items():
+            new_group = new_parts.get(symbol)
+            if new_group is None:
+                continue
+            count = 0
+            for old_piece, new_piece in zip(old_group.submobjects, new_group.submobjects, strict=False):
+                result.pairs.append((old_piece, new_piece))
+                used_old.update(id(m) for m in leaves(old_piece))
+                used_new.update(id(m) for m in leaves(new_piece))
+                count += 1
+            if count:
+                result.matched_symbols[symbol] = count
+    rest_old = sorted((m for m in leaves(old) if id(m) not in used_old), key=lambda m: float(m.get_center()[0]))
+    rest_new = sorted((m for m in leaves(new) if id(m) not in used_new), key=lambda m: float(m.get_center()[0]))
+    by_shape: dict[bytes, list[Mobject]] = {}
+    for glyph in rest_new:
+        by_shape.setdefault(shape_key(glyph), []).append(glyph)
+    for glyph in rest_old:
+        candidates = by_shape.get(shape_key(glyph))
+        if candidates:
+            partner = candidates.pop(0)
+            result.pairs.append((glyph, partner))
+            used_new.add(id(partner))
+        else:
+            result.vanishing.append(glyph)
+    result.appearing = [m for m in rest_new if id(m) not in used_new]
+    return result
+
+
 def _equation_for(
     scene: SnapshotScene, equation: dict[str, Any] | None, object_id: str
 ) -> tuple[Equation, EquationRef]:
@@ -118,10 +223,7 @@ def equation_block(
     px = tokens.t.typography.equation.size_px_at_1080p * p.scale
     highlight_color = tokens.color("emphasis")
     base_color = tokens.color(style_role)
-    main, parts = build_equation(tokens, eq, ref.highlight, base_color, highlight_color, px)
-    if ref.highlight_mode == "active":  # the terms wait in the equation's ink until an action lights one
-        for part in parts.values():
-            part.set_color(base_color)
+    main, parts = typeset_equation(tokens, eq, ref.highlight, base_color, highlight_color, px, ref.highlight_mode)
     group = VGroup(main)
     smallest = [px]
     if p.define_symbols and eq.symbols:
@@ -152,6 +254,12 @@ def equation_block(
             base_color=base_color,
             highlight_mode=ref.highlight_mode,
             symbol_units=_units_of(eq),
+            equation_id=eq.id,
+            formula=main,
+            highlight_names=list(ref.highlight),
+            px_at_1080p=px,
+            place_formula=lambda formula: tokens.place(formula, p.anchor),
+            text_is_formula=True,
         ),
     )
 
@@ -175,15 +283,19 @@ def equation_label(
     smallest = [body.size_px_at_1080p]
     parts: dict[str, Mobject] = {}
     base_color = tokens.color("foreground")
+    formula: Mobject | None = None
+    px = tokens.t.typography.equation.label_size_px_at_1080p
+
+    def under_label(mobject: Mobject) -> None:
+        mobject.next_to(label, DOWN, buff=tokens.baseline)
+        mobject.align_to(label, LEFT)
+
     if p.show_equation:
-        px = tokens.t.typography.equation.label_size_px_at_1080p
         smallest.append(px)
-        formula, parts = build_equation(tokens, eq, ref.highlight, base_color, highlight_color, px)
-        if ref.highlight_mode == "active":
-            for part in parts.values():
-                part.set_color(base_color)
-        formula.next_to(label, DOWN, buff=tokens.baseline)
-        formula.align_to(label, LEFT)
+        formula, parts = typeset_equation(
+            tokens, eq, ref.highlight, base_color, highlight_color, px, ref.highlight_mode
+        )
+        under_label(formula)
         group.add(formula)
     place(scene, group, p)
     return register(
@@ -200,5 +312,10 @@ def equation_label(
             base_color=base_color,
             highlight_mode=ref.highlight_mode,
             symbol_units=_units_of(eq),
+            equation_id=eq.id,
+            formula=formula,
+            highlight_names=list(ref.highlight),
+            px_at_1080p=px,
+            place_formula=under_label if p.show_equation else None,
         ),
     )

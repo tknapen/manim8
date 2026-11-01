@@ -26,14 +26,25 @@ scenes:
           encoding: {x: excitation_E, y: response_r, group: condition}
           transforms:
             - {op: filter, column: condition, equals: low_pool}
+            - {op: scale, column: response_r, by: {parameter: g, default: 1}}
         params:
           x_label: "excitatory drive E"
           y_label: "response r"
+          y_range: [0, 8]
           data_label: "synthetic data"
+    actions:
+      - id: gain
+        kind: vary_parameter
+        target: drive_curve
+        parameter: g
+        to: 1.5
+        at_seconds: 4
+        duration_seconds: 1.3
+        value_label: "gain g"
     snapshots:
       - id: excitation_visible
         at_seconds: 4
-        description: "The caption with its note beneath it, and the synthetic excitation curve with labelled axes."
+        description: "The caption with its note beneath it, and the synthetic excitation curve with labelled axes, before the gain sweep begins."
   - id: normalization
     start_seconds: 6
     end_seconds: 18
