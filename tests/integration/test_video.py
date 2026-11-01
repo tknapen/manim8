@@ -133,9 +133,12 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     assert [s.play_index for s in one.result.segments] == [p.index for p in one.result.plays]
     assert all((project / s.path).exists() for s in one.result.segments)
 
+    # Part ranges count the pieces of cut plays (ADR-031); the windows cover the movie's frames once, in order.
     ranges = [(r.part.first_play, r.part.last_play) for r in two.result.parts]
     assert len(ranges) == 2 and ranges[0][0] == 0 and ranges[0][1] + 1 == ranges[1][0]
-    assert ranges[1][1] == len(two.result.plays) - 1 and all(r.status == "succeeded" for r in two.result.parts)
+    windows = [(r.part.first_frame, r.part.last_frame) for r in two.result.parts]
+    assert windows[0][0] == 0 and windows[0][1] + 1 == windows[1][0] and windows[1][1] == 719
+    assert all(r.status == "succeeded" for r in two.result.parts)
     assert sum(p.frames for p in two.result.plays) == 720 and all(p.seconds >= 0 for p in two.result.plays)
     assert sum(p.seconds for p in two.result.plays) > 0  # the parts report how long each play took
 
@@ -204,7 +207,10 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     assert all(r.part.split_frames == cuts for r in many.result.parts)
     assert all(r.status == "succeeded" for r in many.result.parts)
     assert [(p.index, p.frames) for p in many.result.plays] == [(p.index, p.frames) for p in one.result.plays]
-    assert all(p.drawn and p.seconds > 0 for p in many.result.plays)
+    # The cut plays are new pieces and were drawn; a whole play may come from Manim's per-play cache, filled by
+    # the renders above, and is then honestly recorded as not drawn.
+    assert all(p.drawn and p.seconds > 0 for p in many.result.plays if p.index in cut_plays)
+    assert all(p.seconds >= 0 for p in many.result.plays)
     [movie_six] = many.result.videos
     assert (movie_six.frame_count, movie_six.width_px, movie_six.height_px) == (720, 480, 270)
     assert many.result.timing is not None and many.result.timing.within_tolerance
