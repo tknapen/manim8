@@ -273,8 +273,9 @@ def test_drop_impact_moves_fades_and_transforms(workspace: Path, scianim) -> Non
     calm = {i.object_id: i for i in records["calm"].layout}
     assert calm["clock"].text == "t = 1.20 s"
     assert records["still_water"].sha256 != records["impact_done"].sha256 != records["rings"].sha256
-    # The data-bound sweep of the other example: a checkpoint inside the gain sweep shows the readout and a
-    # curve recomputed from the table (its series scaled by g), with the axes fixed.
+    # The data-bound sweep of the other example: a checkpoint inside the gain sweep (4 to 5.3 s; at 4.6 s the eased
+    # value is about 1.20, clear of both ends at the readout's one decimal) shows the readout and a curve
+    # recomputed from the table (its series scaled by g), with the axes fixed.
     dn = workspace / "families" / "computational_neuroscience" / "divisive_normalization"
     example = (
         REPO / "examples" / "families" / "computational_neuroscience" / "divisive_normalization" / "storyboard.yaml"
@@ -285,7 +286,7 @@ def test_drop_impact_moves_fades_and_transforms(workspace: Path, scianim) -> Non
     (dn / "storyboard.yaml").write_text(
         text.replace(
             "      - id: excitation_visible\n",
-            '      - id: gain_rising\n        at_seconds: 5\n        description: "inside the gain sweep"\n'
+            '      - id: gain_rising\n        at_seconds: 4.6\n        description: "inside the gain sweep"\n'
             "      - id: excitation_visible\n",
             1,
         )
