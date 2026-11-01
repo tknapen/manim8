@@ -234,6 +234,14 @@ def sync_environment(ctx: FamilyContext, locked: bool = False, timeout: float = 
         raise SpecError(ctx.path, "`uv` is not installed or not on PATH (https://docs.astral.sh/uv/)")
     if not (ctx.env_root / "pyproject.toml").exists():
         raise SpecError(ctx.path, f"family environment root {ctx.env_root} has no pyproject.toml")
+    from scianim.migrate import stale_family_pyproject
+
+    if stale_family_pyproject((ctx.env_root / "pyproject.toml").read_text(encoding="utf-8")):
+        raise SpecError(
+            ctx.env_root / "pyproject.toml",
+            "this environment names the render bridge `scianim-bridge`, which is now distributed as `manim8-bridge`; "
+            f"run `scianim migrate {ctx.root}` and sync again",
+        )
     note = None
     if not ctx.lockfile.exists():
         if locked:

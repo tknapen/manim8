@@ -25,7 +25,7 @@ from scianim.families.resolve import FamilyContext, load_family_context, nearest
 from scianim.planning.checks import validate_project
 from scianim.project import Project
 from scianim.revisions.store import list_revisions
-from scianim.workspace import packages_root
+from scianim.workspace import packages_relative_to
 from scianim_core import REGISTRY_VERSION
 from scianim_core.bundle import (
     BUNDLE_ROOT,
@@ -315,7 +315,7 @@ def export_bundle(target: Path, archive: Path, options: ExportOptions | None = N
             )
         )
         env.pyproject = True
-        env.packages_relative = os.path.relpath(packages_root(), family_ctx.env_root).replace(os.sep, "/")
+        env.packages_relative = packages_relative_to(family_ctx.env_root)
     if family_ctx.lockfile.exists():
         add_file(f"environments/{family_ctx.lockfile.name}", family_ctx.lockfile)
         env.lockfile = True

@@ -314,6 +314,7 @@ def build_snapshot_job(
         manim=manim,
         output_dir=paths.output_dir.relative_to(project.root).as_posix(),
         cache_key=key,
+        registry_version=REGISTRY_VERSION,
     )
     return job, paths, hashes
 
@@ -380,6 +381,7 @@ def build_video_job(
         manim=manim,
         output_dir=paths.output_dir.relative_to(project.root).as_posix(),
         cache_key=key,
+        registry_version=REGISTRY_VERSION,
         workers=max(1, workers),
         segment_store=segment_store_directory(project, manim, tool_versions),
     )

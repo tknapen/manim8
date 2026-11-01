@@ -1,12 +1,12 @@
 [project]
-name = "scianim"
+name = "manim8"
 version = "0.1.0a0"
 description = "SciAnim Studio control plane: validation, style resolution, families, jobs and CLI."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
-  "scianim-core",
+  "manim8-core==0.1.0a0",
   "pydantic>=2.10,<3",
   "typer>=0.15",
   "ruamel.yaml>=0.18",
@@ -20,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 scianim = "scianim.cli:app"
+manim8 = "scianim.cli:app"
 
 
 [dependency-groups]
@@ -34,14 +35,24 @@ dev = [
 members = ["packages/scianim_core"]
 
 [tool.uv.sources]
-scianim-core = { workspace = true }
+manim8-core = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/scianim"]
+# An installed control plane carries the style sheets and the example templates (ADR-037); the specimens
+# and anything rendered stay in the repository.
+only-include = ["src/scianim", "styles", "examples"]
+exclude = ["*.png", "*.pdf", "**/.venv", "**/renders", "**/.scianim", "**/__pycache__"]
+# An editable install (a checkout) puts `src/` on the path and reads styles and examples from the repository.
+dev-mode-dirs = ["src"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+"styles" = "scianim/_data/styles"
+"examples" = "scianim/_data/examples"
 
 [tool.ruff]
 line-length = 120

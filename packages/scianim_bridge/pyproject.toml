@@ -1,11 +1,11 @@
 [project]
-name = "scianim-bridge"
+name = "manim8-bridge"
 version = "0.1.0a0"
-description = "SciAnim Studio render bridge: style tokens, components, in-flow checkpoints, layout reports and the worker."
+description = "manim8 render bridge (import name `scianim_bridge`): style tokens, components, in-flow checkpoints, layout reports and the worker."
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
-  "scianim-core",
+  "manim8-core==0.1.0a0",
   "manim[typst]>=0.22,<0.23",
   "pydantic>=2.10,<3",
   "numpy>=2.1",

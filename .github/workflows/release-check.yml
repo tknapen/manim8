@@ -1,0 +1,26 @@
+name: release-check
+# The installed product on both supported platforms, weekly and on demand (ADR-037). macOS is not exercised by
+# the push workflow; this is where it is.
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  install-and-render:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2-dev libpango1.0-dev pkg-config fonts-dejavu-core
+      - if: runner.os == 'macOS'
+        run: brew install cairo pango pkg-config
+      - run: uv python install 3.12
+      - run: .github/scripts/release_install_check.sh "$RUNNER_TEMP/release"

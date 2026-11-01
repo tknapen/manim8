@@ -61,6 +61,10 @@ def repo_root() -> Path | None:
     return None
 
 
+DATA_ROOT = Path(__file__).resolve().parent / "_data"
+"""The styles and examples an installed wheel carries (ADR-037); a source checkout uses its own directories."""
+
+
 def examples_root() -> Path:
     for candidate in env_paths("SCIANIM_EXAMPLES"):
         if candidate.is_dir():
@@ -68,21 +72,29 @@ def examples_root() -> Path:
     root = repo_root()
     if root is not None and (root / "examples").is_dir():
         return root / "examples"
-    raise SpecError(None, "no examples directory found; set SCIANIM_EXAMPLES or run from a source checkout")
+    if (DATA_ROOT / "examples").is_dir():
+        return DATA_ROOT / "examples"
+    raise SpecError(None, "no examples directory found; set SCIANIM_EXAMPLES or reinstall manim8")
 
 
 def bundled_styles_root() -> Path | None:
     root = repo_root()
-    return root / "styles" if root is not None and (root / "styles").is_dir() else None
+    if root is not None and (root / "styles").is_dir():
+        return root / "styles"
+    return DATA_ROOT / "styles" if (DATA_ROOT / "styles").is_dir() else None
 
 
-def packages_root() -> Path:
+def packages_root() -> Path | None:
+    """The checkout's `packages/` directory, which family environments install the bridge from in development;
+    None for an installed control plane, whose families take the bridge from the package index (ADR-037)."""
     root = repo_root()
-    if root is None:
-        raise SpecError(
-            None, "cannot locate the `packages/` directory; family environments need a source checkout in this version"
-        )
-    return root / "packages"
+    return root / "packages" if root is not None else None
+
+
+def packages_relative_to(directory: Path) -> str | None:
+    """The path from a family directory to the checkout's `packages/`, or None in release mode."""
+    root = packages_root()
+    return os.path.relpath(root, directory).replace(os.sep, "/") if root is not None else None
 
 
 def find_workspace(start: Path) -> Path | None:
@@ -167,29 +179,47 @@ def copy_styles(source: Path, destination: Path) -> list[Path]:
     return copied
 
 
-def family_pyproject_text(family_id: str, packages_relative: str) -> str:
-    rel = packages_relative.replace(os.sep, "/")
-    return f'''# Render environment for the {family_id} family: `uv sync` here creates .venv with Manim and the
-# SciAnim render bridge. The control plane (`scianim`) is deliberately absent. uv.lock is shareable; .venv is not.
+def family_pyproject_text(family_id: str, packages_relative: str | None) -> str:
+    """The family's environment definition. From a source checkout the bridge and the contracts are editable path
+    dependencies on it; from an installed control plane they come from the package index at the control plane's
+    own version, so the two sides speak the same contracts (ADR-037)."""
+    from scianim import __version__
+
+    head = f"""# Render environment for the {family_id} family: `uv sync` here creates .venv with Manim and the
+# manim8 render bridge. The control plane (`manim8`) is deliberately absent. uv.lock is shareable; .venv is not.
 [project]
 name = "family-{family_id.replace("_", "-")}"
 version = "0.1.0"
 description = "Pinned render environment for the {family_id} family."
 requires-python = ">=3.12"
-# scianim-core is listed explicitly so that uv applies its path source (ADR-008).
-dependencies = ["scianim-bridge", "scianim-core"]
-
+"""
+    tail = """
 [dependency-groups]
 dev = ["pytest>=8"]
 
 [tool.uv]
 package = false
-
+"""
+    if packages_relative is None:
+        return (
+            head
+            + "# Release: the bridge and the contracts at the control plane's version, from the package index.\n"
+            + f'dependencies = ["manim8-bridge=={__version__}", "manim8-core=={__version__}"]\n'
+            + tail
+        )
+    rel = packages_relative.replace(os.sep, "/")
+    return (
+        head
+        + "# manim8-core is listed explicitly so that uv applies its path source (ADR-008).\n"
+        + 'dependencies = ["manim8-bridge", "manim8-core"]\n'
+        + tail
+        + f'''
 [tool.uv.sources]
 # Development: editable path dependencies on the source checkout. Bundle export replaces these.
-scianim-bridge = {{ path = "{rel}/scianim_bridge", editable = true }}
-scianim-core = {{ path = "{rel}/scianim_core", editable = true }}
+manim8-bridge = {{ path = "{rel}/scianim_bridge", editable = true }}
+manim8-core = {{ path = "{rel}/scianim_core", editable = true }}
 '''
+    )
 
 
 def family_yaml_text(family_id: str, title: str, style_ref: str) -> str:
@@ -238,7 +268,7 @@ def init_family(
     if dest.exists():
         raise SpecError(dest, "family directory already exists")
     dest.mkdir(parents=True)
-    packages_relative = os.path.relpath(packages_root(), dest)
+    packages_relative = packages_relative_to(dest)
     if from_example:
         source = examples_root() / "families" / from_example
         if not (source / FAMILY_FILE).exists():
@@ -248,12 +278,13 @@ def init_family(
         for extra in ("README.md", ".python-version"):
             if (source / extra).exists():
                 shutil.copy2(source / extra, dest / extra)
-        example_relative = os.path.relpath(packages_root(), source)
-        if (source / "uv.lock").exists() and example_relative == packages_relative:
+        example_relative = packages_relative_to(source)
+        if (source / "uv.lock").exists() and packages_relative is not None and example_relative == packages_relative:
             shutil.copy2(source / "uv.lock", dest / "uv.lock")
         elif (source / "uv.lock").exists():
             report.notes.append(
-                f"{dest}: lockfile not copied because the path to packages/ differs; `family env sync` will create one"
+                f"{dest}: the example's lockfile pins development paths and was not copied; "
+                "`family env sync` will create one"
             )
     else:
         (dest / FAMILY_FILE).write_text(

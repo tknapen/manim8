@@ -93,8 +93,8 @@ def family_checks(ctx: FamilyContext) -> list[Check]:
     )
     for module, label, required in (
         ("manim", "manim", True),
-        ("scianim_bridge", "scianim-bridge", True),
-        ("scianim_core", "scianim-core", True),
+        ("scianim_bridge", "manim8-bridge", True),
+        ("scianim_core", "manim8-core", True),
         ("av", "PyAV (video encoding)", True),
         ("manimpango", "manimpango (text)", True),
         ("cairo", "pycairo (cairo renderer)", True),
@@ -108,6 +108,18 @@ def family_checks(ctx: FamilyContext) -> list[Check]:
                 value is not None,
                 str(value) if value is not None else (error or "not importable"),
                 required=required,
+            )
+        )
+    import scianim_core
+
+    bridge = probe.get("scianim_core")
+    if isinstance(bridge, str) and bridge != "present":
+        checks.append(
+            Check(
+                "  contracts match the control plane",
+                bridge == scianim_core.__version__,
+                f"family manim8-core {bridge}, control plane {scianim_core.__version__}"
+                + ("" if bridge == scianim_core.__version__ else "; sync the family environment"),
             )
         )
     for rc in check_system_requirements(manifest, probe):

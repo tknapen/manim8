@@ -1,7 +1,7 @@
 [project]
-name = "scianim-core"
+name = "manim8-core"
 version = "0.1.0a0"
-description = "SciAnim Studio contracts: Pydantic models for specs, the component registry, jobs and manifests."
+description = "manim8 contracts (import name `scianim_core`): Pydantic models for specs, the component registry, jobs and manifests."
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = ["pydantic>=2.10,<3"]

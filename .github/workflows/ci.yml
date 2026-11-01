@@ -78,3 +78,16 @@ jobs:
           kill -- -"$SERVER" 2>/dev/null || kill "$SERVER" 2>/dev/null || true
           wait "$SERVER" 2>/dev/null || true
           exit "$status"
+
+  release-install:
+    # The three wheels, installed into an empty environment, render the example from the installed command.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2-dev libpango1.0-dev pkg-config fonts-dejavu-core
+      - run: uv python install 3.12
+      - run: .github/scripts/release_install_check.sh "$RUNNER_TEMP/release"
+
