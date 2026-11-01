@@ -110,3 +110,21 @@ def test_snapshot_job_payload_is_self_contained(project_copy: Project) -> None:
     assert paths.output_dir == project_copy.renders_dir / "working" / job.job_id
     assert hashes.data_files["responses"]
     assert job.family_id == "computational_neuroscience"
+
+
+def test_workers_get_a_fixed_hash_seed_and_no_credentials(
+    project_copy: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-039: Manim's per-play hash depends on the process's string-hash seed on Python 3.12.13 and later (through
+    `inspect.getclosurevars`), so every worker gets the same one; credentials stay behind, the trace switch passes."""
+    from scianim.render.jobs import worker_env
+
+    report = validate_project(project_copy, require_family=True)
+    assert report.family is not None
+    monkeypatch.setenv("PYTHONHASHSEED", "random")
+    monkeypatch.setenv("SCIANIM_HASH_TRACE", "1")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "not for workers")
+    env = worker_env(report.family)
+    assert env["PYTHONHASHSEED"] == "0"
+    assert env["SCIANIM_HASH_TRACE"] == "1"
+    assert "AWS_SECRET_ACCESS_KEY" not in env

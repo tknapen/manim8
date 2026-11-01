@@ -433,6 +433,10 @@ def worker_env(family: FamilyContext) -> dict[str, str]:
     )
     env = {k: v for k, v in os.environ.items() if k in keep}
     env["PYTHONUNBUFFERED"] = "1"
+    # Manim's per-play hash serializes the globals a stored function names through `inspect.getclosurevars`, which in
+    # recent Python releases (3.12.13, for one; not 3.12.3) collects them in a set: their order, and so the hash,
+    # follows the process's string-hash seed. One fixed seed gives a play the same hash in every worker (ADR-039).
+    env["PYTHONHASHSEED"] = "0"
     env[FAMILY_ROOT_ENV] = str(family.root)
     return env
 

@@ -292,6 +292,12 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
             emit("start", job_id=job.job_id, mode=ctx.mode, settings={k: str(v) for k, v in settings.items()})
             if os.environ.get(HASH_TRACE_ENV) and ctx.mode in ("video", "part"):
                 trace_hashes(job_file.parent / "hash_inputs")
+            if ctx.mode in ("video", "part") and os.environ.get("PYTHONHASHSEED") != "0":
+                warnings.append(
+                    "string hashing is seeded per process here (PYTHONHASHSEED is not 0): on recent Python releases "
+                    "(3.12.13, for one) Manim's per-play hashes then differ between processes, so plays miss the "
+                    "segment store; render through scianim, which fixes the seed"
+                )
             with tempconfig(settings):
                 from manim import config
 

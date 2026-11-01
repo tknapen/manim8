@@ -35,7 +35,9 @@ Fixed:
 - A re-render redrew most of a clip even when nothing had changed: after a sweep that moved a plot marker, a
   `move_object`, an orbit, a raster sweep or a readout beside a transforming equation, a drawn play and a cached
   one left different state, and some state (the raster surface's painting time, Manim's global config through a
-  layout function) differed between processes, so the next play's hash missed the segment store. Every play
+  layout function, and on recent Python releases the order Manim serializes a function's globals in, which
+  follows the per-process string-hash seed) differed between processes, so the next play's hash missed the
+  segment store. Workers now run with `PYTHONHASHSEED=0`. Every play
   now leaves the same state however Manim executes it, and an unchanged re-render draws nothing (ADR-039). Play
   records carry their content hash.
 - An object revealed while a `move_object` moved it stalled during the reveal and ended short of its target:

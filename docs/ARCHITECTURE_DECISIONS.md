@@ -1072,6 +1072,11 @@ play's end. Five kinds of state differed between the two, or between processes:
 5. *Reveals were `FadeIn` transforms.* A transform sets every point from copies taken when it begins, so a
    `move_object` running during a reveal was undone frame by frame: the droplet of `drop_impact`, revealed while
    it rises, stalled for its 0.85 s reveal and then covered only the rest of its rise.
+6. *Python's string-hash seed.* Manim serializes a stored function's globals through `inspect.getclosurevars`.
+   Recent Python releases (3.12.13 here, 3.12.16 on the CI runner, but not 3.12.3) collect those names in a set,
+   so their order follows the process's string-hash seed, which is random per process unless `PYTHONHASHSEED`
+   is fixed. A play whose objects keep a function that names two or more globals (a data-bound plot's `rebuild`
+   calls `apply_binding`) hashed differently in every worker. This was the failure seen only in CI.
 
 A serial re-render of the unchanged orientation clip after a first render drew again plays 20 to 25 of 26; one
 of `drop_impact` with the raster renderer drew 17 of 21. Of the 7 plays ADR-033 measured as redrawn after a
@@ -1093,8 +1098,9 @@ order the generated code lists the tracks, which is their drawing order. A revea
 `FadeTrack` from nothing to full on `smooth`, the opacities a `FadeIn` gives) that leaves positions alone. The
 placement keeps its bookkeeping in `__slots__`, which Manim's hash records as the class name only; the raster
 surface keeps no timing; the layout functions read the frame size from the camera, not from the global config.
-Custom builders are held to the same rules: per-frame updates from fixed inputs, and nothing in an object's
-attributes or closures that records history, timing, object ids, paths or Manim's config.
+The control plane launches every worker with `PYTHONHASHSEED=0`, and a video or part worker without a fixed
+seed records a warning. Custom builders are held to the same rules: per-frame updates from fixed inputs, and
+nothing in an object's attributes or closures that records history, timing, object ids, paths or Manim's config.
 
 The bridge test `test_purity` runs eight scenes once drawn and once fast-forwarded, in different media
 directories, and compares Manim's hash of the resulting state taken as at the start of a play that continues
@@ -1107,16 +1113,18 @@ second test reveals a sphere and a caption while moving them and checks they end
 parallel manifests alike (none for a cut play, whose pieces each have one), so a miss can be traced to the play
 where two renders diverged. With `SCIANIM_HASH_TRACE` set, a worker also writes the inputs of Manim's hash for
 every play it hashes (`hash_inputs/<play>.json` beside its job file), and the reuse integration test sets it and,
-when it fails, prints the first paths at which the two renders' inputs for the first redrawn play differ. This
-exists because two CI runs saw plays of unchanged scenes hash differently from one render to the next on the
-runner, plays whose tracks reach a plot, an equation label or the grating, while the plays between them did not;
-no local run reproduced it, with all fonts or with the runner's fonts only, across processes and hash seeds.
+when it fails, prints the first paths at which the two renders' inputs for the first redrawn play differ. It was
+added because three CI runs saw plays of unchanged scenes hash differently from one render to the next while no
+local run did; on its first run in CI it printed the reordered globals of `apply_binding`, which led to (6).
 
 Measured at the storyboard profile after the change. The orientation clip: a serial render drew all 26 plays,
 and an unchanged re-render drew none, serially and with three workers. The divisive normalization clip after a
 first render with four workers: a serial re-render drew 2 of 16 plays, exactly the two that the first render's
 windows had cut, which the store holds only as pieces; a re-render with three workers then drew none.
-`drop_impact` with the raster renderer, the same sequence: 1 of 21 (the one cut play), then none.
+`drop_impact` with the raster renderer, the same sequence: 1 of 21 (the one cut play), then none. On a family
+environment with Python 3.12.13, two processes with random seeds hashed 6 of the orientation clip's 26 plays
+differently (6, 14, 19, 20, 23 and 24); two with `PYTHONHASHSEED=0` hashed every play alike, and the video
+integration tests passed there.
 
 **Why.** The alternative was a tolerant hash, rounding the points before Manim hashes them. Rounding makes
 misses rare, not impossible, because two values an ulp apart can sit on either side of a rounding boundary,
