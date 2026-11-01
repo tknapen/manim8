@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -124,6 +125,8 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     serial = scianim("render", str(project), "--profile", "storyboard", "--no-cache")
     assert serial.returncode == 0, serial.stdout + serial.stderr
     one = latest()
+    # The parallel renders below must draw, not take the serial render's plays from the segment store (ADR-033).
+    shutil.rmtree(project / ".scianim" / "segments", ignore_errors=True)
     parallel = scianim("render", str(project), "--profile", "storyboard", "--no-cache", "--workers", "2")
     assert parallel.returncode == 0, parallel.stdout + parallel.stderr
     two = latest()
@@ -189,6 +192,7 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     assert len(sweeps) == 2 and all(inside.values()), (cuts, inside)
     cut_plays = sorted({p.source_index for p in split_plan(plays, cuts, 30.0) if p.piece})
     after_boundary = (inside[sweeps[0].index][0] + 1) / 30
+    shutil.rmtree(project / ".scianim" / "segments", ignore_errors=True)  # windows are the subject here
     six = scianim(
         "render",
         str(project),

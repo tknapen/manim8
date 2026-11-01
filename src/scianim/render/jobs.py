@@ -19,6 +19,7 @@ from scianim.families.resolve import FamilyContext, probe_environment
 from scianim.planning.checks import Report
 from scianim.planning.dependencies import scene_fingerprints
 from scianim.project import Project, scene_class_name
+from scianim.render.manifests import write_text_atomic
 from scianim.revisions.store import RevisionSources
 from scianim_core import (
     REGISTRY_VERSION,
@@ -521,7 +522,7 @@ def finish_manifest(
         inputs=hashes,
     )
     paths.manifest_file.parent.mkdir(parents=True, exist_ok=True)
-    paths.manifest_file.write_text(manifest.model_dump_json(indent=2))
+    write_text_atomic(paths.manifest_file, manifest.model_dump_json(indent=2))
     if result.status == "succeeded":
         record_cache(project, job.cache_key, paths.manifest_file)
     return manifest

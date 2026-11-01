@@ -184,8 +184,9 @@ def predicted_reuse(
     project: Project, job: RenderJob, hashes: InputHashes, plays: Sequence[PlayRecord]
 ) -> tuple[frozenset[int], str | None]:
     """The plays a render will find in the segment store: those of every scene whose fingerprint and plays equal
-    the most recent succeeded video render's with the same store (ADR-033). The prediction steers the
-    planner only; whether a play is drawn is decided by Manim's hash when the worker reaches it."""
+    the most recent succeeded video render's with the same store, and whose segments from that render are still
+    in the store (ADR-033). The prediction steers the planner only; whether a play is drawn is decided by
+    Manim's hash when the worker reaches it."""
     if not job.segment_store or not hashes.scene_fingerprints:
         return frozenset(), None
     now = _scene_plays(plays)
@@ -201,10 +202,17 @@ def predicted_reuse(
             continue
         before = manifest.inputs.scene_fingerprints
         then = _scene_plays(manifest.result.plays)
+        store = project.root / job.segment_store
+        stored: dict[str | None, bool] = {}
+        for segment in manifest.result.segments:
+            present = (store / Path(segment.path).name).is_file()
+            stored[segment.scene_id] = stored.get(segment.scene_id, True) and present
         unchanged = {
             scene_id
             for scene_id, fingerprint in hashes.scene_fingerprints.items()
-            if before.get(scene_id) == fingerprint and now.get(scene_id) == then.get(scene_id)
+            if before.get(scene_id) == fingerprint
+            and now.get(scene_id) == then.get(scene_id)
+            and stored.get(scene_id, False)  # the store still holds what that render drew for the scene
         }
         return frozenset(play.index for play in plays if play.scene_id in unchanged), manifest.job.job_id
     return frozenset(), None

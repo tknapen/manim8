@@ -16,7 +16,7 @@ from scianim.render.jobs import (
     sources_from_report,
 )
 from scianim.render.parallel import predicted_reuse
-from scianim_core import ArtifactManifest, PlayRecord, WorkerResult
+from scianim_core import ArtifactManifest, PlayRecord, SegmentRecord, WorkerResult
 
 TOOLS = {"manim": "0.22.0", "python": "3.12", "bridge_fingerprint": "f" * 64}
 
@@ -95,14 +95,26 @@ def test_reuse_is_predicted_for_unchanged_scenes(project_copy: Project) -> None:
     ]
     assert predicted_reuse(project_copy, job, hashes, plays) == (frozenset(), None)  # nothing rendered yet
     earlier = hashes.model_copy(update={"scene_fingerprints": {**hashes.scene_fingerprints, "normalization": "0" * 64}})
+    segments = [
+        SegmentRecord(
+            play_index=p.index, scene_id=p.scene_id, path=f".scianim/media/x/{p.index:04d}abc.mp4", frames=p.frames
+        )
+        for p in plays
+    ]
     manifest = ArtifactManifest(
         created_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         job=job,
-        result=WorkerResult(job_id=job.job_id, status="succeeded", plays=plays, elapsed_seconds=1),
+        result=WorkerResult(job_id=job.job_id, status="succeeded", plays=plays, segments=segments, elapsed_seconds=1),
         inputs=earlier,
     )
     paths.manifest_file.parent.mkdir(parents=True, exist_ok=True)
     paths.manifest_file.write_text(manifest.model_dump_json())
+    # The store was cleaned (or never filled): nothing is predicted, whatever the fingerprints say.
+    assert predicted_reuse(project_copy, job, hashes, plays)[0] == frozenset()
+    store = project_copy.root / job.segment_store
+    store.mkdir(parents=True)
+    for segment in segments:
+        (store / segment.path.rsplit("/", 1)[-1]).write_bytes(b"x")
     reusable, source = predicted_reuse(project_copy, job, hashes, plays)
     assert reusable == frozenset({0, 1}) and source == job.job_id
     # Another play structure in a scene means another scene, whatever its fingerprint says.

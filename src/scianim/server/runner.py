@@ -120,11 +120,13 @@ class JobRunner:
 
     # --- internals --------------------------------------------------------------------------
     def _set(self, job_id: str, **changes: Any) -> JobStatus:
+        """Record a transition: the status file first, then the state `status()` and `wait()` report, so whoever
+        sees a state can read it from disk (the index does) and never meets an older or half-written file."""
         with self._lock:
             status = self._states[job_id].model_copy(update=changes)
-            self._states[job_id] = status
             project = self._projects[job_id]
-        write_status(project, status)
+            write_status(project, status)
+            self._states[job_id] = status
         self.index.refresh_project(status.project_id)
         return status
 

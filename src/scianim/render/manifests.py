@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import re
+import threading
 from pathlib import Path
 from typing import Literal
 
@@ -56,11 +58,18 @@ def status_path(project: Project, job_id: str) -> Path:
     return project.scianim_dir / "jobs" / job_id / STATUS_FILE
 
 
-def write_status(project: Project, status: JobStatus) -> Path:
-    path = status_path(project, status.job_id)
+def write_text_atomic(path: Path, text: str) -> Path:
+    """Write a file that other threads or processes may read at any moment: to a temporary name beside it, then
+    rename over it, so a reader sees the old content or the new, never a half-written file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(status.model_dump_json(indent=2), encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(temporary, path)
     return path
+
+
+def write_status(project: Project, status: JobStatus) -> Path:
+    return write_text_atomic(status_path(project, status.job_id), status.model_dump_json(indent=2))
 
 
 def read_status(path: Path) -> JobStatus | None:
