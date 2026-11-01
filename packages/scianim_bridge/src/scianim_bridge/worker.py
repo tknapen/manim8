@@ -115,6 +115,9 @@ def play_records(scene: Any) -> list[PlayRecord]:
             static=bool(e.get("static", False)),
             drawn=bool(e.get("drawn", False)),
             seconds=max(0.0, float(e.get("seconds", 0.0))),
+            splittable=bool(e.get("splittable", True)),
+            source_index=e.get("source_index"),
+            piece=int(e.get("piece", 0)),
         )
         for e in scene.play_log
     ]
@@ -234,6 +237,9 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
                 scene_class = load_scene_class(project_root / job.scene_module, job.scene_class)
                 scene = scene_class()
                 scene.ctx = ctx
+                if job.part is not None:
+                    # Every part cuts the plays at the same window boundaries (ADR-031).
+                    scene.split_frames = list(job.part.split_frames)
                 scene.render()
                 warnings.extend(getattr(scene, "timing_warnings", []))
                 warnings.extend(getattr(scene, "render_warnings", []))

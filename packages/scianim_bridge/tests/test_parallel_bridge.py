@@ -130,8 +130,14 @@ def test_readout_text_does_not_carry_the_history_of_earlier_values(tmp_path: Pat
             return Readout(component, lambda group=group: group.move_to([1.0, 2.0, 0.0]), typeface, ink)
 
         many = readout("θ = 0.0 deg")
+        first = many.component.group.submobjects[0]
+        stale_family = list(first.get_family())
+        assert any(len(m.points) for m in stale_family)
         for value in np.linspace(0.0, 101.9, 90):
             scene.set_readout_text(many, f"θ = {value:.1f} deg")
+        # Manim keeps drawing the play's moving family as it was when the play began: a replaced text must be
+        # empty, or its glyphs would be drawn as a ghost of the first value, projected through the 3D camera.
+        assert all(len(m.points) == 0 for m in stale_family) and not first.submobjects
         once = readout("θ = 0.0 deg")
         scene.set_readout_text(once, "θ = 101.9 deg")
         assert many.component.text == once.component.text == "θ = 101.9 deg"
@@ -140,3 +146,132 @@ def test_readout_text_does_not_carry_the_history_of_earlier_values(tmp_path: Pat
         assert np.allclose(outline(many.component.group), outline(once.component.group))
         fixed = scene.renderer.camera.fixed_in_frame_mobjects
         assert all(m in fixed for m in many.component.group.get_family())  # the fresh text stays fixed in frame
+
+
+def test_track_segment_pieces_apply_the_same_fractions_per_frame_as_the_whole_play() -> None:
+    """A play of 90 frames cut at frames 27 and 63 (ADR-031): driven as Manim drives it, frame k of every piece
+    lands exactly where frame k of the whole play would, each piece's finish lands on the next piece's first
+    frame, and only the last piece's finish reaches f1."""
+    from dataclasses import dataclass
+
+    from scianim_bridge.scene import Track, TrackSegment
+
+    @dataclass
+    class Recording(Track):
+        seen: list[float] | None = None
+
+        def apply(self, fraction: float) -> None:
+            assert self.seen is not None
+            self.seen.append(fraction)
+
+    def drive(segment: TrackSegment) -> list[float]:
+        """What Manim does with a play of `segment.frames` frames: alpha k / (frames - 0.5), then the finish."""
+        track = segment.track
+        track.seen = []  # type: ignore[attr-defined]
+        for k in range(segment.frames):
+            segment.interpolate_mobject(k / (segment.frames - 0.5))
+        rendered = list(track.seen)  # type: ignore[attr-defined]
+        segment.interpolate_mobject(1.0)
+        return [*rendered, track.seen[-1]]  # type: ignore[attr-defined]
+
+    track = Recording(scene=None, track_id="t", at_seconds=0.0, duration_seconds=3.0, seen=[])  # type: ignore[arg-type]
+    whole = TrackSegment(track, 0.2, 0.8, 90)
+    assert (whole.offset, whole.total) == (0, 90)
+    whole_frames = drive(whole)
+    assert whole_frames[0] == pytest.approx(0.2) and whole_frames[-1] == pytest.approx(0.8)
+    assert whole_frames[1] - whole_frames[0] == pytest.approx(0.6 / 90)
+
+    pieces = [whole.piece(0, 27), whole.piece(27, 36), whole.piece(63, 27)]
+    assert [(p.offset, p.frames, p.total, p.f0, p.f1) for p in pieces] == [
+        (0, 27, 90, 0.2, 0.8),
+        (27, 36, 90, 0.2, 0.8),
+        (63, 27, 90, 0.2, 0.8),
+    ]
+    piece_frames = [drive(piece) for piece in pieces]
+    # Frame for frame, the pieces render what the whole play renders.
+    rendered = [f for frames in piece_frames for f in frames[:-1]]
+    assert len(rendered) == 90
+    assert rendered == pytest.approx(whole_frames[:-1], abs=1e-12)
+    # A piece's finish is the next piece's first frame; the last piece finishes on f1.
+    assert piece_frames[0][-1] == pytest.approx(piece_frames[1][0], abs=1e-12)
+    assert piece_frames[1][-1] == pytest.approx(piece_frames[2][0], abs=1e-12)
+    assert piece_frames[2][-1] == pytest.approx(0.8)
+    assert piece_frames[0][-1] == pytest.approx(0.2 + 0.6 * 27 / 90)
+    # A piece of a piece keeps counting from the whole play.
+    nested = pieces[1].piece(10, 5)
+    assert (nested.offset, nested.frames, nested.total) == (37, 5, 90)
+    assert drive(nested)[0] == pytest.approx(whole_frames[37], abs=1e-12)
+
+
+def test_play_frames_cuts_plays_at_the_split_frames(tmp_path: Path) -> None:
+    """With window boundaries set, a track play and a static wait are played as pieces numbered as Manim
+    numbers them; a play of arbitrary animations is drawn whole and logged as unsplittable."""
+    from dataclasses import dataclass
+
+    from manim import FadeIn, Square, config
+
+    from scianim_bridge.scene import SnapshotScene, Track
+    from scianim_bridge.tokens import Tokens
+
+    @dataclass
+    class Recording(Track):
+        seen: list[float] | None = None
+
+        def apply(self, fraction: float) -> None:
+            assert self.seen is not None
+            self.seen.append(fraction)
+
+    class Tiny(SnapshotScene):
+        def construct(self) -> None:
+            self.begin_scene("one", 0.0)
+            self.track = Recording(scene=self, track_id="t", at_seconds=0.0, duration_seconds=0.9, seen=[])
+            self.run_until(0.9, [self.track])  # 9 frames at 10 fps, cut at frame 3
+            self.wait_until(2.0)  # a static wait of 11 frames, cut at frame 15
+            self.play_frames(6, FadeIn(Square()))  # arbitrary Manim animation: frame 22 falls inside, no cut
+            self.finish(3.0)  # 4 frames
+
+    settings = {
+        "media_dir": str(tmp_path),
+        "format": "png",
+        "preview": False,
+        "progress_bar": "none",
+        "verbosity": "WARNING",
+        "log_to_file": False,
+        "frame_rate": 10,
+        "pixel_width": 64,
+        "pixel_height": 36,
+        "output_file": "tiny",
+    }
+    with manim.tempconfig(settings):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = Tiny()
+        scene._tokens = Tokens(_style())
+        scene.split_frames = [3, 15, 22, 26]  # 26 is the edge between the FadeIn and the last wait
+        scene.render()
+    log = scene.play_log
+    assert [(e["index"], e["source_index"], e["piece"], e["frames"], e["time"]) for e in log] == [
+        (0, 0, 0, 3, pytest.approx(0.0)),
+        (1, 0, 1, 6, pytest.approx(0.3)),
+        (2, 1, 0, 6, pytest.approx(0.9)),
+        (3, 1, 1, 5, pytest.approx(1.5)),
+        (4, 2, 0, 6, pytest.approx(2.0)),
+        (5, 3, 0, 4, pytest.approx(2.6)),
+    ]
+    assert [e["splittable"] for e in log] == [True, True, True, True, False, True]
+    assert [e["static"] for e in log] == [False, False, True, True, False, True]
+    assert scene.clock == pytest.approx(3.0)
+    # In fast-forward every piece applies its first frame and its finish: 0, 3/9, 3/9, 1 for the cut track play.
+    assert sorted({round(f, 9) for f in scene.track.seen}) == pytest.approx([0.0, 1 / 3, 1.0])
+    assert scene.track.fraction == 1.0
+    # Without boundaries the same scene logs whole plays, numbered as the planning pass sees them.
+    with manim.tempconfig(settings):
+        config.frame_width = config.frame_height * 16 / 9
+        plain = Tiny()
+        plain._tokens = Tokens(_style())
+        plain.render()
+    assert [(e["index"], e["source_index"], e["piece"], e["frames"]) for e in plain.play_log] == [
+        (0, 0, 0, 9),
+        (1, 1, 0, 11),
+        (2, 2, 0, 6),
+        (3, 3, 0, 4),
+    ]

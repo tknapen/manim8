@@ -895,6 +895,12 @@
           "title": "Count",
           "type": "integer"
         },
+        "first_frame": {
+          "default": 0,
+          "minimum": 0,
+          "title": "First Frame",
+          "type": "integer"
+        },
         "first_play": {
           "minimum": 0,
           "title": "First Play",
@@ -910,10 +916,24 @@
           "title": "Index",
           "type": "integer"
         },
+        "last_frame": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Last Frame",
+          "type": "integer"
+        },
         "last_play": {
           "minimum": 0,
           "title": "Last Play",
           "type": "integer"
+        },
+        "split_frames": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Split Frames",
+          "type": "array"
         }
       },
       "required": [
@@ -975,6 +995,12 @@
           "title": "Index",
           "type": "integer"
         },
+        "piece": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Piece",
+          "type": "integer"
+        },
         "scene_id": {
           "anyOf": [
             {
@@ -993,6 +1019,24 @@
           "minimum": 0,
           "title": "Seconds",
           "type": "number"
+        },
+        "source_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Index"
+        },
+        "splittable": {
+          "default": true,
+          "title": "Splittable",
+          "type": "boolean"
         },
         "start_seconds": {
           "minimum": 0,

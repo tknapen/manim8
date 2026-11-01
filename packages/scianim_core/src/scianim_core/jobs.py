@@ -76,6 +76,15 @@ class PlayRecord(StrictModel):
     seconds: float = Field(default=0, ge=0)
     """Wall time the play took in the worker that reported it. A later parallel render of the same clip balances
     its parts by the times of the plays that were drawn."""
+    splittable: bool = True
+    """The play can be cut at a frame and continued by another worker: a static wait, or a play made only of
+    tracks and free of updaters (ADR-031). A play of arbitrary Manim animations is drawn whole."""
+    source_index: int | None = Field(default=None, ge=0)
+    """The index of the whole play in the planning pass's numbering: equal to `index` in a planning pass and a
+    serial render; in a part of a windowed render, the whole play this record is, or is a piece of (ADR-031).
+    `None` only in records written before the field existed."""
+    piece: int = Field(default=0, ge=0)
+    """Which piece of its source play this record is, counting from zero; `0` for a whole play."""
 
 
 class ReachedCheckpoint(StrictModel):
@@ -96,6 +105,14 @@ class PartRange(StrictModel):
     """Inclusive."""
     frames: int = Field(ge=0)
     """Planned frames in the range."""
+    first_frame: int = Field(default=0, ge=0)
+    """The first global frame of the window (frame indices count from zero over the whole movie)."""
+    last_frame: int = Field(default=0, ge=0)
+    """The last global frame of the window, inclusive; `frames == last_frame - first_frame + 1`."""
+    split_frames: list[int] = []
+    """Every interior window boundary of the render, as a global frame index, the same list in every part: each
+    worker cuts the plays these fall inside at the same frames, so Manim's animation numbers agree across parts
+    and `first_play`, `last_play` count the pieces (ADR-031)."""
 
 
 class SegmentRecord(StrictModel):
