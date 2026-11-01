@@ -43,6 +43,11 @@ class Placement:
     from their axes; `SnapshotScene.run_until` applies moves first.
     """
 
+    __slots__ = ("_members", "group", "offset", "origin")
+    """Bookkeeping, not picture: without a `__dict__`, Manim's per-play hash records only the class name, so the
+    bases and the member ids (which differ between processes) never enter a segment's key; the points they
+    produce do, through the mobjects."""
+
     def __init__(self, group: Any, origin: Sequence[float] | np.ndarray | None = None) -> None:
         self.group = group
         self.origin = np.zeros(3) if origin is None else np.array(origin, dtype=float)

@@ -217,6 +217,35 @@ def _timing_verdict(
         warnings.append(f"timing differs from the storyboard: {problems}")
 
 
+HASH_TRACE_ENV = "SCIANIM_HASH_TRACE"
+"""Diagnostic: when set, a video or part render writes the inputs of Manim's per-play hash for every play it hashes
+to `hash_inputs/<play>.json` beside its job file, so that the inputs of two renders that disagreed about a play can
+be compared (ADR-039). Off by default: it doubles the cost of hashing."""
+
+
+def trace_hashes(directory: Path) -> None:
+    """Write each hashed play's inputs as Manim serializes them: the camera, the play's animations in the order
+    Manim sorts them, and the scene's mobjects, each as its JSON string, so key order is kept."""
+    import manim.renderer.cairo_renderer as cairo_renderer
+    from manim.utils import hashing
+
+    original = cairo_renderer.get_hash_from_play_call
+
+    def traced(scene: Any, camera: Any, animations: Any, mobjects: Any, **kwargs: Any) -> str:
+        memo = hashing._Memoizer()
+        memo.mark_as_processed(scene)
+        parts = {"camera": hashing._get_json(camera, memo)}
+        for i, animation in enumerate(sorted(animations, key=str)):
+            parts[f"animation {i}"] = hashing._get_json(animation, memo, include_pixel_array=True)
+        for i, mobject in enumerate(mobjects):
+            parts[f"mobject {i}"] = hashing._get_json(mobject, memo, include_pixel_array=True)
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{int(scene.renderer.num_plays):03d}.json").write_text(json.dumps(parts), encoding="utf-8")
+        return original(scene, camera, animations, mobjects, **kwargs)
+
+    cairo_renderer.get_hash_from_play_call = traced
+
+
 def run(job_file: Path, project_root: Path) -> WorkerResult:
     ctx = _context.JobContext.from_file(job_file, project_root)
     _context.set_current(ctx)
@@ -261,6 +290,8 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
 
             settings = manim_settings(ctx, project_root)
             emit("start", job_id=job.job_id, mode=ctx.mode, settings={k: str(v) for k, v in settings.items()})
+            if os.environ.get(HASH_TRACE_ENV) and ctx.mode in ("video", "part"):
+                trace_hashes(job_file.parent / "hash_inputs")
             with tempconfig(settings):
                 from manim import config
 

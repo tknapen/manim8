@@ -165,13 +165,15 @@ def test_raster_component_repaints_on_sweep_and_orbit_and_fades_as_one() -> None
         scene.add(surface.group)
         surface.visible = True
         raster = surface.raster
+        paints: list[None] = []
+        paint = raster.paint
+        raster.paint = lambda: (paints.append(None), paint())[-1]  # count paintings without keeping them in the state
         first = _frame(scene)
-        painted = raster.last_seconds
-        assert not raster.dirty and painted > 0
+        assert not raster.dirty and len(paints) == 1
         before = image.pixel_array.copy()
         # Nothing changed: the next frame reuses the picture.
         _frame(scene)
-        assert raster.last_seconds == painted
+        assert len(paints) == 1
         # A sweep marks it dirty and the next frame paints once.
         assert surface.set_parameters(theta=40.0) == []
         assert raster.dirty

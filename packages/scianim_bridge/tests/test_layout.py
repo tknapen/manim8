@@ -15,7 +15,7 @@ def test_normalized_bbox_of_centered_square() -> None:
     with manim.tempconfig({"pixel_width": 1920, "pixel_height": 1080}):
         config.frame_width = config.frame_height * 16 / 9
         square = Square(side_length=2.0)  # centered, 2 units of an 8-unit-tall frame
-        bbox = normalized_bbox(square)
+        bbox = normalized_bbox(square, (float(config.frame_width), float(config.frame_height)))
         assert bbox.height == pytest.approx(0.25)
         assert bbox.y == pytest.approx(0.375)
         assert bbox.x + bbox.width / 2 == pytest.approx(0.5)

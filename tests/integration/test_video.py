@@ -286,9 +286,59 @@ def _reuse_report(project: Path, first: ArtifactManifest, second: ArtifactManife
                 if report.part.first_play <= q.index <= report.part.last_play
             )
             lines.append(f"part {report.part.index} {report.part.first_play}..{report.part.last_play}: {listed}")
+    lines.extend(_hash_input_differences(project, first, second, redrawn[0]))
     log = job_dir / "worker.log"
     lines.append(f"--- worker.log ---\n{log.read_text() if log.exists() else '(missing)'}")
     return "\n".join(lines)
+
+
+def _hash_input_differences(project: Path, first: ArtifactManifest, second: ArtifactManifest, play: int) -> list[str]:
+    """Where the inputs of Manim's per-play hash for `play` differ between a serial first render and the part of
+    the second render that drew it, from the worker's trace (SCIANIM_HASH_TRACE): the first differing paths."""
+    jobs = project / ".scianim" / "jobs"
+    before = jobs / first.job.job_id / "hash_inputs" / f"{play:03d}.json"
+    after = None
+    for report in second.result.parts:
+        part_dir = jobs / second.job.job_id / "parts" / str(report.part.index)
+        result = part_dir / "result.json"
+        if not result.exists():
+            continue
+        for record in WorkerResult.model_validate_json(result.read_text()).plays:
+            if record.source_index == play and record.piece == 0 and record.content_hash is not None:
+                after = part_dir / "hash_inputs" / f"{record.index:03d}.json"
+    if not before.exists() or after is None or not after.exists():
+        return [f"hash inputs of play {play}: no trace ({before} {after})"]
+    a, b = json.loads(before.read_text()), json.loads(after.read_text())
+    found: list[str] = []
+
+    def walk(x: object, y: object, path: str) -> None:
+        if len(found) >= 12:
+            return
+        if type(x) is not type(y):
+            found.append(f"{path}: {str(x)[:160]!r} != {str(y)[:160]!r}")
+        elif isinstance(x, dict) and isinstance(y, dict):
+            if list(x) != list(y):
+                found.append(f"{path}: keys {list(x)[:12]} != {list(y)[:12]}")
+            for key in [k for k in x if k in y]:
+                walk(x[key], y[key], f"{path}/{key}")
+        elif isinstance(x, list) and isinstance(y, list):
+            if len(x) != len(y):
+                found.append(f"{path}: length {len(x)} != {len(y)}")
+            for i, (u, v) in enumerate(zip(x, y, strict=False)):
+                walk(u, v, f"{path}[{i}]")
+        elif x != y:
+            found.append(f"{path}: {str(x)[:160]!r} != {str(y)[:160]!r}")
+
+    for key in a:
+        if key not in b:
+            found.append(f"{key}: only in the first render")
+        elif a[key] != b[key]:
+            walk(json.loads(a[key]), json.loads(b[key]), key)
+    return (
+        [f"hash inputs of play {play}, first render against second:", *found]
+        if found
+        else [f"hash inputs of play {play}: identical traces, yet the hashes differ"]
+    )
 
 
 def _frame_difference(a: Path, b: Path) -> int:
@@ -301,9 +351,10 @@ def _frame_difference(a: Path, b: Path) -> int:
         return max(high for _low, high in diff.getextrema())
 
 
-def test_a_rerender_draws_only_what_changed(workspace: Path, scianim) -> None:
+def test_a_rerender_draws_only_what_changed(workspace: Path, scianim, monkeypatch: pytest.MonkeyPatch) -> None:
     """ADR-033: after a change to one action, a render takes every play the change did not touch from the segment
     store, whatever the number of workers, and the untouched scenes' sampled frames are the same bytes."""
+    monkeypatch.setenv("SCIANIM_HASH_TRACE", "1")  # so that a failure can show what differed (ADR-039)
     project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
     assert scianim("codegen", str(project)).returncode == 0
 

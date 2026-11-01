@@ -16,7 +16,6 @@ painting. Nothing else triggers a repaint.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 from typing import Any
 
@@ -132,8 +131,6 @@ class RasterSurface:
         """Each stroke an (m, 3) polyline in world coordinates: the pieces of one frame edge or one tick."""
         self.frame_alpha = 1.0
         self.dirty = True
-        self.last_seconds = 0.0
-        """How long the last painting took, for the timing checks."""
         self.hidden_pieces = 0
         """How many frame pieces the last painting left out, for the occlusion checks."""
         image.refresh = self.refresh
@@ -247,7 +244,9 @@ class RasterSurface:
 
     # --- painting ---------------------------------------------------------------------------
     def paint(self) -> None:
-        started = time.perf_counter()
+        """Paint the image for the current cells, strokes and camera. Nothing about the painting itself (how long it
+        took, how often it ran) is kept here: the surface is reachable from Manim's per-play hash, which must see
+        the picture's inputs and not the history of how it was drawn (ADR-039)."""
         s = self.supersample
         pw, ph = int(config.pixel_width), int(config.pixel_height)
         pad = 0.5 * max(self.mesh_px, self.frame_px if self.frame_alpha > 0 else 0.0) + 1.0
@@ -258,7 +257,6 @@ class RasterSurface:
         if right <= left or bottom <= top:
             self.image.show(np.zeros((1, 1, 4), dtype=np.uint8), 0, 0)
             self.dirty = False
-            self.last_seconds = time.perf_counter() - started
             return
         size = ((right - left) * s, (bottom - top) * s)
         colour = Image.new("RGB", size, self.page)
@@ -285,7 +283,6 @@ class RasterSurface:
             alpha = np.maximum(alpha, faded)
         self.image.show(np.dstack([rgb, alpha]), left, top)
         self.dirty = False
-        self.last_seconds = time.perf_counter() - started
 
     def _paint_cells(self, draw_colour: Any, draw_coverage: Any, to_canvas: Callable[[np.ndarray], np.ndarray]) -> None:
         n_u, n_v = self.vertices.shape[0] - 1, self.vertices.shape[1] - 1

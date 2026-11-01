@@ -1052,48 +1052,78 @@ angles and the light's azimuth, the motion ramp and hold, and the label sizes.
 names a stored segment, and that state is whatever the earlier plays left. Manim executes a play in one of three
 ways: it draws it, applying every track once per frame; it fast-forwards it (a part's plays before its window,
 the planning pass, snapshots); or it finds it cached and skips it. The last two apply each track once, at the
-play's end. Three updates were incremental: a `function_plot` shifted its marker lines and labels from where the
-previous frame had left them (`set_x`, `next_to`), `move_object` moved a flat object with `move_to`, and a
-sphere's faces were shifted by the difference between successive positions. Floating-point addition is not
-associative, so ninety shifts end one rounding away from one shift to the same place. On the orientation clip
-the stimulus marker's label ended 8.9e-16 scene units from where a skipped play put it: invisible, but a
-different hash for the next play and for every play after it. A serial re-render of the unchanged clip after a
-first one therefore drew again every play after the first marker sweep (plays 20 to 25 of 26), and so did each
-part of a parallel render whose window began after that sweep. Of the 7 plays ADR-033 measured as redrawn
-after a change to the last sweep, only the 3 from that sweep on were redrawn because of the change. Two more
-pieces of hashed state were brought up to date only when Manim captured a frame: the camera's cached rotation
-matrix, which an orbit leaves behind its angles, and a raster surface's image, painted when the camera asks
-for its pixels (ADR-032). After an orbit or a raster sweep, a drawn play left them as of its last frame and a
-skipped one as of whenever they were last captured.
+play's end. Five kinds of state differed between the two, or between processes:
 
-**Decision.** A track sets the state it owns from its fraction and from the state when it began, never by
-adding to the previous frame's state. `Placement` (bridge) moves a group by setting every member's points to
-base points plus one offset; a member's base is its points when the placement first saw it, less the offset
-then in force, so a member that another track redrew or added since is rebased as it now is. `move_object`
-uses one per object, with the object's centre when its first move began as the origin; a sphere uses one over
-its faces, with its world centre as built. A `function_plot` keeps every marker line and label as built and,
-on each rebuild, restores them and places them from the axes. `run_until` applies moves before every other
-track in each frame, so a sweep of a moving object redraws from the moved axes, and its last application, at
-the play's end, is the same in every mode; objects that a play brings into the scene still join it in the order
-the generated code lists the tracks, which is their drawing order. `camera_moved`, which every orbit step calls,
-and `ensure_camera` refresh the camera's rotation matrix, so it follows the angles. A component may declare
-`settle`, which the end of every play calls: a raster surface paints there when anything changed, so the image
-a play leaves is painted for the play's end in every mode, at the cost of one painting per play that changed
-it, in fast-forward too. The bridge test `test_purity` runs six scenes once drawn and once fast-forwarded and
-compares Manim's own hash of the resulting states: a marker sweep; two moves beside a sweep of the moved plot;
-a falling sphere; a surface reshaped while the camera orbits and its axes fade, drawn by Cairo and by the
-raster renderer; and an equation transform beside an object fade. Before this change the first five pairs
-differed; the transform and the fade were already exact. `PlayRecord.content_hash` records each play's hash,
-the name of its segment in the store, in serial and parallel manifests alike (none for a cut play, whose pieces
-each have one), so a miss can be traced to the play where two renders diverged.
+1. *Incremental updates.* A `function_plot` shifted its marker lines and labels from where the previous frame
+   had left them, `move_object` moved a flat object with `move_to`, and a sphere's faces were shifted by the
+   step between positions. Floating-point addition is not associative: on the orientation clip the stimulus
+   marker's label ended 8.9e-16 scene units from where a skipped play put it, invisible, but a different hash
+   for every later play.
+2. *State refreshed only when a frame is captured.* The camera's cached rotation matrix, which the hash
+   includes, lags an orbit's angles until the next capture, and a raster surface paints its image when the
+   camera asks for its pixels (ADR-032).
+3. *One track reading what another changes in the same frame.* A sweep places its readout under the equation
+   it emphasizes; when that equation was being transformed and the sweep applied first, a drawn play left the
+   readout under the equation as of the frame before.
+4. *History and process identity where the hash can reach them.* The hash follows a track to its object and
+   into the closures the object keeps. A raster surface kept its last painting time; the placement used for
+   (1) kept bases keyed by object ids, which differ between processes; and a raster surface's layout function
+   read Manim's global `config`, whose media directory differs between the parts of a parallel render.
+5. *Reveals were `FadeIn` transforms.* A transform sets every point from copies taken when it begins, so a
+   `move_object` running during a reveal was undone frame by frame: the droplet of `drop_impact`, revealed while
+   it rises, stalled for its 0.85 s reveal and then covered only the rest of its rise.
 
-Measured at the storyboard profile after the change: on the orientation clip a serial render drew all 26
-plays, and an unchanged re-render drew none of them, serially and with three workers.
+A serial re-render of the unchanged orientation clip after a first render drew again plays 20 to 25 of 26; one
+of `drop_impact` with the raster renderer drew 17 of 21. Of the 7 plays ADR-033 measured as redrawn after a
+change to the last sweep, only the 3 from that sweep on were redrawn because of the change.
+
+**Decision.** A track sets the state it owns from its fraction and from fixed inputs, never by adding to the
+previous frame's state, and state that the hash reaches describes the picture, not how it was reached.
+`Placement` (bridge) moves a group by setting every member's points to base points plus one offset; a member's
+base is its points when the placement first saw it, less the offset then in force, so a member that another
+track redrew or added since is rebased as it now is. `move_object` uses one per object, with the object's centre
+when its first move began as the origin; a sphere uses one over its faces, with its world centre as built. A
+`function_plot` keeps every marker line and label as built and, on each rebuild, restores them and places them
+from the axes. `camera_moved`, which every orbit step calls, and `ensure_camera` refresh the camera's rotation
+matrix. A component may declare `settle`, which the end of every play calls: a raster surface paints there when
+anything changed, at the cost of one painting per play that changed it, in fast-forward too. `run_until`
+applies sweeps after every other track in each frame, so curves, markers and readouts are drawn from objects
+already moved or transformed for that frame; objects that a play brings into the scene still join it in the
+order the generated code lists the tracks, which is their drawing order. A reveal is an ink ramp (a
+`FadeTrack` from nothing to full on `smooth`, the opacities a `FadeIn` gives) that leaves positions alone. The
+placement keeps its bookkeeping in `__slots__`, which Manim's hash records as the class name only; the raster
+surface keeps no timing; the layout functions read the frame size from the camera, not from the global config.
+Custom builders are held to the same rules: per-frame updates from fixed inputs, and nothing in an object's
+attributes or closures that records history, timing, object ids, paths or Manim's config.
+
+The bridge test `test_purity` runs eight scenes once drawn and once fast-forwarded, in different media
+directories, and compares Manim's hash of the resulting state taken as at the start of a play that continues
+the same tracks, so it reaches what the store's key reaches: a marker sweep; two moves beside a sweep of the
+moved plot; a falling sphere; a surface reshaped while the camera orbits and its axes fade, under Cairo and under
+the raster renderer; an equation transform beside an object fade; and the clock and impact of `drop_impact`.
+All but the transform with the fade differed before; each later change was made against a failing case. A
+second test reveals a sphere and a caption while moving them and checks they end at their targets.
+`PlayRecord.content_hash` records each play's hash, the name of its segment in the store, in serial and
+parallel manifests alike (none for a cut play, whose pieces each have one), so a miss can be traced to the play
+where two renders diverged. With `SCIANIM_HASH_TRACE` set, a worker also writes the inputs of Manim's hash for
+every play it hashes (`hash_inputs/<play>.json` beside its job file), and the reuse integration test sets it and,
+when it fails, prints the first paths at which the two renders' inputs for the first redrawn play differ. This
+exists because two CI runs saw plays of unchanged scenes hash differently from one render to the next on the
+runner, plays whose tracks reach a plot, an equation label or the grating, while the plays between them did not;
+no local run reproduced it, with all fonts or with the runner's fonts only, across processes and hash seeds.
+
+Measured at the storyboard profile after the change. The orientation clip: a serial render drew all 26 plays,
+and an unchanged re-render drew none, serially and with three workers. The divisive normalization clip after a
+first render with four workers: a serial re-render drew 2 of 16 plays, exactly the two that the first render's
+windows had cut, which the store holds only as pieces; a re-render with three workers then drew none.
+`drop_impact` with the raster renderer, the same sequence: 1 of 21 (the one cut play), then none.
 
 **Why.** The alternative was a tolerant hash, rounding the points before Manim hashes them. Rounding makes
 misses rare, not impossible, because two values an ulp apart can sit on either side of a rounding boundary,
-and the key would no longer be Manim's. Exact state also keeps a part's frames those of a serial render
-(ADR-031) and a checkpoint the same in every mode (ADR-029), as the readouts' fresh text already did. The
-price is a copy of a moving object's points per frame, small beside drawing them. Tracks that set points from
-copies taken when they began, reveals and equation transforms, still do not follow a concurrent move of the
-same object; that was so before, and the purity test does not cover it.
+and it would not touch (2) to (4). Exact state also keeps a part's frames those of a serial render (ADR-031)
+and a checkpoint the same in every mode (ADR-029), as the readouts' fresh text already did. Hiding bookkeeping
+in `__slots__` relies on how Manim 0.22 encodes objects; the Manim version is pinned in the family lock and
+enters the bridge's fingerprint, and the purity test runs on Manim's own hash, so a change there fails a test
+rather than the store. The prices are a copy of a moving object's points per frame and one raster painting per
+play, small beside drawing. An equation transform still sets points from copies taken when it begins, so a
+concurrent `move_object` of the same equation does not compose with it.

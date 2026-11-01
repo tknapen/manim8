@@ -28,12 +28,14 @@ from manim import (
     Animation,
     FadeIn,
     FadeOut,
+    ImageMobject,
     ManimColor,
     Mobject,
     Text,
     ThreeDScene,
     Transform,
     VGroup,
+    VMobject,
     config,
 )
 from manim.utils.rate_functions import ease_in_out_sine, ease_in_quad, ease_out_cubic, ease_out_quad, linear, smooth
@@ -345,10 +347,16 @@ class FadeTrack(Track):
         if self.component.ink_originals is not None:
             self.originals = self.component.ink_originals
             return
-        self.originals = []
+        self.originals = self._full_ink()
+        self.component.ink_originals = self.originals
+
+    def _full_ink(self) -> list[tuple[Mobject, Any, Any, Any]]:
+        originals: list[tuple[Mobject, Any, Any, Any]] = []
         for member in self.component.group.get_family():
-            if hasattr(member, "get_fill_opacities"):
-                self.originals.append(
+            # Types, not `hasattr`: Manim's `Mobject.__getattr__` makes up a `get_...` for any name, so a plain
+            # `Group` seems to have fill opacities until it is asked. Containers carry no ink of their own.
+            if isinstance(member, VMobject):
+                originals.append(
                     (
                         member,
                         member.get_fill_opacities().copy(),
@@ -356,9 +364,9 @@ class FadeTrack(Track):
                         member.get_stroke_opacities(background=True).copy(),
                     )
                 )
-            elif hasattr(member, "set_opacity"):
-                self.originals.append((member, float(getattr(member, "fill_opacity", 1.0)), None, None))
-        self.component.ink_originals = self.originals
+            elif isinstance(member, ImageMobject):
+                originals.append((member, float(getattr(member, "fill_opacity", 1.0)), None, None))
+        return originals
 
     def apply(self, fraction: float) -> None:
         if self.originals is None:
@@ -416,26 +424,21 @@ class AxesFade(Track):
 
 
 @dataclass
-class RevealTrack(Track):
-    """A reveal as a track, so it can play beside sweeps and orbits in the same segment."""
+class RevealTrack(FadeTrack):
+    """A reveal as a track, so it can play beside sweeps, orbits and moves in the same segment: the object's ink
+    eased from nothing to full on the reveal's profile (`smooth`, as Manim's `FadeIn`), which is the picture a
+    `FadeIn` draws. Not a `FadeIn` itself: that is a transform between copies taken when it begins, which puts
+    every point back where it was then on each frame, so a `move_object` running during the reveal was undone
+    frame by frame and the object ended short of its target (ADR-039)."""
 
-    component: Component = field(kw_only=True)
-    animation: Animation = field(kw_only=True)
-    started: bool = False
+    start_factor: float = field(default=0.0, kw_only=True)
+    end_factor: float = field(default=1.0, kw_only=True)
+    easing: Callable[[float], float] = field(default=smooth, kw_only=True)
 
-    @property
-    def mobject(self) -> Mobject:
-        return self.component.group
-
-    def apply(self, fraction: float) -> None:
-        if not self.started:
-            self.animation.begin()
-            self.started = True
-        self.animation.interpolate(min(1.0, max(0.0, fraction)))
-
-    def finish(self) -> None:
-        if self.started:
-            self.animation.finish()
+    def _capture(self) -> None:
+        """The object's full ink as built, or as it recorded it (a sphere's faces), without recording it on the
+        object: a later fade captures the members it has by then (a transformed equation's new glyphs)."""
+        self.originals = self.component.ink_originals if self.component.ink_originals is not None else self._full_ink()
 
 
 @dataclass
@@ -818,7 +821,6 @@ class SnapshotScene(ThreeDScene):
             at_seconds=self.clock,
             duration_seconds=max(duration, self.frame_seconds),
             component=component,
-            animation=FadeIn(component.group),
         )
         self.add(component.group)
         component.visible = True
@@ -1265,10 +1267,11 @@ class SnapshotScene(ThreeDScene):
     def run_until(self, seconds: float, tracks: Sequence[Track]) -> None:
         """Advance every track to the storyboard time `seconds` in one play, frame-exact.
 
-        Moves apply first in every frame, so a sweep of the same object redraws its curves and markers from the
-        moved axes, and the play ends in the same state whether Manim drew it or applied it once (ADR-039). An
-        object that a segment brings into the scene still joins it in the order the tracks were given, which is
-        its drawing order."""
+        Sweeps apply last in every frame: they redraw curves and markers from their axes and place readouts beside
+        their anchors, so they must see the objects that moves and transforms have already brought to this frame;
+        otherwise a drawn play leaves them one frame behind and a skipped one does not, and the next play's hash
+        differs (ADR-039). An object that a segment brings into the scene still joins it in the order the tracks
+        were given, which is its drawing order."""
         targets = [(track, track.target_fraction(seconds)) for track in tracks]
         frames = self.frames(seconds - self.clock)
         if frames >= 1:
@@ -1278,14 +1281,14 @@ class SnapshotScene(ThreeDScene):
                 if segment.mobject not in present:
                     self.add(segment.mobject)
                     present += segment.mobject.get_family()
-            self.play_frames(frames, *sorted(segments, key=lambda segment: not isinstance(segment.track, MoveTrack)))
+            self.play_frames(frames, *sorted(segments, key=lambda segment: isinstance(segment.track, Sweep)))
         else:
             if seconds < self.clock - self.frame_seconds:
                 names = ", ".join(track.track_id for track in tracks)
                 self.timing_warnings.append(
                     f"tracks {names} should reach {seconds:g}s but the clock is already {self.clock:.3f}s"
                 )
-            for track, f1 in sorted(targets, key=lambda target: not isinstance(target[0], MoveTrack)):
+            for track, f1 in sorted(targets, key=lambda target: isinstance(target[0], Sweep)):
                 track.apply(f1)
         for track, f1 in targets:
             track.fraction = f1

@@ -21,6 +21,8 @@ First version under the name manim8 (ADR-037).
 - `scianim propose from-feedback`: review feedback becomes proposals by rules (ADR-036).
 - `scianim style stills` and `style publish` for growing a personal theme (ADR-038).
 - Baseline theme `default@0.5.0`, line and wash after Keenan Crane (ADR-030).
+- `SCIANIM_HASH_TRACE=1` makes a render write the inputs of Manim's per-play hash beside its job, to find why a
+  play was drawn again instead of coming from the segment store (ADR-039).
 
 Fixed:
 
@@ -30,8 +32,12 @@ Fixed:
   fades carries its running tracks through the fade. The camera of the Gabor and `drop_impact` clips now comes
   to rest at the clip's end. Regenerate scenes with `scianim codegen`.
 - Status and manifest files are written atomically, so the review server never reads one half written.
-- A re-render redrew every play after the first sweep that moved a plot marker, after any `move_object`, and
-  after any orbit or raster-surface sweep, even when nothing had changed: a drawn play and a cached one left
-  different state (points shifted frame by frame, a camera matrix and a raster image refreshed only when a frame
-  was captured), so the next play's hash missed the segment store. Every play now leaves the same state however
-  Manim executes it, and an unchanged re-render draws nothing (ADR-039). Play records carry their content hash.
+- A re-render redrew most of a clip even when nothing had changed: after a sweep that moved a plot marker, a
+  `move_object`, an orbit, a raster sweep or a readout beside a transforming equation, a drawn play and a cached
+  one left different state, and some state (the raster surface's painting time, Manim's global config through a
+  layout function) differed between processes, so the next play's hash missed the segment store. Every play
+  now leaves the same state however Manim executes it, and an unchanged re-render draws nothing (ADR-039). Play
+  records carry their content hash.
+- An object revealed while a `move_object` moved it stalled during the reveal and ended short of its target:
+  reveals were Manim `FadeIn` transforms, which reset positions every frame. A reveal is now an ink ramp with the
+  same opacities. In `drop_impact` the smaller drop now rises to the storyboard's height; re-render it.

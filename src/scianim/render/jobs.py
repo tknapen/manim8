@@ -429,6 +429,7 @@ def worker_env(family: FamilyContext) -> dict[str, str]:
         "SYSTEMROOT",
         "TEMP",
         "TMP",
+        "SCIANIM_HASH_TRACE",  # the worker's diagnostic trace of Manim's per-play hash inputs (ADR-039)
     )
     env = {k: v for k, v in os.environ.items() if k in keep}
     env["PYTHONUNBUFFERED"] = "1"

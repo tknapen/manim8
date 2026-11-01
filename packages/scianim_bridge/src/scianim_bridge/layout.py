@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from manim import DR, UL, Mobject, config
+from manim import DR, UL, Mobject
 
 from scianim_core import BBox, LayoutItem, LayoutWarning
 
@@ -13,9 +13,20 @@ if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
 
 
-def normalized_bbox(mobject: Mobject) -> BBox:
-    """Bounding box in normalized frame coordinates with origin at the top-left corner."""
-    fw, fh = float(config.frame_width), float(config.frame_height)
+def frame_size(camera: Any) -> tuple[float, float]:
+    """The frame's width and height in scene units, from the camera.
+
+    Not from Manim's global `config`: these functions are reachable from Manim's per-play hash through the
+    closures components keep (a raster surface's `layout_bbox`), the hash follows a function into the globals it
+    names, and the global config carries the media directory, which differs between the parts of a parallel
+    render, so a segment drawn by one part would never match another's (ADR-039)."""
+    return float(camera.frame_width), float(camera.frame_height)
+
+
+def normalized_bbox(mobject: Mobject, frame: tuple[float, float]) -> BBox:
+    """Bounding box in normalized frame coordinates with origin at the top-left corner, in a frame of
+    `frame` = (width, height) scene units."""
+    fw, fh = frame
     ul = mobject.get_corner(UL)
     dr = mobject.get_corner(DR)
     return BBox(
@@ -38,7 +49,8 @@ def _draws_nothing(member: Mobject) -> bool:
 def projected_bbox(camera: Any, mobject: Mobject) -> BBox:
     """Bounding box of a 3D object as the camera shows it: the points of every member that draws ink, projected
     through the camera. Invisible helper geometry (the axes a surface is built on) does not count."""
-    fw, fh = float(config.frame_width), float(config.frame_height)
+    frame = frame_size(camera)
+    fw, fh = frame
     fixed_in_frame = getattr(camera, "fixed_in_frame_mobjects", set())
     fixed_orientation = getattr(camera, "fixed_orientation_mobjects", {})
     arrays = []
@@ -53,7 +65,7 @@ def projected_bbox(camera: Any, mobject: Mobject) -> BBox:
         else:
             arrays.append(camera.project_points(member.points.copy()))
     if not arrays:
-        return normalized_bbox(mobject)
+        return normalized_bbox(mobject, frame)
     points = np.vstack(arrays)
     x0, y0 = float(points[:, 0].min()), float(points[:, 1].min())
     x1, y1 = float(points[:, 0].max()), float(points[:, 1].max())
@@ -73,7 +85,7 @@ def layout_report(scene: SnapshotScene) -> tuple[list[LayoutItem], list[LayoutWa
         elif component.three_d:
             bbox = projected_bbox(scene.renderer.camera, component.group)
         else:
-            bbox = normalized_bbox(component.group)
+            bbox = normalized_bbox(component.group, frame_size(scene.renderer.camera))
         items.append(
             LayoutItem(
                 object_id=component.object_id,
