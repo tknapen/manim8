@@ -32,7 +32,7 @@ Resolve contradictions by favoring scientific correctness, reproducible contract
 ## Non-negotiable engineering boundaries
 
 - **Control plane does not import Manim.** Use a subprocess running in the family environment. The control plane never imports `scianim_bridge` either.
-- **Three distributions.** `scianim-core` holds Pydantic contracts only; `scianim` is the control plane; `scianim-bridge` is the render side. Families depend on `scianim-bridge`, never on `scianim`.
+- **Three distributions.** `manim8-core` (import `scianim_core`) holds Pydantic contracts only; `manim8` (import `scianim`) is the control plane; `manim8-bridge` (import `scianim_bridge`) is the render side. They share one version (ADR-037). Families depend on `manim8-bridge`, never on `manim8`.
 - **Manim is an implementation detail of the renderer.** The intent schema does not expose raw Manim methods.
 - **YAML is the persistent specification; an LLM chat is not.** Every material change becomes a validated, versioned artifact.
 - **Components are the contract.** Storyboard objects are registered kinds with typed `params`. Bespoke code is declared as `kind: custom` with a named builder in `code/`; YAML never contains executable code.
@@ -51,7 +51,7 @@ Resolve contradictions by favoring scientific correctness, reproducible contract
 ## Suggested implementation stack
 
 - Python 3.12+, Pydantic v2, Typer, FastAPI, SQLite, `uv` workspaces.
-- Manim Community Edition installed only in family environments through `scianim-bridge`.
+- Manim Community Edition installed only in family environments through `manim8-bridge`.
 - Equations default to Typst through Manim's `MathTypst` (the `typst` PyPI extra, pinned in the family lock). LaTeX (`latex` plus `dvisvgm`) is a per-family opt-in declared in `system_requirements`.
 - Manim encodes video through PyAV; a system `ffmpeg` is not a rendering prerequisite. `scianim doctor` checks PyAV, the equation engine, fonts and declared system requirements per family.
 - React + TypeScript + Vite for annotation and review once the renderer slice is proven; a static HTML review sheet comes first.

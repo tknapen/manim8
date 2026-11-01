@@ -1,6 +1,6 @@
-# SciAnim Studio
+# manim8 (SciAnim Studio)
 
-SciAnim Studio is a local-first system for producing reproducible, personally styled scientific animations with Manim. A scientist describes an animation in ordinary language or YAML; the system enforces a versioned stylesheet and typed scientific constraints; a storyboard composed of registered components is rendered into named checkpoint stills, each with a layout report; and final videos are produced from isolated, pinned family environments.
+manim8, developed as SciAnim Studio, is a local-first system for producing reproducible, personally styled scientific animations with Manim. A scientist describes an animation in ordinary language or YAML; the system enforces a versioned stylesheet and typed scientific constraints; a storyboard composed of registered components is rendered into named checkpoint stills, each with a layout report; and final videos are produced from isolated, pinned family environments.
 
 The repository started as a documentation-first handoff and is being implemented incrementally. Check `docs/IMPLEMENTATION_PLAN.md` for what exists and what does not; do not assume a feature works because it is specified.
 
@@ -22,9 +22,22 @@ The repository started as a documentation-first handoff and is being implemented
 - **Checkpoints are named markers reached by the real animation flow**, captured in Manim's fast-forward mode, with a layout report (normalized bounding boxes per object) that drives machine-checkable visual QA and object-anchored feedback.
 - Each storyboard scene is one Manim section, which gives per-scene videos and scene-level incremental rendering.
 - Equations default to Typst, which installs from PyPI into the family lockfile; LaTeX is a per-family opt-in.
-- Three distributions: `scianim-core` (contracts), `scianim` (control plane) and `scianim-bridge` (render side). The control plane never imports Manim; families depend only on the bridge.
+- Three distributions sharing one version: `manim8-core` (contracts), `manim8` (control plane) and `manim8-bridge` (render side), imported as `scianim_core`, `scianim` and `scianim_bridge`; the command is `manim8` or `scianim` (ADR-037). The control plane never imports Manim; families depend only on the bridge.
 - Family environments are pinned with `uv.lock` and declare their system requirements; `.venv` directories are never committed or shared.
 - Shareable bundles contain manifests, sources (when permitted), specs, code and lockfiles rather than machine-specific environments.
+
+## Installing a release
+
+```bash
+uv tool install manim8                                 # or: pip install manim8
+manim8 workspace init animations --with-example        # styles and example templates come with the package
+manim8 family env sync animations/families/computational_neuroscience   # Manim and manim8-bridge, same version
+manim8 snapshot animations/families/computational_neuroscience/divisive_normalization --all
+```
+
+An installed control plane creates family environments that take `manim8-bridge` from the package index at its own
+version. A workspace created before the rename to manim8 needs `manim8 migrate <workspace>` once. Releases are
+described in [`docs/RELEASING.md`](docs/RELEASING.md) and listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Developer setup and reproduction
 

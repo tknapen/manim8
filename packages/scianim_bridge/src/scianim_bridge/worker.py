@@ -234,6 +234,13 @@ def run(job_file: Path, project_root: Path) -> WorkerResult:
     reached: list[ReachedCheckpoint] = []
     segments: list[SegmentRecord] = []
     try:
+        from scianim_core.components import REGISTRY_VERSION
+
+        if job.registry_version is not None and job.registry_version != REGISTRY_VERSION:
+            raise RuntimeError(
+                f"the job was written for component registry {job.registry_version}, this render environment "
+                f"carries {REGISTRY_VERSION}; sync the family environment to the control plane's version"
+            )
         if ctx.mode == "merge":
             assert job.merge is not None
             emit("start", job_id=job.job_id, mode=ctx.mode, segments=len(job.merge.segments))

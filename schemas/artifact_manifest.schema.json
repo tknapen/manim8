@@ -1207,6 +1207,18 @@
           "title": "Quality Profile",
           "type": "string"
         },
+        "registry_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registry Version"
+        },
         "resolved_style": {
           "$ref": "#/$defs/ResolvedStyle"
         },

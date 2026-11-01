@@ -167,6 +167,9 @@ class RenderJob(StrictModel):
     """`render_video_part` only: the range this worker draws."""
     merge: MergeInputs | None = None
     """`merge_video` only: the segments to join."""
+    registry_version: str | None = None
+    """The component registry the job was written against (ADR-037). A worker whose contracts carry another
+    registry refuses the job instead of reading its parameters under other rules."""
     segment_store: RelPath | None = None
     """A directory of finished video segments shared by every render of the project with the same settings and
     the same bridge code (ADR-033): workers look a play up there before drawing it, and publish what they drew.

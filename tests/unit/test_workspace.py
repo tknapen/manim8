@@ -47,8 +47,8 @@ def test_workspace_init_layout(workspace: Path) -> None:
 
 def test_family_pyproject_points_at_source_packages(workspace: Path) -> None:
     text = (workspace / "families" / EXAMPLE_FAMILY / "pyproject.toml").read_text()
-    assert 'scianim-bridge = { path = "' in text and text.count("packages/scianim_") == 2
-    rel = text.split('scianim-core = { path = "')[1].split('"')[0]
+    assert 'manim8-bridge = { path = "' in text and text.count("packages/scianim_") == 2
+    rel = text.split('manim8-core = { path = "')[1].split('"')[0]
     assert (workspace / "families" / EXAMPLE_FAMILY / rel / "pyproject.toml").exists()
 
 

@@ -211,7 +211,7 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 - [x] D. Scene actions: move, fade, transform an equation, data-bound sweeps; the `sphere` kind; the `drop_impact` example (ADR-034).
 - [ ] E. Voiceover: postponed (ADR-035 reserved).
 - [x] F. Review-to-revision loop: `propose from-feedback` by rules, in the CLI, the API and the review UI (ADR-036).
-- [ ] G. Distribution and versioning under the name manim8 (ADR-037).
+- [x] G. Distribution and versioning under the name manim8: one version, release-mode families, packaged styles and examples, `scianim migrate`, a wheel install check in CI (ADR-037).
 - [x] H. Personal signature process: `style stills` and `style publish` (ADR-038).
 
 ## Core automated test matrix

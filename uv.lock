@@ -8,8 +8,8 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "scianim",
-    "scianim-core",
+    "manim8",
+    "manim8-core",
 ]
 
 [[package]]
@@ -318,6 +318,64 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/85/6d/7c31a506eb847bc58aeb2402d58e17605e821f68ab5df5e66fe274a6df41/librt-0.16.0-cp315-cp315t-win_amd64.whl", hash = "sha256:bd3150023d3dc2bc70f3784e59ffa1140d56ddba3d8125b3d6f9f85221279bfc", size = 126134, upload-time = "2026-09-29T00:55:06.017Z" },
     { url = "https://files.pythonhosted.org/packages/36/69/7a5d10ac409c4da0355e054a14371871da9b5557fcc42772cd00181c6cce/librt-0.16.0-cp315-cp315t-win_arm64.whl", hash = "sha256:8ceafb70f2a4f0826f11031942e59c0728fd98da112dc346d4352bde1e486866", size = 116391, upload-time = "2026-09-29T00:55:07.484Z" },
 ]
+
+[[package]]
+name = "manim8"
+version = "0.1.0a0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "jinja2" },
+    { name = "manim8-core" },
+    { name = "pillow" },
+    { name = "pydantic" },
+    { name = "pypdf" },
+    { name = "rich" },
+    { name = "ruamel-yaml" },
+    { name = "typer" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "httpx" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "jinja2", specifier = ">=3.1" },
+    { name = "manim8-core", editable = "packages/scianim_core" },
+    { name = "pillow", specifier = ">=10" },
+    { name = "pydantic", specifier = ">=2.10,<3" },
+    { name = "pypdf", specifier = ">=5" },
+    { name = "rich", specifier = ">=13" },
+    { name = "ruamel-yaml", specifier = ">=0.18" },
+    { name = "typer", specifier = ">=0.15" },
+    { name = "uvicorn", specifier = ">=0.30" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mypy", specifier = ">=1.13" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.8" },
+]
+
+[[package]]
+name = "manim8-core"
+version = "0.1.0a0"
+source = { editable = "packages/scianim_core" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.10,<3" }]
 
 [[package]]
 name = "markdown-it-py"
@@ -832,64 +890,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/9a/c7da96c2c96d20704cf9027f7a5121da272a8c05f1d1531ba949e3b3df04/ruff-0.17.2-py3-none-win_amd64.whl", hash = "sha256:1b59d447f197bef9ef48a22ba1a6016137753c6099e9bac9c36eb566e422424c", size = 10282826, upload-time = "2026-10-22T18:37:55.2Z" },
     { url = "https://files.pythonhosted.org/packages/81/60/a3604c79cb02777b6cb84da894104021986f06c4bc41375102cc95049a32/ruff-0.17.2-py3-none-win_arm64.whl", hash = "sha256:195ad918027f817c119310ca89a42d347887dfc28934aaa869325e9c5dc9d962", size = 9827036, upload-time = "2026-10-22T18:37:58.031Z" },
 ]
-
-[[package]]
-name = "scianim"
-version = "0.1.0a0"
-source = { editable = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "jinja2" },
-    { name = "pillow" },
-    { name = "pydantic" },
-    { name = "pypdf" },
-    { name = "rich" },
-    { name = "ruamel-yaml" },
-    { name = "scianim-core" },
-    { name = "typer" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "httpx" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "jinja2", specifier = ">=3.1" },
-    { name = "pillow", specifier = ">=10" },
-    { name = "pydantic", specifier = ">=2.10,<3" },
-    { name = "pypdf", specifier = ">=5" },
-    { name = "rich", specifier = ">=13" },
-    { name = "ruamel-yaml", specifier = ">=0.18" },
-    { name = "scianim-core", editable = "packages/scianim_core" },
-    { name = "typer", specifier = ">=0.15" },
-    { name = "uvicorn", specifier = ">=0.30" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "mypy", specifier = ">=1.13" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.8" },
-]
-
-[[package]]
-name = "scianim-core"
-version = "0.1.0a0"
-source = { editable = "packages/scianim_core" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.10,<3" }]
 
 [[package]]
 name = "shellingham"

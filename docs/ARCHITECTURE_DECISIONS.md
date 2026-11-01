@@ -971,6 +971,54 @@ answer, which is where a model adds nothing; what remains unresolved is exactly 
 needs, and the context bundle already lists it. Deriving "addressed" from proposals keeps one source of
 truth for what answered what.
 
+## ADR-037: Distributed as manim8; one version; release environments; a versioning policy
+
+**Status:** accepted, 1 November 2026
+
+**Context.** The author chose the name manim8. The three distributions were `scianim`, `scianim-core` and
+`scianim-bridge`, and nothing outside a source checkout could render: a family environment found the bridge only
+by a path into the checkout's `packages/`, and the style sheets and examples were read from the checkout too.
+There was no stated policy for when a contract, a theme or the registry may change.
+
+**Decision.** The distributions are `manim8` (control plane), `manim8-core` (contracts) and `manim8-bridge`
+(render side). The import packages keep their names (`scianim`, `scianim_core`, `scianim_bridge`) and the
+command `scianim` stays, with `manim8` as a second name for it: revisions are write-once and freeze generated
+scene modules that import `scianim_bridge`, so renaming the imports would break rendering of every existing
+revision and bundle for a cosmetic gain. The three distributions share one version, released together; each
+side pins `manim8-core` at that version, a unit test holds the three `pyproject.toml` versions and every
+`__version__` equal, and `scianim doctor` reports a family whose contracts differ from the control plane's.
+
+A family environment has two modes, chosen when the family is created. From a source checkout it depends on
+the checkout's packages by editable path, as before. From an installed control plane it depends on
+`manim8-bridge` and `manim8-core` from the package index at the control plane's own version, so the two sides
+speak the same contracts. The control-plane wheel carries the published style sheets and the example templates
+(the specimens stay in the repository), so `manim8 workspace init --with-example` works from an installed
+package. Every render job states the component registry it was written for, and a worker whose contracts
+carry another registry refuses the job instead of reading its parameters under other rules.
+
+The versioning policy: a document's `schema_version` changes only with a breaking change to its contract, and
+each such change ships a migration applied by `scianim migrate`; additive fields come with defaults that keep
+old documents valid and their meaning unchanged. Published themes are never edited (ADR-010); a baseline's
+minor version may add tokens, with defaults that reproduce the previous look, and only a major version may
+remove one. `REGISTRY_VERSION` follows the same rule for component parameters. The first migration is the
+rename itself: a family environment written before it names `scianim-bridge`, which no longer exists, so
+`family env sync` refuses it with a pointer to `scianim migrate <path>`, which rewrites the names; the next sync
+updates the lockfile.
+
+Releases are checked by building the three wheels, installing the control plane into an empty environment,
+creating a workspace from the installed command, syncing a release-mode family against the built bridge wheel
+and rendering checkpoints and a two-worker video (`.github/scripts/release_install_check.sh`, a CI job on
+Linux, and a weekly workflow on Linux and macOS). Windows is not supported: Cairo and Pango wheels are the
+obstacle, and nobody has needed it. Publishing to the index is a manual step that needs the author's token
+(`docs/RELEASING.md`).
+
+**Why.** One version for three tightly coupled distributions removes the question of which bridge goes with
+which control plane; the pins and the registry check turn a mismatch into an error at the boundary rather than
+a wrong picture. Keeping the import names is the cheap way to honour write-once revisions. Release environments
+and packaged data are what make the name worth having: without them manim8 could only be run from a clone. The
+macOS check is scheduled rather than run on every push because it could not be exercised from the development
+container; it is where a platform problem will first show.
+
 ## ADR-038: A personal signature grows one reviewed token at a time
 
 **Status:** accepted, 31 October 2026

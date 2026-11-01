@@ -510,6 +510,23 @@ def family_env_sync(
     out.print(f"[green]environment ready[/green] at {ctx.venv_dir} ({result.elapsed_seconds:.0f}s)")
 
 
+@app.command()
+def migrate(
+    path: Annotated[Path, typer.Argument(help="Workspace, family or project directory.")] = Path("."),
+    dry_run: Annotated[bool, typer.Option(help="Report what would change without writing.")] = False,
+) -> None:
+    """Bring generated files forward after a release renamed or reshaped them (ADR-037)."""
+    from scianim.migrate import migrate_tree
+
+    report = migrate_tree(path, dry_run=dry_run)
+    for changed in report.changed:
+        out.print(f"{'would update' if dry_run else 'updated'} {changed}: the bridge is now `manim8-bridge`")
+    if not report.changed:
+        out.print(f"nothing to migrate under {path.resolve()} ({len(report.current)} family environment(s) current)")
+    elif not dry_run:
+        out.print("run `scianim family env sync <family>` to update each lockfile")
+
+
 @env_app.command("probe")
 def family_env_probe(family: Annotated[Path, typer.Argument(help="Family directory or family.yaml.")]) -> None:
     """Report interpreter and package versions inside the family environment."""
