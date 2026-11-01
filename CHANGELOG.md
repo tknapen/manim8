@@ -21,3 +21,12 @@ First version under the name manim8 (ADR-037).
 - `scianim propose from-feedback`: review feedback becomes proposals by rules (ADR-036).
 - `scianim style stills` and `style publish` for growing a personal theme (ADR-038).
 - Baseline theme `default@0.5.0`, line and wash after Keenan Crane (ADR-030).
+
+Fixed:
+
+- A track still moving near a scene's end (an orbit to the end of the clip) stopped `motion.transition_seconds`
+  early, at speed: generated scenes advanced tracks only to the start of the end-of-scene fade, even in the last
+  scene, which keeps its objects and never fades. The last scene's tracks now run to its end, and a scene that
+  fades carries its running tracks through the fade. The camera of the Gabor and `drop_impact` clips now comes
+  to rest at the clip's end. Regenerate scenes with `scianim codegen`.
+- Status and manifest files are written atomically, so the review server never reads one half written.

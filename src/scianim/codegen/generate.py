@@ -141,8 +141,10 @@ def scene_block(scene: Scene, motion: Motion, is_last: bool) -> list[str]:
 
     Tracks (reveals, sweeps, orbits, axes fades, moves, fades, transforms) begin at their start times and advance together through each segment;
     checkpoints sit at breakpoints and capture the state before anything that starts at the same time.
-    Objects without a reveal time appear together at the scene start. The fade-out starts
-    `motion.transition_seconds` before the scene ends and cuts any track still running.
+    Objects without a reveal time appear together at the scene start. A scene that fades out starts its fade
+    `motion.transition_seconds` before its end, and tracks still running then continue through the fade
+    (`end_scene(..., carry=[...])`) instead of stopping at speed; the last scene keeps its objects, so its tracks
+    run to the scene's end.
     """
     ind = " " * 8
     lines = [
@@ -154,13 +156,18 @@ def scene_block(scene: Scene, motion: Motion, is_last: bool) -> list[str]:
         lines.append(f"{ind}self.narrate({scene.narration.text!r})")
     for obj in scene.objects:
         lines.append(object_call(obj, 8))
-    fade_start = max(scene.end_seconds - motion.transition_seconds, scene.start_seconds)
+    fade_start = (
+        scene.end_seconds if is_last else max(scene.end_seconds - motion.transition_seconds, scene.start_seconds)
+    )
     tracks: list[tuple[float, float, str, object]] = []
     for obj in scene.objects:
         begins = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
         tracks.append((begins, min(begins + motion.reveal_seconds, fade_start), "reveal", obj))
+    carried: list[str] = []
     for action in scene.actions:
         tracks.append((action.at_seconds, min(action.end_seconds, fade_start), "action", action))
+        if action.end_seconds > fade_start + 1e-9 and action.at_seconds < fade_start - 1e-9:
+            carried.append(action.id)  # still moving when the fade begins: it finishes during the fade
     tracks = [t for t in tracks if t[1] > t[0] + 1e-9]
     times = {scene.start_seconds, fade_start}
     times.update(t[0] for t in tracks)
@@ -194,7 +201,8 @@ def scene_block(scene: Scene, motion: Motion, is_last: bool) -> list[str]:
             names = [name for name, until in active if until >= nxt - 1e-9]
             if names:
                 lines.append(f"{ind}self.run_until({nxt:g}, [{', '.join(names)}])")
-    lines.append(f"{ind}self.end_scene(end_seconds={scene.end_seconds:g}, keep={is_last})")
+    carry = f", carry=[{', '.join(carried)}]" if carried else ""
+    lines.append(f"{ind}self.end_scene(end_seconds={scene.end_seconds:g}, keep={is_last}{carry})")
     lines.append("")
     return lines
 

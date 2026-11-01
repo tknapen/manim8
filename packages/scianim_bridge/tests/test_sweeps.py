@@ -875,3 +875,30 @@ def test_data_bound_plot_recomputes_its_series_from_the_table() -> None:
         assert any("clipped" in w for w in warnings) and height_at(5.0) == pytest.approx(4.0, abs=0.05)
         with pytest.raises(ValueError, match="give it a y_range"):
             C.scientific_plot(scene, "bare", data=binding, params={"x_label": "E", "y_label": "r"})
+
+
+def test_end_scene_finishes_a_carried_orbit_during_the_fade() -> None:
+    """A track still moving when a scene's fade begins runs on to its end during the fade instead of stopping."""
+    from manim import config
+
+    from scianim_bridge import components as C
+
+    with manim.tempconfig({"pixel_width": 960, "pixel_height": 540, "frame_rate": 30}):
+        config.frame_width = config.frame_height * 16 / 9
+        scene = _scene()
+        scene.begin_scene("s", 0)
+        plot = C.function_plot(scene, "plot", params=PLOT)
+        scene.add(plot.group)
+        plot.visible = True
+        scene.ensure_camera()
+        camera = scene.renderer.camera
+        start = math.degrees(camera.get_theta())
+        orbit = scene.begin_orbit(
+            to_theta_degrees=start + 30, to_phi_degrees=None, at_seconds=0, duration_seconds=2, action_id="o"
+        )
+        fade_start = 2 - scene.tokens.t.motion.transition_seconds
+        scene.run_until(fade_start, [orbit])
+        assert 0 < orbit.fraction < 1
+        scene.end_scene(end_seconds=2, keep=False, carry=[orbit])
+        assert orbit.fraction == 1.0 and math.degrees(camera.get_theta()) == pytest.approx(start + 30)
+        assert plot.visible is False and scene.clock == pytest.approx(2.0)

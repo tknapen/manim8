@@ -744,18 +744,21 @@ class SnapshotScene(ThreeDScene):
                 f"clock is {self.clock:.3f}s, already past the requested {seconds:g}s in scene '{self.scene_id}'"
             )
 
-    def end_scene(self, end_seconds: float, keep: bool = False) -> None:
+    def end_scene(self, end_seconds: float, keep: bool = False, carry: Sequence[Track] = ()) -> None:
+        """Close a scene: fade its objects out over `motion.transition_seconds` unless it keeps them, while the
+        tracks in `carry`, still moving when the fade begins (an orbit to the scene's end), run on to their end
+        instead of stopping at speed; then rest until `end_seconds`."""
         visible = [c for c in self.scene_objects if c.visible]
+        tracks: list[Track] = [t for t in carry if t.fraction < 1.0]
+        until = end_seconds
         if visible and not keep:
             transition = self.tokens.t.motion.transition_seconds
             frames = max(1, min(self.frames(transition), self.frames(end_seconds - self.clock)))
-            tracks = [
-                self.begin_fade(
-                    component, visible=False, duration_seconds=frames / float(config.frame_rate), remove=True
-                )
-                for component in visible
-            ]
-            self.run_until(self.clock + frames / float(config.frame_rate), tracks)
+            seconds = frames / float(config.frame_rate)
+            tracks += [self.begin_fade(c, visible=False, duration_seconds=seconds, remove=True) for c in visible]
+            until = self.clock + seconds
+        if tracks:
+            self.run_until(until, tracks)
         self.wait_until(end_seconds)
 
     def camera_moved(self) -> None:

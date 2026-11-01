@@ -655,3 +655,28 @@ def test_action_summaries_for_the_review_ui() -> None:
         "note moves to bottom left",
         "note moves by (0.1, -0.05) of the safe frame",
     ]
+
+
+def test_tracks_reach_the_scene_end_instead_of_stopping_at_the_fade(project_copy: Project) -> None:
+    """The last scene keeps its objects, so an orbit to its end runs to its end; a scene that fades out carries a
+    track still moving at the fade's start into `end_scene`, which finishes it during the fade. Before this, both
+    stopped `transition_seconds` early, at speed (the Gabor and drop_impact orbits stopped 0.65 s short)."""
+    from scianim.codegen.generate import scene_block
+
+    report = validate_project(project_copy)
+    assert report.style
+    motion = report.style.tokens.motion
+    orbit = {"id": "orbit", "kind": "orbit_camera", "to_theta_degrees": 40, "at_seconds": 0, "duration_seconds": 20}
+    scene = Storyboard.model_validate(_storyboard(objects=_surface_objects(), actions=[orbit])).scenes[0]
+    last = [line.strip() for line in scene_block(scene, motion, is_last=True)]
+    assert "self.run_until(20, [orbit])" in last and "self.end_scene(end_seconds=20, keep=True)" in last
+    fading = [line.strip() for line in scene_block(scene, motion, is_last=False)]
+    fade_start = 20 - motion.transition_seconds
+    assert f"self.run_until({fade_start:g}, [orbit])" in fading
+    assert "self.end_scene(end_seconds=20, keep=False, carry=[orbit])" in fading
+    # A track that ends before the fade begins is not carried.
+    short = {**orbit, "duration_seconds": 10}
+    scene = Storyboard.model_validate(_storyboard(objects=_surface_objects(), actions=[short])).scenes[0]
+    assert "self.end_scene(end_seconds=20, keep=False)" in [
+        s.strip() for s in scene_block(scene, motion, is_last=False)
+    ]
