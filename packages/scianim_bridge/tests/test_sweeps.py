@@ -800,9 +800,9 @@ def test_transform_equation_pairs_symbols_by_name_and_the_rest_by_shape() -> Non
         assert ink(old_theta) == accent
         morph = scene.begin_transform(label, to="after", at_seconds=5, duration_seconds=1, action_id="morph")
         assert old_formula not in label.group.submobjects and morph.transition in label.group.submobjects
-        assert float(old_theta.get_family()[-1].get_fill_opacity()) == 0.0  # retired glyphs draw nothing
-        sweep.apply(0.6)  # the running sweep holds a placeholder: the retired glyphs stay hidden
-        assert float(old_theta.get_family()[-1].get_fill_opacity()) == 0.0
+        assert all(len(m.points) == 0 for m in old_theta.get_family())  # retired glyphs draw nothing
+        sweep.apply(0.6)  # the running sweep holds a placeholder: the retired glyphs stay empty
+        assert all(len(m.points) == 0 for m in old_theta.get_family())
         morph.apply(0.5)
         morph.apply(1.0)
         morph.finish()
@@ -817,8 +817,8 @@ def test_transform_equation_pairs_symbols_by_name_and_the_rest_by_shape() -> Non
         assert ink(label.highlights["theta"]) == accent and surface.parameters["theta"] == pytest.approx(81.0)
         # In fast-forward and frame by frame the object ends in the same state: a fresh typeset of the target.
         fixed = scene.renderer.camera.fixed_in_frame_mobjects
-        assert morph.new_formula in fixed  # the retired formula stays fixed, hidden, until the play ends
-        assert all(float(g.get_fill_opacity()) == 0.0 for g in old_formula.family_members_with_points())
+        assert morph.new_formula in fixed and old_formula not in fixed  # retired: out of the fixed set ...
+        assert old_formula.family_members_with_points() == []  # ... and empty, so it draws nothing anywhere
         with pytest.raises(KeyError, match="not in the job"):
             scene.begin_transform(label, to="nowhere", at_seconds=7, duration_seconds=1, action_id="bad")
         assert ink(label.highlights["theta"]) == accent

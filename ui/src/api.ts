@@ -292,6 +292,10 @@ export type AppliedProposal = {
 };
 
 export type Proposals = { pending: string[]; applied: AppliedProposal[] };
+export type ProposalsFromFeedback = {
+  proposals: { id: string; summary: string; in_response_to: string[]; path: string }[];
+  unresolved: { reason: string; feedback_id: string | null; snapshot_id: string | null; object_id: string | null; text: string; science: boolean }[];
+};
 
 export const api = {
   workspace: () => request<Workspace>("/api/workspace"),
@@ -312,6 +316,8 @@ export const api = {
   },
   addFeedback: (id: string, body: FeedbackCreate) =>
     request<Feedback>(`/api/projects/${id}/feedback`, { method: "POST", body: JSON.stringify(body) }),
+  proposeFromFeedback: (id: string) =>
+    request<ProposalsFromFeedback>(`/api/projects/${id}/proposals/from-feedback`, { method: "POST" }),
   compare: (id: string, a: string, b: string) =>
     request<Comparison>(`/api/projects/${id}/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`),
 };

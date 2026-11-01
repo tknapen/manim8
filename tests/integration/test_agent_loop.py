@@ -123,6 +123,29 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     assert scianim("codegen", str(project)).returncode == 0
     assert scianim("snapshot", str(project), "--all").returncode == 0
     assert scianim("revision", "create", str(project), "-m", "reworded data note").returncode == 0
+
+    # 7. The loop closes by rules: a layout comment becomes a proposal, applied without anyone editing YAML.
+    comment = scianim(
+        "feedback",
+        "add",
+        str(project),
+        "--snapshot",
+        "curve_cited",
+        "--object",
+        "data_note",
+        "--text",
+        "The note sits outside the safe zone at the top.",
+    )
+    assert comment.returncode == 0, comment.stdout + comment.stderr
+    proposed = scianim("propose", "from-feedback", str(project), "--apply")
+    assert proposed.returncode == 0, proposed.stdout + proposed.stderr
+    assert "proposal prop_fb_" in proposed.stdout and "applied prop_fb_" in proposed.stdout
+    storyboard = load_yaml(project / "storyboard.yaml")
+    note = next(o for sc in storyboard["scenes"] for o in sc["objects"] if o["id"] == "data_note")
+    assert note["params"]["anchor"] == "center"
+    again = scianim("propose", "from-feedback", str(project))
+    assert again.returncode == 0 and "proposal prop_fb_" not in again.stdout  # answered feedback stays answered
+    assert scianim("codegen", str(project)).returncode == 0
     assert scianim("snapshot", str(project), "--revision", "rev_0002", "--id", "curve_cited").returncode == 0
     assert scianim("snapshot", str(project), "--revision", "rev_0001", "--id", "curve_cited").returncode == 0
 
@@ -134,11 +157,9 @@ def test_agent_loop_from_brief_to_revision_comparison(workspace: Path, scianim) 
     # 8. Provenance survived: the applied proposals carry claims with source locators, the revision records the
     #    data hash that the source extract reported, and the citation names the data as synthetic.
     applied_dir = project / "proposals" / "applied"
-    assert {p.stem for p in applied_dir.glob("*.yaml")} == {
-        "prop_create_spec",
-        "prop_create_storyboard",
-        "prop_revise_caption",
-    }
+    applied_ids = {p.stem for p in applied_dir.glob("*.yaml")}
+    assert {"prop_create_spec", "prop_create_storyboard", "prop_revise_caption"} <= applied_ids
+    assert len([i for i in applied_ids if i.startswith("prop_fb_")]) == 1  # the rule-made proposal of step 7
     spec_record = load_yaml(applied_dir / "prop_create_spec.yaml")
     assert spec_record["scientific_review_required"] is True
     assert (

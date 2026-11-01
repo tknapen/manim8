@@ -240,3 +240,4 @@ media/
 
 # UI build dependencies
 ui/node_modules/
+.claude/worktrees/

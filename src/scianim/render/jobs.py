@@ -33,7 +33,7 @@ from scianim_core import (
     WorkerResult,
 )
 from scianim_core.hashing import sha256_file, sha256_json
-from scianim_core.jobs import QualityProfile
+from scianim_core.jobs import QualityProfile, SurfaceRenderer
 
 WORKING_REVISION = "working"
 """Renders of the working copy. Immutable revisions have ids like `rev_0003`."""
@@ -130,11 +130,17 @@ VIDEO_CODECS = {"h264": "libx264", "vp9": "libvpx-vp9", "av1": "libaom-av1"}
 
 
 def manim_settings(
-    spec: AnimationSpec, style: ResolvedStyle, profile: QualityProfile, media_dir: str, video: bool = False
+    spec: AnimationSpec,
+    style: ResolvedStyle,
+    profile: QualityProfile,
+    media_dir: str,
+    video: bool = False,
+    surface_renderer: SurfaceRenderer = "cairo",
 ) -> ManimSettings:
     scale = QUALITY_SCALE[profile]
     return ManimSettings(
         renderer="cairo",
+        surface_renderer=surface_renderer,
         pixel_width=_even(spec.output.width_px * scale),
         pixel_height=_even(spec.output.height_px * scale),
         frame_rate=spec.output.fps,
@@ -233,12 +239,13 @@ def build_snapshot_job(
     profile: QualityProfile = "snapshot",
     tool_versions: dict[str, object] | None = None,
     job_id: str | None = None,
+    surface_renderer: SurfaceRenderer = "cairo",
 ) -> tuple[RenderJob, JobPaths, InputHashes]:
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
     media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
-    manim = manim_settings(spec, style, profile, media_dir)
+    manim = manim_settings(spec, style, profile, media_dir, surface_renderer=surface_renderer)
     hashes = input_hashes(project, sources, family)
     wanted = snapshot_ids or storyboard.snapshot_ids()
     unknown = sorted(set(wanted) - set(storyboard.snapshot_ids()))
@@ -285,17 +292,19 @@ def build_video_job(
     tool_versions: dict[str, object] | None = None,
     job_id: str | None = None,
     workers: int = 1,
+    surface_renderer: SurfaceRenderer = "cairo",
 ) -> tuple[RenderJob, JobPaths, InputHashes]:
     """A video of the whole storyboard with sections, subtitles and sampled checkpoints, at any profile:
     `storyboard` and `snapshot` for a quick look at a small size, `draft` for review, `final` for delivery.
 
     `workers` above one renders ranges of the scene's plays in that many processes at once (ADR-029); the
-    cache key does not depend on it because the movie is the same."""
+    cache key does not depend on it because the movie is the same. `surface_renderer` chooses how surfaces
+    are drawn (ADR-032) and does enter the key."""
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
     media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
-    manim = manim_settings(spec, style, profile, media_dir, video=True)
+    manim = manim_settings(spec, style, profile, media_dir, video=True, surface_renderer=surface_renderer)
     hashes = input_hashes(project, sources, family)
     targets = {
         snap.id: SnapshotTarget(scene_id=scene.id, expected_time_seconds=snap.at_seconds, description=snap.description)

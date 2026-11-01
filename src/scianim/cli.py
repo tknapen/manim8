@@ -51,11 +51,12 @@ from scianim.workspace import (
     init_workspace,
     scan_workspace,
 )
-from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest
+from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest, StyleSelection
 from scianim_core.feedback import Region
 from scianim_core.schemas import export_schemas
 
 QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
+SURFACE_RENDERERS = ("cairo", "raster")
 
 app = typer.Typer(no_args_is_help=True, help="SciAnim Studio control plane. Never imports Manim.")
 style_app = typer.Typer(no_args_is_help=True, help="Style token resolution.")
@@ -253,6 +254,96 @@ def style_list(
         for version, sheet in sorted(versions.items()):
             table.add_row(name, version, str(sheet))
     out.print(table)
+
+
+@style_app.command("stills")
+def style_stills(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    candidate: Annotated[Path, typer.Option(help="An unpublished style.yaml (name, version and inherits set).")],
+    against: Annotated[
+        str | None, typer.Option(help="A published sheet as name@version (default: the project's own).")
+    ] = None,
+    snapshot: Annotated[list[str] | None, typer.Option("--snapshot", help="Checkpoint id (repeatable).")] = None,
+    profile: Annotated[str, typer.Option(help="Quality profile for the stills.")] = "snapshot",
+    timeout: Annotated[float, typer.Option(help="Worker timeout in seconds per render.")] = 1800,
+) -> None:
+    """Render the same checkpoints under the project's sheet and under a candidate, side by side with the
+    token differences, so a signature grows one reviewed token at a time (ADR-038)."""
+    from scianim.styles import stills as _stills
+
+    proj, report = _prepare(project, require_family=True)
+    if report.family is None or report.animation is None or not report.ok:
+        print_report(report, str(project))
+        fail("the project must validate with a resolvable family")
+    family = report.family
+    tool_versions = tool_versions_for(family)
+    if not tool_versions:
+        fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
+    try:
+        sheet = _stills.load_candidate(candidate)
+        staged = _stills.stage_candidate(sheet, candidate, _stills.temporary_styles_root())
+        own = report.animation.style
+        current = (
+            _stills.resolve_with(proj, report, _stills.selection_for(against, own), []) if against else report.style
+        )
+        assert current is not None
+        wanted = _stills.resolve_with(
+            proj,
+            report,
+            StyleSelection(name=sheet.name, version=sheet.version, overrides=dict(own.overrides)),
+            [staged],
+        )
+        if current.hash == wanted.hash:
+            fail("the candidate resolves to the same tokens as the sheet it is compared with")
+        rendered = _stills.render_stills(
+            proj,
+            report,
+            family,
+            {f"{current.theme}@{current.theme_version}": current, f"candidate {sheet.name}@{sheet.version}": wanted},
+            list(snapshot or []),
+            profile,
+            tool_versions,
+            timeout,
+        )
+        target = _stills.write_stills_sheet(rendered, proj, _stills.stills_dir(proj) / "stills.html")
+    except SpecError as exc:
+        fail(str(exc))
+    for path, a, b in _stills.token_diff(rendered[0].style, rendered[1].style):
+        out.print(f"  {path}: {json.dumps(a)} -> {json.dumps(b)}")
+    for still in rendered:
+        status = still.manifest.result.status
+        out.print(
+            f"{still.label}: {status}, {len(still.manifest.result.checkpoints)} checkpoint(s), job {still.manifest.job.job_id}"
+        )
+    out.print(f"stills: {target}")
+    if any(still.manifest.result.status != "succeeded" for still in rendered):
+        raise typer.Exit(1)
+
+
+@style_app.command("publish")
+def style_publish(
+    candidate: Annotated[Path, typer.Argument(help="The candidate style.yaml to publish.")],
+    ref: Annotated[str, typer.Argument(help="The published reference, name@version.")],
+    styles_dir: Annotated[
+        Path | None, typer.Option(help="The styles directory to publish into (default: the nearest `styles/`).")
+    ] = None,
+) -> None:
+    """Copy an accepted candidate into `styles/<name>/<version>/`; a published version is never overwritten."""
+    from scianim.styles import stills as _stills
+
+    target_root = styles_dir
+    if target_root is None:
+        for parent in (candidate.resolve().parent, *candidate.resolve().parents):
+            if (parent / "styles").is_dir():
+                target_root = parent / "styles"
+                break
+    if target_root is None:
+        fail("no `styles/` directory above the candidate; pass --styles-dir")
+    try:
+        written = _stills.publish_candidate(candidate, ref, target_root)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"published {ref} -> {written}")
 
 
 @app.command()
@@ -515,10 +606,19 @@ def snapshot(
     ] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 1800,
+    surface_renderer: Annotated[
+        str,
+        typer.Option(
+            help="How surfaces are drawn: cairo (Manim polygons) or raster (one image painted by the bridge, "
+            "faster, the floor frame hidden where the surface covers it). Enters the cache key."
+        ),
+    ] = "cairo",
 ) -> None:
     """Render named checkpoints from the real animation flow in the family environment."""
     if profile not in QUALITY_PROFILES:
         fail(f"profile must be one of {list(QUALITY_PROFILES)}")
+    if surface_renderer not in SURFACE_RENDERERS:
+        fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
     proj, report = _prepare(project, require_family=True)
     if report.family is None:
         print_report(report, str(project))
@@ -536,7 +636,15 @@ def snapshot(
             if revision
             else sources_from_report(proj, report)
         )
-        job, paths, hashes = build_snapshot_job(proj, sources, family, list(ids or []), profile, tool_versions)  # type: ignore[arg-type]
+        job, paths, hashes = build_snapshot_job(
+            proj,
+            sources,
+            family,
+            list(ids or []),
+            profile,  # type: ignore[arg-type]
+            tool_versions,
+            surface_renderer=surface_renderer,  # type: ignore[arg-type]
+        )
     except SpecError as exc:
         fail(str(exc))
     if not no_cache:
@@ -630,9 +738,18 @@ def render(
             "joins them, the same movie in about 1/N of the time; 0 uses one process per CPU core.",
         ),
     ] = 1,
+    surface_renderer: Annotated[
+        str,
+        typer.Option(
+            help="How surfaces are drawn: cairo (Manim polygons) or raster (one image painted by the bridge, "
+            "faster, the floor frame hidden where the surface covers it). Enters the cache key."
+        ),
+    ] = "cairo",
 ) -> None:
     """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames, at any
     profile: storyboard or snapshot for a quick look at a small size, draft for review, final for delivery."""
+    if surface_renderer not in SURFACE_RENDERERS:
+        fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
     proj, report = _prepare(project, require_family=True)
     if report.family is None:
         print_report(report, str(project))
@@ -665,6 +782,7 @@ def render(
             samples,
             tool_versions,
             workers=resolve_workers(workers),
+            surface_renderer=surface_renderer,  # type: ignore[arg-type]
         )
     except SpecError as exc:
         fail(str(exc))
@@ -892,6 +1010,52 @@ def propose_apply(
     if applied.scientific_review_required:
         out.print("  [magenta]scientific content changed: this needs human sign-off; nothing is approved[/magenta]")
     out.print(f"record: {proj.root / 'proposals' / 'applied' / (loaded.id + '.yaml')}")
+
+
+@propose_app.command("from-feedback")
+def propose_from_feedback(
+    project: Annotated[Path, typer.Argument(help="Project directory.")],
+    job: Annotated[
+        str | None, typer.Option(help="Render whose inspection to read (default: the latest succeeded).")
+    ] = None,
+    apply: Annotated[bool, typer.Option(help="Apply every generated proposal that validates.")] = False,
+) -> None:
+    """Turn open feedback and the latest inspection into typed proposals by rules, without a model; list what no
+    rule can answer (ADR-036)."""
+    from scianim.agent.feedback_proposals import generate
+
+    proj, report = _prepare(project, require_family=False)
+    if report.storyboard is None or report.animation is None:
+        print_report(report, str(project))
+        fail("the project needs a valid animation.yaml and storyboard.yaml")
+    manifest = manifest_for_ref(proj, job) if job else manifest_for_ref(proj, "working")
+    try:
+        generated = generate(proj, report, manifest)
+    except SpecError as exc:
+        fail(str(exc))
+    for proposal, path in zip(generated.proposals, generated.written, strict=True):
+        answers = (
+            f" (answers {', '.join(proposal.in_response_to)})" if proposal.in_response_to else " (from inspection)"
+        )
+        out.print(f"[green]proposal[/green] {proposal.id}: {proposal.summary}{answers}\n  {path}")
+    for item in generated.unresolved:
+        where = " ".join(x for x in (item.snapshot_id, item.object_id, item.feedback_id) if x)
+        tag = "[magenta]science[/magenta]" if item.science else "[yellow]unresolved[/yellow]"
+        out.print(f"{tag} {where}: {item.reason}" + (f'\n  "{item.text}"' if item.text else ""))
+    if not generated.proposals and not generated.unresolved:
+        out.print("nothing open: no feedback awaits an answer and the inspection is clean")
+    if apply:
+        for proposal in generated.proposals:
+            try:
+                applied = apply_proposal(proj, proposal)
+            except SpecError as exc:
+                fail(str(exc))
+            out.print(
+                f"[green]applied[/green] {proposal.id}"
+                + (" (scientific review required)" if applied.scientific_review_required else "")
+            )
+        if generated.proposals:
+            out.print("regenerate the scene with `scianim codegen` and render again to see the change")
 
 
 @propose_app.command("list")

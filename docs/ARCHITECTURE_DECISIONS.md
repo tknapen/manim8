@@ -133,6 +133,16 @@ Manim's media cache and superseded working renders and never touches revisions.
 **Why.** Copying data per revision would duplicate large inputs; hashing keeps revisions honest without the cost.
 Project-local renders keep bundles and review sheets self-contained.
 
+## ADR-014: Shared assets are materialized into the project per job
+
+**Status:** accepted, 26 October 2026
+
+**Decision.** `asset://<id>` resolves to the family's `assets/`, then the workspace's. At job time the file is
+copied into the project's `.scianim/assets/` and the job references that project-relative path.
+
+**Why.** Job payloads and manifests must stay free of machine-specific absolute paths; the copy is cheap and
+hashed.
+
 ## ADR-015: Twin Ink is the baseline theme; fonts resolve through declared fallbacks
 
 **Status:** accepted, 26 October 2026
@@ -147,16 +157,6 @@ personal theme `tomas_scientific@0.2.0` inherits the baseline and records only d
 **Why.** Helvetica and Palatino are proprietary; metric-compatible open fonts (TeX Gyre Heros, Nimbus Sans,
 TeX Gyre Pagella Math) keep renders reproducible on machines without them, and a reported substitution is
 better than a silent one. The previous dark placeholder was never a design.
-
-## ADR-014: Shared assets are materialized into the project per job
-
-**Status:** accepted, 26 October 2026
-
-**Decision.** `asset://<id>` resolves to the family's `assets/`, then the workspace's. At job time the file is
-copied into the project's `.scianim/assets/` and the job references that project-relative path.
-
-**Why.** Job payloads and manifests must stay free of machine-specific absolute paths; the copy is cheap and
-hashed.
 
 ## ADR-016: Analytic curves, relational placement and timed reveals are storyboard vocabulary
 
@@ -639,6 +639,152 @@ like a line of the same document, not a caption from another. Round ends and rim
 smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
 that a personal layer may revise, and the renderer honours them without reading a style's name.
 
+## ADR-031: Frame windows across workers
+
+**Status:** accepted, 31 October 2026
+
+**Context.** ADR-029 split a parallel render at play boundaries, so a part drew whole plays. The cost of a clip
+sits in a few long plays: in the orientation example the two grating sweeps of 90 and 81 frames take 16 of
+the 20 seconds of drawing, and with six workers on four cores two parts carried them while the others idled.
+The plays that matter are tracks played by `run_until`, which apply an absolute state for a fraction of their
+window, so any frame of them can be drawn without the frames before it.
+
+**Decision.** A part's share is a window of frames, not a run of plays. `plan_parts` places `N - 1` interior
+boundaries, as global frame indices, in order: each at the frame where the per-frame cost since the previous
+boundary reaches an even share of what remains (the cost of a play, measured or estimated, is spread evenly
+over its frames), moved to the nearest allowed position, which is a play's edge or a frame inside a play that
+can be cut, at least half a second (`MIN_PIECE_SECONDS`) from the play's edges and from the previous boundary.
+Placing them in order, each against what remains, means a boundary that had to move does not unbalance the
+windows after it. The sorted boundaries go to every part as `PartRange.split_frames`, with the part's own
+`first_frame` and `last_frame`; the control plane derives the split play list (`split_plan`: one piece per
+interval, numbered in order, each carrying `source_index` and `piece`) and expresses `first_play` and
+`last_play` in that numbering, which is the numbering Manim's animation numbers follow in every part because
+every worker cuts the same plays at the same frames. The parts are checked piece for piece against the split
+plan; the merge joins the pieces' segments in order; the plan's checkpoints are renumbered to the first piece
+of the play that follows them; the manifest keeps the planning pass's numbering, a cut play summing the wall
+times of its pieces and counting as drawn only when every piece was, so serial and windowed renders of a clip
+measure the same plays and the next render balances by either. In the bridge, `play_frames` is the cut: a
+play that crosses a boundary is played as pieces, one Manim play each. A static wait becomes two waits. A play
+of tracks becomes `TrackSegment` pieces that know their offset and the whole play's length, with progress
+`(offset + alpha (frames - 1/2)) / total` below alpha one and `(offset + frames) / total` at one, so frame j of
+a piece lands where frame `offset + j` of the whole play would and a piece's finish lands on the next piece's
+first frame; `finish()` runs once, after the last piece, as before. A play of arbitrary Manim animations (a
+custom builder's) or one in the presence of updaters, whose first frame sees a zero time step, is logged
+`splittable = False` and the planner keeps boundaries out of it. Manim's animation-number window and the
+fast-forward through the other plays are unchanged, so each part still begins from the state one process would
+have reached.
+
+Cutting plays exposed two defects in the bridge, both found by comparing a play drawn whole with the same play
+drawn as pieces, encoded losslessly for the comparison. A readout shows each value as a fresh `Text`
+(ADR-029), and the replaced glyphs were removed from the group and from the camera's fixed-in-frame set; but
+Manim renders the family of a play's moving mobjects as it was when the play began, so the replaced glyphs
+were still drawn, now projected through the three-dimensional camera as a faint slanted ghost of the play's
+first value, in every play in which a readout changed. The pieces each carried a different ghost, which is
+how it showed. Replaced glyphs are now emptied, so a stale reference draws nothing. Second, the clock was pinned by
+adding each play's length to the previous value; reached through pieces, the sum differed in its last bits,
+and a storyboard gap of a frame and a half (23.3 to 23.35 seconds at 30 fps) rounded to two frames in the
+planning pass and one in a part, which the check against the plan refused. The clock is now pinned from the
+integer frame index, `(start + frames) / fps`, the same float in every mode however the frame was reached.
+
+Measured on the orientation clip at the storyboard profile (480 by 270, 30 fps, 720 frames), four cores: one
+process 32.1 s; six workers 30.7 s in all, the parts 16.2 to 19.4 s, with boundaries at frames 340, 438, 487,
+537 and 591 cutting the 90-frame sweep twice and the 81-frame sweep once. With the segments encoded losslessly
+(`crf 0`, through a `manim.cfg` for the experiment) the six-worker movie and the one-process movie decode to
+the same 720 frames, byte for byte, and all seven checkpoint hashes agree; so the pieces render exactly the
+frames the whole plays render. With Manim's default encoder (libx264, crf 23) each piece is its own stream,
+and inside a cut play the two movies differ by codec noise: of the 720 frames exactly the 171 of the two cut
+sweeps differ, the other 549 are byte-identical; the worst frame differs by 67 of 255 in one channel with a
+mean of 0.6, and the frame after a boundary by 42 with a mean of 0.3, spread as speckle along edges and glyphs,
+against the same rendered frame. The sampled frames of every checkpoint that opens an uncut play are
+byte-identical; a checkpoint that opens a cut play whose first piece is shorter than the encoder's look-ahead
+(about forty frames) carries the same noise, because the keyframe is quantised with a different view of what
+follows (`stimulus_mid`, opening a 32-frame first piece: 31 of 255 at most, mean 0.27; the same checkpoint was
+byte-identical in a render whose first piece was 66 frames). The integration test asserts the predicted boundaries, cuts inside both sweeps, exact
+checkpoint hashes where the contract gives them and a bounded difference (at most 96 levels, which a piece
+applied to the wrong frames would far exceed) at a checkpoint opening a cut play and at the sample one frame
+after a boundary. The unit tests cover the window planner (quantiles, snapping to edges and to the half-second
+mark, rebalancing, plays that cannot be cut, every frame covered once, part numbering in the split plan,
+checkpoint renumbering, measured plays summed per source) and the bridge tests drive `TrackSegment` pieces
+by hand, frame for frame against the whole play, and cut plays in a fast-forwarded scene.
+
+**Why.** The frames are the unit a track can produce independently, so they are the unit of work to share;
+whole plays were only ever a convenience of Manim's segment files. The half-second minimum keeps the number of
+streams, static-image renders and part start-ups in proportion to the work, and keeps a cut from landing on a
+piece too short to be worth a worker. The same boundary list in every part is what makes the animation
+numbers agree without a second planning pass, and checking pieces against the split plan is what turns a
+non-deterministic scene into an error rather than a seam. The cost model stays uniform within a play because
+nothing better is measured; the measured cost of a whole play is what a serial and a parallel render both
+record, which is why the manifest keeps the plan's numbering. Codec noise inside a cut play is accepted
+rather than hidden: the rendered frames are proven identical, lossless, and a movie joined from more streams
+cannot be bit-identical to one joined from fewer without re-encoding, which would be a second loss; the
+checkpoints and stills, which are what a scientist reviews, keep their exact identity wherever they open an
+uncut play, and the review stills from `scianim snapshot` never pass through the encoder at all.
+
+## ADR-032: A raster renderer for surfaces, equal to the Cairo one
+
+**Status:** accepted, 31 October 2026
+
+**Context.** A `surface_plot` under Cairo is one Manim polygon per cell, and Manim's per-mobject path costs
+about a millisecond per cell per frame: 2.8 s per frame for the 80-cell Gabor at 1080p, about two hours for
+its 26 s at 60 fps in one process. Two things were also wrong in the picture. The floor frame was drawn on
+top of the surface wherever the two overlapped, because the frame's lines are flat mobjects that Manim draws
+after the sorted cells. And under the light of ADR-030 the cells leave Manim's depth sort altogether: the
+sort and the built-in lamp hang on the same flag (`shade_in_3d`), so switching the lamp off for a cell also
+takes it out of the sort, and the cells draw in grid order, which is back to front only from the side of
+the orbit the grid happens to favour. A sampled image (`function_image`) evaluated its expression once per
+pixel in Python as well.
+
+**Decision.** A second surface renderer, `raster`, chosen by `ManimSettings.surface_renderer` (`cairo` or
+`raster`), `scianim snapshot|render --surface-renderer` and `JobCreate.surface_renderer`; the value enters
+the cache key, so the two never serve each other's results. The bridge module `raster.py` keeps the
+component's vertex grid in world coordinates and paints it when the camera asks for the picture: the grid is
+projected through the scene's own camera (`ThreeDCamera.project_points` and its frame-to-pixel mapping, as
+functions in `camera.py`, so the raster lands where everything else on screen says it should), the cells are
+sorted by view depth and filled far to near with their wash and the shading, the mesh is stroked in the mesh
+role at its token weight, and the floor frame and ticks are painted into the same image after a depth test:
+each edge is cut into pieces, and a piece whose line of sight to the eye passes under the surface inside the
+box's footprint is left out. The canvas is painted at twice the output size and reduced with a box filter
+(`Image.reduce(2)`); the result is an `ImageMobject` fixed in the frame, cropped to what it draws and placed
+on whole output pixels, so Manim composes it without resampling. The shading of ADR-030 is one pure
+function, `tokens.shaded_rgb`, that both paths call, so a cell has the same shade whichever draws them; the
+Cairo path's pixels do not change (the Gabor `rotating` checkpoint is byte-identical before and after; `with_axes` differs in 0.15 percent of its pixels, at the joints of the frame's pieces). The image repaints lazily: a sweep (`rebuild`), an orbit (the `on_camera`
+hook) and a fade of the frame (a `fade_axes` action, whose frame now lives in the picture) mark it dirty, and
+the next request for its pixels paints once, so a frame in which a sweep and an orbit both advance costs one
+painting; nothing else triggers one. The labels stay Manim text of fixed orientation; `fade_axes` fades them
+through Manim and the frame through the raster's alpha, and the end-of-scene fade scales the whole image.
+The layout report takes the component's own box, the projected extents of the vertices and the frame when
+it shows, joined with the labels and caption, through a new `Component.layout_bbox` hook; on the Gabor the
+two renderers' boxes agree within one percent of the frame. `compile_expression(..., arrays=True)` compiles
+the same whitelisted grammar against NumPy, so the surface grid, the cell centres and a `function_image`
+evaluate in one call each and agree with the scalar form element by element, NaN for NaN. On the Cairo
+path each floor-frame edge is cut into twenty pieces that join Manim's depth sort when the cells are in it
+(the lamp on, the light off); under the light the cells are not sorted, so the pieces stay on top as before.
+The default stays `cairo`. The two renderers are equals: the same bridge tests run on both, the specimen
+tool composes from either and says which drew the surfaces, and neither is deprecated. Switching the default
+is a later decision for the author, after a review of the raster stills beside the Cairo ones
+(`styles/default/0.5.0/specimen_raster.png` beside `specimen.png`), because the two differ in their
+anti-aliasing (supersampled coverage against Cairo's analytic coverage) and that is a matter of taste.
+
+Measured on this machine, the 80-cell Gabor: three checkpoints at the snapshot size took 89 s under Cairo
+and 4.4 s under the raster; one frame of the surface alone paints in about 40 ms at 960 by 540 and 70 ms
+at 1080p, and a whole frame with the equation and readouts takes 0.06 s and 0.12 s, against about 0.6 s and
+2.8 s. The full clip at 1080p and 60 fps in one process took 258 s (4 min 18 s) while the machine was
+shared with other work, against about two hours under Cairo; every sampled checkpoint frame was exact.
+
+Two limits are accepted. A translucent surface (`surface_opacity` below one) shows the page through itself,
+and the cells behind through painter's blending, but not an object drawn before it in the scene, because the
+image composes against the page colour; the published sheets lay surfaces opaque. And Pillow's polygons
+have no sub-pixel coordinates, which the twofold supersample hides at the mesh weights in use; a threefold
+one is the fallback at three times the fill cost.
+
+**Why.** Painting the cells in the bridge turns thousands of mobjects into one and a two-hour render into a
+few minutes, without a second rendering stack: the projection is Manim's, the composition is Manim's, and
+only the pixels inside the surface's box are the bridge's. Painter's order and the per-piece depth test
+give what a drawn figure of a surface shows, the frame hidden behind the shape and seen before it, which the
+Cairo path cannot give under the light without changing its cells. One shading function keeps the two
+renderers from drifting apart in colour, and one cache key per renderer keeps a review honest about which
+drew what. The Cairo path is left as it is, cells unsorted under the light included, because the published
+specimen was made from it and no output may change before the author has looked at the alternative.
 
 ## ADR-034: Scene actions that move, fade and transform; data-bound sweeps; the `sphere` kind
 
@@ -722,10 +868,7 @@ action in `divisive_normalization`, whose synthetic response is scaled by `g` wh
 the way codegen learned to collapse breakpoints that differ by an ulp (10.1 + 1.2 is not 11.3), which had
 made a track begin twice, and the bridge learned that Manim's Cairo renderer lists every family member once
 at the start of a play and keeps drawing that list until the play ends: a member removed from a group mid-play
-(a readout's previous text, a swapped curve, a replaced formula) must be hidden rather than dropped from the
-camera's fixed-in-frame set, or it is drawn projected through the camera as a faint ghost in frame-by-frame
-renders while fast-forward, which never draws those frames, shows nothing; for the same reason the sphere hides
-its back faces instead of removing them.
+(a readout's previous text, a swapped curve, a replaced formula) must be made to draw nothing, or it is drawn projected through the camera as a faint ghost in frame-by-frame renders while fast-forward, which never draws those frames, shows nothing. The scene's `retire` empties such a member's points and takes it out of the fixed-in-frame set (package A met the same defect in a play drawn as pieces, ADR-031, and the two fixes were merged into this one); for the same reason the sphere hides its back faces instead of removing them.
 
 **Why.** Actions are the one list in which anything with a time belongs (ADR-022), so moves, fades and
 transforms take their place beside sweeps rather than becoming object parameters or a timeline of their own.
@@ -742,3 +885,57 @@ and anchoring it in the surface's coordinates keeps the storyboard in the units 
 model is a cartoon by design and says so wherever it can, because the thing the clip teaches is the sequence
 of mechanisms, and a fabricated likeness of a simulation would teach the wrong lesson about what the tool
 claims.
+
+## ADR-036: Feedback becomes proposals by rules
+
+**Status:** accepted, 31 October 2026
+
+**Context.** The loop brief, storyboard, render, review, revision ran with a person turning review comments
+into proposals by hand (or an external agent reading the context bundle). The spec asks for the loop to
+close without anyone editing YAML, and ADR-020 keeps every model call out of the control plane.
+
+**Decision.** `scianim propose from-feedback <project> [--job ID] [--apply]` and
+`POST /api/projects/{id}/proposals/from-feedback` read the open feedback records and the live inspection of
+the latest render and write typed `Proposal` files under `proposals/`, one per item a rule can address: an
+object outside the safe zone is drawn smaller when its kind has a `size_fraction`, else moved to the centre
+when it has an anchor; of two overlapping objects the larger sized one gives way, or two text-like objects on
+one anchor part to opposite corners; a comment that names one of the object's numeric parameters and a
+value (`set width_fraction to 0.5`, `sigma = 1.2`) is taken at its word, including parameters the storyboard
+left at their default; a motion called too fast or too slow has its duration changed by a fixed factor, never
+into the next action on the same object. Each proposal carries its rule as rationale, its chosen value as
+an uncertainty, and the feedback ids it answers in `in_response_to`; it is validated against the contracts
+before it is written and dropped with a reason when the patch would not validate. Everything else is listed
+as unresolved with the question a person or an external agent must answer; a scientific concern is never
+patched by a rule. A feedback record counts as addressed once a pending or applied proposal names it, so
+records stay write-once, and the API reports `addressed_by` beside each record. `--apply` applies every
+generated proposal that validates.
+
+**Why.** The rules cover the findings the inspector already produces and the comments that carry their own
+answer, which is where a model adds nothing; what remains unresolved is exactly the input a model or a person
+needs, and the context bundle already lists it. Deriving "addressed" from proposals keeps one source of
+truth for what answered what.
+
+## ADR-038: A personal signature grows one reviewed token at a time
+
+**Status:** accepted, 31 October 2026
+
+**Context.** `tomas_scientific` pins the baseline and changes nothing. The spec leaves open which tokens the
+personal signature should change and asks for alternative stills for approval (section 17, item 1). Editing a
+published sheet is forbidden (ADR-010), and a change of taste should be seen on the project's own checkpoints
+before it is published, not guessed from a token table.
+
+**Decision.** Two commands. `scianim style stills <project> --candidate <style.yaml> [--against name@version]
+--snapshot <id>...` resolves an unpublished candidate sheet beside the published chain (staged in a temporary
+`styles/<name>/<version>/` so the resolver reads it as any sheet, with the project's own overrides kept),
+refuses a candidate that resolves to the tokens it is compared with, renders the named checkpoints under
+both as ordinary snapshot jobs (the style hash alone separates their cache keys), and writes
+`renders/working/stills_<stamp>/stills.html`: the token differences above each checkpoint under the one sheet
+beside the same under the other, with each side's layout warnings. `scianim style publish <candidate>
+<name>@<version>` copies an accepted candidate into the versioned directory with its name and version set to
+the reference, requires a pinned `inherits`, carries a `PHILOSOPHY.md` beside it, and refuses a version that
+exists.
+
+**Why.** A signature is a sequence of small, seen decisions; the stills make the decision concrete on the
+clips that matter, and publishing is a copy, so the history of versions stays a record of what was accepted.
+The candidate tokens to put forward first are the emphasis orange against the blue, the camera's starting
+angles and the light's azimuth, the motion ramp and hold, and the label sizes.

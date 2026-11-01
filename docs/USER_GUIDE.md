@@ -105,6 +105,28 @@ The review server takes the same `workers` field in a job request. Manim's per-p
 `.scianim/media` does not know when the renderer's code changed; after updating SciAnim, `scianim clean
 --media` keeps old segments out of new movies.
 
+A part's share is a window of frames, not a run of whole plays, so one long sweep can be shared by several
+workers (ADR-031): the planner cuts a play of tracks or a still wait at a frame, keeping at least half a
+second on either side of the cut, and every worker cuts the same plays at the same frames, so the pieces
+render exactly the frames the whole play would have. A play made of arbitrary Manim animations (a custom
+builder's) is never cut. The worker log lists the windows as frames and the plays that were cut. Because each
+piece is encoded as its own stream, the movie's bytes inside a cut play differ from a one-process render's by
+codec noise (the rendered frames are the same, and the sampled frames at checkpoints that open uncut plays are
+byte-identical); the review stills remain what the scene showed at that moment. On the orientation example at
+the storyboard profile, six workers on four cores took 31 s against 32 s in one process, each part taking 16
+to 19 s; at that size the process start and the planning pass are most of a part's time, and the gain grows
+with the cost of a frame.
+
+```bash
+scianim propose from-feedback <project>            # open feedback and inspection findings -> proposals by rules
+scianim propose from-feedback <project> --apply    # and apply the ones that validate
+```
+
+Comments that carry their own answer (`set width_fraction to 0.5`, "outside the safe zone", "too slow") and the
+inspector's layout warnings become typed proposals under `proposals/`, each naming the feedback it answers;
+what no rule can read is listed as unresolved for a person or an external agent, and a scientific concern is
+never patched by a rule. A record counts as addressed once a proposal names it.
+
 ## Making something move
 
 A figure can show two conditions side by side; an animation can vary one quantity while the viewer watches the
@@ -242,6 +264,32 @@ actions:
 
 Two moves, two fades or two transforms of one object may not overlap, and `scianim validate` asks for the
 style's rest between two moves of one object as it does between two sweeps.
+
+## Trying a style change
+
+```bash
+scianim style stills <project> --candidate next/style.yaml --snapshot rotating --snapshot moved
+scianim style publish next/style.yaml tomas_scientific@0.6.0
+```
+
+A candidate is an unpublished `style.yaml` that pins `inherits` to a published sheet and sets the tokens to
+try. `style stills` renders the named checkpoints under the project's sheet and under the candidate and
+writes `renders/working/stills_<stamp>/stills.html`, the token differences above each pair, so a change is
+seen on the clip before it is published; `--against name@version` compares with another published sheet.
+`style publish` copies an accepted candidate into `styles/<name>/<version>/` and never overwrites a version.
+
+
+A second surface renderer paints the surface as one image instead: `scianim snapshot <project>
+--surface-renderer raster` (and the same option on `render`; `surface_renderer` on an API job). The raster
+projects the mesh through the same camera, fills the cells far to near with the same washes and the same
+light, and paints the floor frame and ticks into the picture with a depth test, so the frame is hidden where
+the surface covers it and seen where it does not; the labels stay text and keep facing you. A frame of the
+80-cell Gabor costs about a tenth of a second instead of nearly three, so the full clip renders in minutes
+in one process. The two renderers are equals and either may be chosen per render; the default stays `cairo`
+until the raster stills have been reviewed (`styles/default/0.5.0/specimen_raster.png` beside `specimen.png`
+shows the two), and the choice is part of the cache key, so switching renders afresh. They differ only in
+anti-aliasing: the raster is drawn at twice the size and reduced, Cairo computes coverage exactly. A sampled
+`function_image` now evaluates its field in one array call either way.
 
 ## Revisions, forks and comparison
 

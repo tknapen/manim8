@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from manim import Animation, FadeIn, VGroup
 
+from scianim_core import BBox
 from scianim_core.components import validate_params
 
 if TYPE_CHECKING:
@@ -95,6 +96,9 @@ class Component:
     on_ink: Callable[[], None] | None = None
     """Called after a fade changes the object's ink, for objects that keep parts of themselves hidden (a
     sphere's back faces) and must reapply that after every change."""
+    layout_bbox: Callable[[], BBox] | None = None
+    """The object's box on screen, when it knows it better than the layout report can read from its mobjects
+    (a raster surface reports its projected vertex extents); None lets the report measure the group."""
 
     def reveal_animation(self) -> Animation:
         return FadeIn(self.group)

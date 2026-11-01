@@ -305,3 +305,75 @@ def test_drop_impact_moves_fades_and_transforms(workspace: Path, scianim) -> Non
         assert before.sha256 != inside.sha256 and inside.warnings == []
     finally:
         (dn / "storyboard.yaml").write_text(previous)
+
+
+def test_style_stills_render_a_candidate_beside_the_pinned_sheet(workspace: Path, scianim) -> None:
+    project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
+    assert scianim("codegen", str(project)).returncode == 0
+    candidate = workspace / "candidate" / "style.yaml"
+    candidate.parent.mkdir(exist_ok=True)
+    candidate.write_text(
+        'schema_version: "1.0"\nname: tomas_scientific\nversion: "0.6.0"\ninherits: tomas_scientific@0.5.0\n'
+        'palette:\n  emphasis: "#D9772A"\n'
+    )
+    result = scianim(
+        "style",
+        "stills",
+        str(project),
+        "--candidate",
+        str(candidate),
+        "--snapshot",
+        "circuit_shown",
+        "--profile",
+        "storyboard",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "palette.emphasis" in result.stdout
+    sheets = sorted((project / "renders" / "working").glob("stills_*/stills.html"))
+    assert sheets and sheets[-1].read_text().count("<img") == 2
+    published = scianim(
+        "style", "publish", str(candidate), "tomas_scientific@0.6.0", "--styles-dir", str(workspace / "styles")
+    )
+    assert published.returncode == 0 and (workspace / "styles" / "tomas_scientific" / "0.6.0" / "style.yaml").exists()
+    again = scianim(
+        "style", "publish", str(candidate), "tomas_scientific@0.6.0", "--styles-dir", str(workspace / "styles")
+    )
+    assert again.returncode != 0
+
+
+def test_gabor_filter_renders_the_same_under_the_raster_renderer(workspace: Path, scianim) -> None:
+    """ADR-032: the raster path draws the same clip, its projected boxes within two percent of the frame of the
+    Cairo path's, the floor frame hidden where the surface covers it, and the picture costs a fraction."""
+    project = workspace / "families" / "computational_neuroscience" / "gabor_filter"
+    assert scianim("codegen", str(project)).returncode == 0
+    boxes: dict[str, dict[str, object]] = {}
+    elapsed: dict[str, float] = {}
+    for renderer in ("cairo", "raster"):
+        run = scianim(
+            "snapshot",
+            str(project),
+            "--no-cache",
+            "--id",
+            "with_axes",
+            "--id",
+            "rotating",
+            "--surface-renderer",
+            renderer,
+        )
+        assert run.returncode == 0, run.stdout + run.stderr
+        manifest = manifests(project, "working")[-1]
+        assert manifest.result.status == "succeeded" and manifest.job.manim.surface_renderer == renderer
+        elapsed[renderer] = manifest.result.elapsed_seconds
+        for record in manifest.result.checkpoints:
+            assert record.fidelity == "exact" and record.warnings == []
+            boxes[f"{renderer}:{record.snapshot_id}"] = next(
+                i for i in record.layout if i.object_id == "gabor_surface"
+            ).bbox
+    for snapshot_id in ("with_axes", "rotating"):
+        a, b = boxes[f"cairo:{snapshot_id}"], boxes[f"raster:{snapshot_id}"]
+        for name in ("x", "y", "x2", "y2"):
+            assert abs(getattr(a, name) - getattr(b, name)) < 0.02, (snapshot_id, name, a, b)
+    # Two renderers, two cache keys; the raster job is the quicker by far.
+    cairo_job, raster_job = manifests(project, "working")[-2:]
+    assert cairo_job.job.cache_key != raster_job.job.cache_key
+    assert elapsed["raster"] < elapsed["cairo"]

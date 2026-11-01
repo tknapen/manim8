@@ -50,6 +50,8 @@ class JobRequest:
     samples: dict[str, float] = field(default_factory=dict)
     workers: int = 1
     """Worker processes for a video (0: one per CPU core)."""
+    surface_renderer: str = "cairo"
+    """How surfaces are drawn, `cairo` or `raster` (ADR-032)."""
 
 
 class JobRunner:
@@ -173,6 +175,7 @@ class JobRunner:
                 tool_versions,
                 job_id=job_id,
                 workers=resolve_workers(request.workers),
+                surface_renderer=request.surface_renderer,  # type: ignore[arg-type]
             )
         else:
             job, paths, hashes = build_snapshot_job(
@@ -183,6 +186,7 @@ class JobRunner:
                 request.profile,  # type: ignore[arg-type]
                 tool_versions,
                 job_id=job_id,
+                surface_renderer=request.surface_renderer,  # type: ignore[arg-type]
             )
         if not request.no_cache:
             hit = cached_manifest(project, job.cache_key)

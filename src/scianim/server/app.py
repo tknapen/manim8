@@ -19,6 +19,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from scianim import __version__
+from scianim.agent.feedback_proposals import addressed_ids
+from scianim.agent.feedback_proposals import generate as generate_from_feedback
 from scianim.agent.proposals import list_applied, list_pending
 from scianim.compare import compare_dir, compare_manifests
 from scianim.config.loader import SpecError, format_validation_error
@@ -57,6 +59,8 @@ class JobCreate(BaseModel):
     workers: int = Field(default=1, ge=0)
     """Worker processes for a video: ranges of the clip rendered at the same time and joined; 0 means one per
     CPU core."""
+    surface_renderer: Literal["cairo", "raster"] = "cairo"
+    """How surfaces are drawn: Manim polygons, or one image the bridge paints (ADR-032); enters the cache key."""
 
 
 class FeedbackCreate(BaseModel):
@@ -381,6 +385,7 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
                 body.operation,
                 dict(body.samples),
                 body.workers,
+                body.surface_renderer,
             ),
         )
         return status.model_dump(mode="json")
@@ -447,8 +452,9 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
             "object_id": object_id,
             "kind": kind,
         }
+        answered = addressed_ids(project)
         return [
-            r.model_dump(mode="json")
+            {**r.model_dump(mode="json"), "addressed_by": answered.get(r.id)}
             for r in records
             if all(value is None or getattr(r, key) == value for key, value in filters.items())
         ]
@@ -496,7 +502,40 @@ def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:
         data["path"] = path.relative_to(project.root).as_posix()
         return data
 
-    # --- proposals (read-only: applying runs through the CLI, where the agent works) -------------
+    # --- proposals (read-only, except the rule-based generator; applying runs through the CLI) -----
+    @app.post("/api/projects/{project_id}/proposals/from-feedback", status_code=201)
+    def post_proposals_from_feedback(project_id: str) -> dict[str, Any]:
+        """Turn open feedback and the latest inspection into proposals by rules (ADR-036); nothing is applied."""
+        _, project = project_or_404(project_id)
+        report = validate_project(project, require_family=False)
+        if report.storyboard is None or report.animation is None:
+            raise HTTPException(409, "the project needs a valid animation.yaml and storyboard.yaml")
+        manifest = manifest_for_ref(project, "working")
+        generated = generate_from_feedback(project, report, manifest)
+        index.refresh_project(project_id)
+        return {
+            "proposals": [
+                {
+                    "id": p.id,
+                    "summary": p.summary,
+                    "in_response_to": p.in_response_to,
+                    "path": path.relative_to(project.root).as_posix(),
+                }
+                for p, path in zip(generated.proposals, generated.written, strict=True)
+            ],
+            "unresolved": [
+                {
+                    "reason": u.reason,
+                    "feedback_id": u.feedback_id,
+                    "snapshot_id": u.snapshot_id,
+                    "object_id": u.object_id,
+                    "text": u.text,
+                    "science": u.science,
+                }
+                for u in generated.unresolved
+            ],
+        }
+
     @app.get("/api/projects/{project_id}/proposals")
     def get_proposals(project_id: str) -> dict[str, Any]:
         _, project = project_or_404(project_id)
