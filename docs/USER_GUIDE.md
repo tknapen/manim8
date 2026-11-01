@@ -105,6 +105,18 @@ The review server takes the same `workers` field in a job request. Manim's per-p
 `.scianim/media` does not know when the renderer's code changed; after updating SciAnim, `scianim clean
 --media` keeps old segments out of new movies.
 
+A part's share is a window of frames, not a run of whole plays, so one long sweep can be shared by several
+workers (ADR-031): the planner cuts a play of tracks or a still wait at a frame, keeping at least half a
+second on either side of the cut, and every worker cuts the same plays at the same frames, so the pieces
+render exactly the frames the whole play would have. A play made of arbitrary Manim animations (a custom
+builder's) is never cut. The worker log lists the windows as frames and the plays that were cut. Because each
+piece is encoded as its own stream, the movie's bytes inside a cut play differ from a one-process render's by
+codec noise (the rendered frames are the same, and the sampled frames at checkpoints that open uncut plays are
+byte-identical); the review stills remain what the scene showed at that moment. On the orientation example at
+the storyboard profile, six workers on four cores took 31 s against 32 s in one process, each part taking 16
+to 19 s; at that size the process start and the planning pass are most of a part's time, and the gain grows
+with the cost of a frame.
+
 ## Making something move
 
 A figure can show two conditions side by side; an animation can vary one quantity while the viewer watches the

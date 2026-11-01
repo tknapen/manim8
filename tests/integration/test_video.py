@@ -168,6 +168,93 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     log = (project / ".scianim" / "jobs" / two.job.job_id / "worker.log").read_text()
     assert "balanced by the play times measured in" in log  # the serial render just before supplied them
     assert (project / ".scianim" / "jobs" / two.job.job_id / "parts" / "1" / "result.json").exists()
+
+    # Six workers on a clip whose measured cost sits in two sweeps of 90 and 81 frames: the windows cut those
+    # plays, every part cuts them at the same frames, and the pieces render the frames of the serial render
+    # (ADR-031). The boundaries are predicted here from the same measurements the planner will read.
+    from scianim.project import Project
+    from scianim.render.parallel import boundaries_of, measured_weights, plan_parts, play_starts, split_plan
+
+    plays = sorted(two.result.plays, key=lambda p: p.index)  # the manifest keeps the planning pass's numbering
+    weights = measured_weights(Project(project), plays)
+    assert weights is not None and weights[1] == two.job.job_id
+    expected = plan_parts(plays, weights[0], 6, frame_rate=30.0)
+    cuts = boundaries_of(expected)
+    starts = play_starts(plays)
+    sweeps = [p for p in plays if p.frames in (90, 81)]
+    inside = {p.index: [c for c in cuts if starts[p.index] < c < starts[p.index + 1]] for p in sweeps}
+    assert len(sweeps) == 2 and all(inside.values()), (cuts, inside)
+    cut_plays = sorted({p.source_index for p in split_plan(plays, cuts, 30.0) if p.piece})
+    after_boundary = (inside[sweeps[0].index][0] + 1) / 30
+    six = scianim(
+        "render",
+        str(project),
+        "--profile",
+        "storyboard",
+        "--no-cache",
+        "--workers",
+        "6",
+        "--sample",
+        f"after_boundary={after_boundary!r}",
+    )
+    assert six.returncode == 0, six.stdout + six.stderr
+    many = latest()
+    assert many.job.workers == 6 and many.result.status == "succeeded" and len(many.result.parts) == 6
+    assert [r.part for r in many.result.parts] == expected
+    assert all(r.part.split_frames == cuts for r in many.result.parts)
+    assert all(r.status == "succeeded" for r in many.result.parts)
+    assert [(p.index, p.frames) for p in many.result.plays] == [(p.index, p.frames) for p in one.result.plays]
+    assert all(p.drawn and p.seconds > 0 for p in many.result.plays)
+    [movie_six] = many.result.videos
+    assert (movie_six.frame_count, movie_six.width_px, movie_six.height_px) == (720, 480, 270)
+    assert many.result.timing is not None and many.result.timing.within_tolerance
+    assert [(s.name, s.metadata["frames"]) for s in many.result.sections] == [
+        (s.name, s.metadata["frames"]) for s in one.result.sections
+    ]
+    six_log = (project / ".scianim" / "jobs" / many.job.job_id / "worker.log").read_text()
+    assert f"cut play(s) {cut_plays}" in six_log
+    # The pieces render the frames of the serial render, but a cut play is encoded as several x264 streams, so
+    # inside it the lossy movie carries codec noise against the serial one (ADR-031: a few dozen levels at the
+    # edges of glyphs and curves, mean well under one level). A checkpoint that opens an uncut play, and any
+    # checkpoint that does not open a cut play's short first piece, is byte-identical; a checkpoint opening a
+    # cut play may differ at that level, and so may the frame after a boundary. A piece applied to the wrong
+    # frames would move the grating and the readout, which this bound does not admit.
+    serial_frames = {c.snapshot_id: c for c in one.result.checkpoints}
+    for record in many.result.checkpoints:
+        if record.snapshot_id == "after_boundary":
+            continue
+        reference_record = serial_frames[record.snapshot_id]
+        if reference_record.animation_index in cut_plays:
+            assert _frame_difference(project / record.png, project / reference_record.png) <= 96, record.snapshot_id
+        else:
+            assert record.sha256 == reference_record.sha256, record.snapshot_id
+    # The frame after a window boundary, inside the first sweep, against the same frame of a serial render.
+    reference = scianim(
+        "render",
+        str(project),
+        "--profile",
+        "storyboard",
+        "--no-cache",
+        "--sample",
+        f"after_boundary={after_boundary!r}",
+    )
+    assert reference.returncode == 0, reference.stdout + reference.stderr
+    serial_sample = {c.snapshot_id: c for c in latest().result.checkpoints}["after_boundary"]
+    six_sample = {c.snapshot_id: c for c in many.result.checkpoints}["after_boundary"]
+    assert six_sample.renderer_time_seconds == serial_sample.renderer_time_seconds
+    assert six_sample.scene_id == "model" and six_sample.fidelity == "exact"
+    assert _frame_difference(project / six_sample.png, project / serial_sample.png) <= 96
+
     # The cache does not care how many workers drew the movie.
     again = scianim("render", str(project), "--profile", "storyboard", "--workers", "3")
     assert again.returncode == 0 and "cache hit" in again.stdout
+
+
+def _frame_difference(a: Path, b: Path) -> int:
+    """The largest difference of any channel of any pixel between two sampled frames."""
+    from PIL import Image, ImageChops
+
+    with Image.open(a) as first, Image.open(b) as second:
+        assert first.size == second.size
+        diff = ImageChops.difference(first.convert("RGB"), second.convert("RGB"))
+        return max(high for _low, high in diff.getextrema())

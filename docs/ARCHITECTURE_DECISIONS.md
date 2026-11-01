@@ -639,3 +639,84 @@ like a line of the same document, not a caption from another. Round ends and rim
 smallest marks of a pen on paper, and cost nothing. Each choice is a token because each is a matter of taste
 that a personal layer may revise, and the renderer honours them without reading a style's name.
 
+## ADR-031: Frame windows across workers
+
+**Status:** accepted, 31 October 2026
+
+**Context.** ADR-029 split a parallel render at play boundaries, so a part drew whole plays. The cost of a clip
+sits in a few long plays: in the orientation example the two grating sweeps of 90 and 81 frames take 16 of
+the 20 seconds of drawing, and with six workers on four cores two parts carried them while the others idled.
+The plays that matter are tracks played by `run_until`, which apply an absolute state for a fraction of their
+window, so any frame of them can be drawn without the frames before it.
+
+**Decision.** A part's share is a window of frames, not a run of plays. `plan_parts` places `N - 1` interior
+boundaries, as global frame indices, in order: each at the frame where the per-frame cost since the previous
+boundary reaches an even share of what remains (the cost of a play, measured or estimated, is spread evenly
+over its frames), moved to the nearest allowed position, which is a play's edge or a frame inside a play that
+can be cut, at least half a second (`MIN_PIECE_SECONDS`) from the play's edges and from the previous boundary.
+Placing them in order, each against what remains, means a boundary that had to move does not unbalance the
+windows after it. The sorted boundaries go to every part as `PartRange.split_frames`, with the part's own
+`first_frame` and `last_frame`; the control plane derives the split play list (`split_plan`: one piece per
+interval, numbered in order, each carrying `source_index` and `piece`) and expresses `first_play` and
+`last_play` in that numbering, which is the numbering Manim's animation numbers follow in every part because
+every worker cuts the same plays at the same frames. The parts are checked piece for piece against the split
+plan; the merge joins the pieces' segments in order; the plan's checkpoints are renumbered to the first piece
+of the play that follows them; the manifest keeps the planning pass's numbering, a cut play summing the wall
+times of its pieces and counting as drawn only when every piece was, so serial and windowed renders of a clip
+measure the same plays and the next render balances by either. In the bridge, `play_frames` is the cut: a
+play that crosses a boundary is played as pieces, one Manim play each. A static wait becomes two waits. A play
+of tracks becomes `TrackSegment` pieces that know their offset and the whole play's length, with progress
+`(offset + alpha (frames - 1/2)) / total` below alpha one and `(offset + frames) / total` at one, so frame j of
+a piece lands where frame `offset + j` of the whole play would and a piece's finish lands on the next piece's
+first frame; `finish()` runs once, after the last piece, as before. A play of arbitrary Manim animations (a
+custom builder's) or one in the presence of updaters, whose first frame sees a zero time step, is logged
+`splittable = False` and the planner keeps boundaries out of it. Manim's animation-number window and the
+fast-forward through the other plays are unchanged, so each part still begins from the state one process would
+have reached.
+
+Cutting plays exposed two defects in the bridge, both found by comparing a play drawn whole with the same play
+drawn as pieces, encoded losslessly for the comparison. A readout shows each value as a fresh `Text`
+(ADR-029), and the replaced glyphs were removed from the group and from the camera's fixed-in-frame set; but
+Manim renders the family of a play's moving mobjects as it was when the play began, so the replaced glyphs
+were still drawn, now projected through the three-dimensional camera as a faint slanted ghost of the play's
+first value, in every play in which a readout changed. The pieces each carried a different ghost, which is
+how it showed. Replaced glyphs are now emptied, so a stale reference draws nothing. Second, the clock was pinned by
+adding each play's length to the previous value; reached through pieces, the sum differed in its last bits,
+and a storyboard gap of a frame and a half (23.3 to 23.35 seconds at 30 fps) rounded to two frames in the
+planning pass and one in a part, which the check against the plan refused. The clock is now pinned from the
+integer frame index, `(start + frames) / fps`, the same float in every mode however the frame was reached.
+
+Measured on the orientation clip at the storyboard profile (480 by 270, 30 fps, 720 frames), four cores: one
+process 32.1 s; six workers 30.7 s in all, the parts 16.2 to 19.4 s, with boundaries at frames 340, 438, 487,
+537 and 591 cutting the 90-frame sweep twice and the 81-frame sweep once. With the segments encoded losslessly
+(`crf 0`, through a `manim.cfg` for the experiment) the six-worker movie and the one-process movie decode to
+the same 720 frames, byte for byte, and all seven checkpoint hashes agree; so the pieces render exactly the
+frames the whole plays render. With Manim's default encoder (libx264, crf 23) each piece is its own stream,
+and inside a cut play the two movies differ by codec noise: of the 720 frames exactly the 171 of the two cut
+sweeps differ, the other 549 are byte-identical; the worst frame differs by 67 of 255 in one channel with a
+mean of 0.6, and the frame after a boundary by 42 with a mean of 0.3, spread as speckle along edges and glyphs,
+against the same rendered frame. The sampled frames of every checkpoint that opens an uncut play are
+byte-identical; a checkpoint that opens a cut play whose first piece is shorter than the encoder's look-ahead
+(about forty frames) carries the same noise, because the keyframe is quantised with a different view of what
+follows (`stimulus_mid`, opening a 32-frame first piece: 31 of 255 at most, mean 0.27; the same checkpoint was
+byte-identical in a render whose first piece was 66 frames). The integration test asserts the predicted boundaries, cuts inside both sweeps, exact
+checkpoint hashes where the contract gives them and a bounded difference (at most 96 levels, which a piece
+applied to the wrong frames would far exceed) at a checkpoint opening a cut play and at the sample one frame
+after a boundary. The unit tests cover the window planner (quantiles, snapping to edges and to the half-second
+mark, rebalancing, plays that cannot be cut, every frame covered once, part numbering in the split plan,
+checkpoint renumbering, measured plays summed per source) and the bridge tests drive `TrackSegment` pieces
+by hand, frame for frame against the whole play, and cut plays in a fast-forwarded scene.
+
+**Why.** The frames are the unit a track can produce independently, so they are the unit of work to share;
+whole plays were only ever a convenience of Manim's segment files. The half-second minimum keeps the number of
+streams, static-image renders and part start-ups in proportion to the work, and keeps a cut from landing on a
+piece too short to be worth a worker. The same boundary list in every part is what makes the animation
+numbers agree without a second planning pass, and checking pieces against the split plan is what turns a
+non-deterministic scene into an error rather than a seam. The cost model stays uniform within a play because
+nothing better is measured; the measured cost of a whole play is what a serial and a parallel render both
+record, which is why the manifest keeps the plan's numbering. Codec noise inside a cut play is accepted
+rather than hidden: the rendered frames are proven identical, lossless, and a movie joined from more streams
+cannot be bit-identical to one joined from fewer without re-encoding, which would be a second loss; the
+checkpoints and stills, which are what a scientist reviews, keep their exact identity wherever they open an
+uncut play, and the review stills from `scianim snapshot` never pass through the encoder at all.
+

@@ -17,6 +17,7 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any
 
 from manim import DOWN, LEFT, UP, Animation, FadeIn, ManimColor, Mobject, Text, ThreeDScene, VGroup, config
@@ -124,19 +125,35 @@ class TrackSegment(Animation):
     frame of a segment sits one step short of the breakpoint, where the next segment's first frame lands, so
     motion crosses breakpoints without a hitch. Alpha 1 (the finish, and the single step of fast-forward mode)
     lands exactly on f1, which is what a checkpoint at the breakpoint captures.
+
+    A piece of a play cut at a window boundary (ADR-031) covers `frames` of a whole play of `total` frames,
+    starting `offset` frames into it: frame j of the piece is frame `offset + j` of the whole play, so it lands
+    at progress `(offset + j) / total`, exactly where the whole play would have put it, and alpha 1 lands at
+    `(offset + frames) / total`, the first frame of the next piece (and f1 for the last piece). The whole play
+    is the case `offset = 0, total = frames`.
     """
 
-    def __init__(self, track: Track, f0: float, f1: float, frames: int = 0) -> None:
+    def __init__(
+        self, track: Track, f0: float, f1: float, frames: int = 0, offset: int = 0, total: int | None = None
+    ) -> None:
         super().__init__(track.mobject, rate_func=linear, introducer=True)
         self.track, self.f0, self.f1, self.frames = track, f0, f1, frames
+        self.offset = offset
+        self.total = frames if total is None else total
 
     def progress(self, alpha: float) -> float:
-        if alpha >= 1.0 or self.frames <= 0:
+        if self.frames <= 0 or self.total <= 0:
             return min(1.0, max(0.0, alpha))
-        return alpha * (self.frames - 0.5) / self.frames
+        if alpha >= 1.0:
+            return min(1.0, (self.offset + self.frames) / self.total)
+        return (self.offset + max(0.0, alpha) * (self.frames - 0.5)) / self.total
 
     def interpolate_mobject(self, alpha: float) -> None:
         self.track.apply(self.f0 + (self.f1 - self.f0) * self.progress(alpha))
+
+    def piece(self, offset: int, frames: int) -> TrackSegment:
+        """The same segment over the frames [offset, offset + frames) of the whole play this one stands for."""
+        return TrackSegment(self.track, self.f0, self.f1, frames, offset=self.offset + offset, total=self.total)
 
 
 @dataclass
@@ -387,7 +404,15 @@ class SnapshotScene(ThreeDScene):
         self.checkpoint_log: list[dict[str, Any]] = []
         self.play_log: list[dict[str, Any]] = []
         """Every play or wait: Manim's animation number, the storyboard scene, the clock at its start and its
-        frames. The same in every mode, so a planning pass can split a video into ranges of plays (ADR-029)."""
+        frames. The same in every mode, so a planning pass can split a video into ranges of plays (ADR-029).
+        A play cut at a window boundary logs one entry per piece, each with the play's `source_index` and its
+        `piece` number (ADR-031)."""
+        self.split_frames: list[int] = []
+        """Global frame indices at which plays are cut into pieces: the window boundaries of a parallel render,
+        the same list in every part, so every worker numbers the pieces alike. Empty outside a part."""
+        self._source_plays = 0
+        """How many plays `play_frames` has been asked for: the index of the next one in the planning pass's
+        numbering, whatever pieces it is cut into."""
         self.narration_log: list[dict[str, Any]] = []
         self.timing_warnings: list[str] = []
         self.render_warnings: list[str] = []
@@ -430,14 +455,44 @@ class SnapshotScene(ThreeDScene):
         frame; asking for half a frame less yields exactly `frames` frames. The clock is then set
         explicitly, so it stays exact whether the play was rendered, skipped or served from Manim's
         cache, and every storyboard time maps to one frame index (spec section 8.4).
+
+        This is where a parallel render's window boundaries cut a play (ADR-031). A play that crosses one of
+        `split_frames` is played as pieces, one Manim play each: a static wait becomes two waits, a play of
+        tracks becomes `TrackSegment` pieces that know their offset in the whole play, so every piece renders
+        the frames the whole play would have. A play of arbitrary Manim animations, or one with updaters (whose
+        first frame sees a zero time step), cannot be cut; it is logged `splittable = False` and the planner
+        keeps boundaries out of it.
         """
         if frames < 1:
             return
         fps = float(config.frame_rate)
-        before = self.clock
-        index = int(self.renderer.num_plays)
+        source = self._source_plays
+        self._source_plays += 1
         family = [m for mob in self.mobjects for m in mob.get_family()]
-        static = False
+        has_updaters = bool(self.updaters) or any(m.get_updaters() for m in family)
+        static = not animations and not has_updaters
+        splittable = (
+            not kwargs and not has_updaters and (static or all(isinstance(a, TrackSegment) for a in animations))
+        )
+        start = round(self.clock * fps)
+        cuts = [b - start for b in sorted(set(self.split_frames)) if start < b < start + frames] if splittable else []
+        edges = [0, *cuts, frames]
+        for piece, (a, b) in enumerate(pairwise(edges)):
+            pieces = [segment.piece(a, b - a) for segment in animations] if cuts else list(animations)
+            self._play_piece(b - a, pieces, kwargs, static=static)
+            self.play_log[-1].update({"splittable": splittable, "source_index": source, "piece": piece})
+
+    def _play_piece(self, frames: int, animations: Sequence[Any], kwargs: dict[str, Any], *, static: bool) -> None:
+        """One Manim play of exactly `frames` frames, logged with its animation number, clock and cost.
+
+        The clock is pinned from the integer frame index, `(start + frames) / fps`, not by adding to the previous
+        value: the float is then the same in every mode however the frame was reached, whereas a sum reached
+        through pieces differs in the last bits and can round a half-frame storyboard gap the other way.
+        """
+        fps = float(config.frame_rate)
+        before = self.clock
+        start = round(before * fps)
+        index = int(self.renderer.num_plays)
         started = time.perf_counter()
         if animations:
             # Animated plays render `len(np.arange(0, run_time, 1/fps))` frames: half a frame less rounds up.
@@ -445,10 +500,9 @@ class SnapshotScene(ThreeDScene):
         else:
             # A static wait repeats one frame `int(run_time * fps)` times: half a frame more truncates down.
             # A wait with updaters renders frame by frame like an animation.
-            static = not self.updaters and not any(m.get_updaters() for m in family)
             run_time = (frames + 0.5) / fps if static else (frames - 0.5) / fps
             self.wait(run_time, frozen_frame=static)
-        self.renderer.time = before + frames / fps
+        self.renderer.time = (start + frames) / fps
         # Manim leaves `skip_animations` set when it fast-forwarded the play or served it from its per-play cache.
         drawn = not bool(getattr(self.renderer, "skip_animations", False))
         self.play_log.append(
@@ -729,15 +783,23 @@ class SnapshotScene(ThreeDScene):
         before, so the outlines would carry the history of every value displayed, and a scene fast-forwarded
         through a sweep (one value) would not match the same scene rendered frame by frame (ninety values). The
         checkpoints, Manim's per-play cache and the parts of a parallel render all rely on that match (ADR-029).
+
+        The replaced text is emptied, not just removed: Manim draws the family of a play's moving mobjects as
+        it was when the play began, so glyphs replaced during a sweep were still drawn, and once out of the
+        fixed-in-frame set they were projected through the three-dimensional camera as a faint slanted ghost
+        of the play's first value. Found by comparing a play rendered whole with the same play rendered as
+        pieces (ADR-031), whose ghosts differed; without points the stale glyphs draw nothing.
         """
         group = readout.component.group
         fresh = Text(text, **self.tokens.text_kwargs(readout.typeface, readout.color))
         fixed = getattr(self.renderer.camera, "fixed_in_frame_mobjects", None)
         for old in list(group.submobjects):
             group.remove(old)
-            if fixed is not None:
-                for member in old.get_family():
+            for member in old.get_family():
+                if fixed is not None:
                     fixed.discard(member)
+                member.reset_points()
+            old.submobjects = []
         group.add(fresh)
         readout.place()
         readout.component.text = text
