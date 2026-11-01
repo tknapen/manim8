@@ -96,6 +96,9 @@ class Component:
     on_ink: Callable[[], None] | None = None
     """Called after a fade changes the object's ink, for objects that keep parts of themselves hidden (a
     sphere's back faces) and must reapply that after every change."""
+    placement: Any = None
+    """The `Placement` that `move_object` actions move a flat object with, made by the first such move, with the
+    object's centre at that moment as its origin (ADR-039)."""
     layout_bbox: Callable[[], BBox] | None = None
     """The object's box on screen, when it knows it better than the layout report can read from its mobjects
     (a raster surface reports its projected vertex extents); None lets the report measure the group."""

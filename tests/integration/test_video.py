@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scianim.server.app import create_app
-from scianim_core import ArtifactManifest
+from scianim_core import ArtifactManifest, WorkerResult
 
 pytestmark = [pytest.mark.integration, pytest.mark.video]
 
@@ -260,6 +260,37 @@ def test_parallel_render_matches_the_serial_one(workspace: Path, scianim) -> Non
     assert again.returncode == 0 and "cache hit" in again.stdout
 
 
+def _reuse_report(project: Path, first: ArtifactManifest, second: ArtifactManifest, redrawn: list[int]) -> str:
+    """What a failed reuse assertion needs to be read without the workspace: both renders' plays with their
+    hashes, the parts, and the second render's log."""
+
+    def plays(manifest: ArtifactManifest) -> str:
+        return " ".join(
+            f"{p.index}{'D' if p.drawn else '-'}{(p.content_hash or '')[:8]}"
+            for p in sorted(manifest.result.plays, key=lambda p: p.index)
+        )
+
+    job_dir = project / ".scianim" / "jobs" / second.job.job_id
+    lines = [
+        f"plays {redrawn} of unchanged scenes were drawn",
+        f"first  {first.job.job_id} (workers {first.job.workers}): {plays(first)}",
+        f"second {second.job.job_id} (workers {second.job.workers}): {plays(second)}",
+    ]
+    for report in second.result.parts:
+        result = job_dir / "parts" / str(report.part.index) / "result.json"
+        if result.exists():
+            pieces = WorkerResult.model_validate_json(result.read_text()).plays
+            listed = " ".join(
+                f"{q.index}:{q.source_index}.{q.piece}{'D' if q.drawn else '-'}{(q.content_hash or '')[:8]}"
+                for q in pieces
+                if report.part.first_play <= q.index <= report.part.last_play
+            )
+            lines.append(f"part {report.part.index} {report.part.first_play}..{report.part.last_play}: {listed}")
+    log = job_dir / "worker.log"
+    lines.append(f"--- worker.log ---\n{log.read_text() if log.exists() else '(missing)'}")
+    return "\n".join(lines)
+
+
 def _frame_difference(a: Path, b: Path) -> int:
     """The largest difference of any channel of any pixel between two sampled frames."""
     from PIL import Image, ImageChops
@@ -302,7 +333,8 @@ def test_a_rerender_draws_only_what_changed(workspace: Path, scianim) -> None:
     by_scene: dict[str, list] = {}
     for play in second.result.plays:
         by_scene.setdefault(str(play.scene_id), []).append(play)
-    assert not any(p.drawn for p in by_scene["circuit"] + by_scene["data"])  # all from the store
+    redrawn = [p.index for p in by_scene["circuit"] + by_scene["data"] if p.drawn]
+    assert not redrawn, _reuse_report(project, first, second, redrawn)  # all from the store
     assert any(p.drawn for p in by_scene["model"])  # the sharpening was drawn anew
     assert "came unchanged from the segment store" in second_run.stdout
     log = (project / ".scianim" / "jobs" / second.job.job_id / "worker.log").read_text()

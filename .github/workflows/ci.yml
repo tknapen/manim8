@@ -54,7 +54,20 @@ jobs:
       - run: uv run scianim doctor --project workspace/families/computational_neuroscience/divisive_normalization
       - run: uv run scianim workspace list workspace
       - run: uv run --project workspace/families/computational_neuroscience pytest packages/scianim_bridge/tests -q
-      - run: uv run pytest tests/integration -q -m integration
+      - run: uv run pytest tests/integration -q -m integration --basetemp="$RUNNER_TEMP/pytest"
+      - name: Keep the render records of a failed integration run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-render-records
+          path: |
+            ${{ runner.temp }}/pytest/**/manifest.json
+            ${{ runner.temp }}/pytest/**/worker.log
+            ${{ runner.temp }}/pytest/**/result.json
+            ${{ runner.temp }}/pytest/**/job.json
+            !${{ runner.temp }}/pytest/**/.venv/**
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Render the dry-run example for the browser test
         run: |
           uv run scianim codegen workspace/families/computational_neuroscience/prf_tuning

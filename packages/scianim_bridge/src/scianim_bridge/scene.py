@@ -42,6 +42,7 @@ from scianim_bridge import context as _context
 from scianim_bridge.camera import SnapshotCamera
 from scianim_bridge.components.base import Component, ParametricComponent, pretty_symbol
 from scianim_bridge.components.equations import Correspondence, EquationComponent, match_equations, typeset_equation
+from scianim_bridge.placement import Placement
 from scianim_bridge.tokens import Tokens
 from scianim_core.timing import frames_for
 
@@ -683,6 +684,7 @@ class SnapshotScene(ThreeDScene):
         self.renderer.time = (start + frames) / fps
         # Manim leaves `skip_animations` set when it fast-forwarded the play or served it from its per-play cache.
         drawn = not bool(getattr(self.renderer, "skip_animations", False))
+        hashes = getattr(self.renderer, "animations_hashes", None) or [None]
         self.play_log.append(
             {
                 "index": index,
@@ -691,6 +693,7 @@ class SnapshotScene(ThreeDScene):
                 "frames": frames,
                 "static": static,
                 "drawn": drawn,
+                "hash": hashes[index] if len(hashes) > index else None,
                 "seconds": time.perf_counter() - started,
             }
         )
@@ -1102,7 +1105,15 @@ class SnapshotScene(ThreeDScene):
                     raise ValueError(f"action '{action_id}': move_object needs to_anchor, by or to_point")
                 x0, y0, x1, y1 = self.tokens.safe_rect()
                 target = start + np.array([by[0] * (x1 - x0), by[1] * (y1 - y0), 0.0])
-            setter = group.move_to
+            if component.placement is None:
+                component.placement = Placement(group, origin=start)
+            placement: Placement = component.placement
+
+            def place(position: np.ndarray) -> None:
+                # Base points plus one offset, not `move_to`, which shifts the points by whatever is left (ADR-039).
+                placement.place(position - placement.origin)
+
+            setter = place
         track = MoveTrack(
             scene=self,
             track_id=action_id,
@@ -1243,18 +1254,29 @@ class SnapshotScene(ThreeDScene):
             sweep.retarget(component)
 
     def run_until(self, seconds: float, tracks: Sequence[Track]) -> None:
-        """Advance every track to the storyboard time `seconds` in one play, frame-exact."""
+        """Advance every track to the storyboard time `seconds` in one play, frame-exact.
+
+        Moves apply first in every frame, so a sweep of the same object redraws its curves and markers from the
+        moved axes, and the play ends in the same state whether Manim drew it or applied it once (ADR-039). An
+        object that a segment brings into the scene still joins it in the order the tracks were given, which is
+        its drawing order."""
         targets = [(track, track.target_fraction(seconds)) for track in tracks]
         frames = self.frames(seconds - self.clock)
         if frames >= 1:
-            self.play_frames(frames, *[TrackSegment(track, track.fraction, f1, frames) for track, f1 in targets])
+            segments = [TrackSegment(track, track.fraction, f1, frames) for track, f1 in targets]
+            present = self.get_mobject_family_members()
+            for segment in segments:  # as Manim would add them when the play begins, in this order
+                if segment.mobject not in present:
+                    self.add(segment.mobject)
+                    present += segment.mobject.get_family()
+            self.play_frames(frames, *sorted(segments, key=lambda segment: not isinstance(segment.track, MoveTrack)))
         else:
             if seconds < self.clock - self.frame_seconds:
                 names = ", ".join(track.track_id for track in tracks)
                 self.timing_warnings.append(
                     f"tracks {names} should reach {seconds:g}s but the clock is already {self.clock:.3f}s"
                 )
-            for track, f1 in targets:
+            for track, f1 in sorted(targets, key=lambda target: not isinstance(target[0], MoveTrack)):
                 track.apply(f1)
         for track, f1 in targets:
             track.fraction = f1

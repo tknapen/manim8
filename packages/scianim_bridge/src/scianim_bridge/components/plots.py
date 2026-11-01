@@ -8,6 +8,7 @@ from manim import DOWN, LEFT, PI, RIGHT, UP, Axes, DashedLine, Line, ManimColor,
 
 from scianim_bridge.components.base import Component, ParametricComponent, params_for, pretty_condition, register
 from scianim_bridge.data import Series, apply_binding
+from scianim_bridge.placement import member_points, restore_points
 from scianim_bridge.tokens import Tokens
 from scianim_core.expressions import compile_expression
 from scianim_core.storyboard import DataBinding
@@ -423,6 +424,16 @@ def function_plot(
     font_px = tokens.smallest_text_px(*_text_roles(caption=bool(p.data_label), annotation=labelled))
     low, high = y_range[0], y_range[1]
     clipped: set[str] = set()
+    # Each marker as built, with the foot of its line: a rebuild sets the line and the label from these and the
+    # axes, not by shifting the live ones from wherever the previous frame left them (ADR-039).
+    marker_bases = [
+        (
+            member_points(line),
+            np.asarray(axes.c2p(p.marker_x(marker), low), dtype=float),
+            member_points(text) if text is not None else None,
+        )
+        for marker, line, text in marker_parts
+    ]
 
     def rebuild(values: dict[str, float]) -> list[str]:
         """Move curves and markers to the given parameter values; the axes never change."""
@@ -435,10 +446,15 @@ def function_plot(
                     f"parameters {values}; it is clipped at the edge"
                 )
             line.set_points_as_corners([axes.c2p(x, min(max(y, low), high)) for x, y in zip(sx, sy, strict=True)])
-        positions = [float(axes.c2p(p.marker_x(marker, values), low)[0]) for marker, _, _ in marker_parts]
-        for (_, line, _), px in zip(marker_parts, positions, strict=True):
-            line.set_x(px)
-        arrange_labels(positions)
+        feet = [np.asarray(axes.c2p(p.marker_x(marker, values), low), dtype=float) for marker, _, _ in marker_parts]
+        for (_, line, text), (line_base, foot_base, text_base), foot in zip(
+            marker_parts, marker_bases, feet, strict=True
+        ):
+            if not restore_points(line, line_base, foot - foot_base):
+                line.set_x(float(foot[0]))
+            if text is not None and text_base is not None:
+                restore_points(text, text_base)
+        arrange_labels([float(foot[0]) for foot in feet])
         return warnings
 
     component = FunctionPlotComponent(

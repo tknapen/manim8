@@ -661,6 +661,18 @@
       "additionalProperties": false,
       "description": "One `play` of the generated scene, as the planning pass saw it in fast-forward.",
       "properties": {
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
         "drawn": {
           "default": false,
           "title": "Drawn",

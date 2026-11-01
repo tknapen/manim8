@@ -11,6 +11,7 @@ import numpy as np
 from manim import PI, Surface, VGroup
 
 from scianim_bridge.components.base import Component, params_for, register
+from scianim_bridge.placement import Placement
 
 if TYPE_CHECKING:
     from scianim_bridge.scene import SnapshotScene
@@ -30,12 +31,13 @@ class SphereComponent(Component):
     mesh: VGroup | None = None
 
     def place_at(self, point: Sequence[float]) -> None:
+        """Centre the sphere at `point`: every face, culled ones included, so they return in the right place, at
+        its points as built plus one offset, not shifted from where the last frame left it (ADR-039)."""
         if self.to_world is None or self.mesh is None:
             return
-        target = np.asarray(self.to_world(point), dtype=float)
-        current = np.asarray(self.to_world(self.data_point), dtype=float)
-        for face in self.faces:  # every face, culled ones included, so they return in the right place
-            face.shift(target - current)
+        if self.placement is None:
+            self.placement = Placement(self.mesh, origin=np.asarray(self.to_world(self.data_point), dtype=float))
+        self.placement.place(np.asarray(self.to_world(point), dtype=float) - self.placement.origin)
         self.data_point = np.asarray(point, dtype=float)
 
     full_opacity: float = 1.0

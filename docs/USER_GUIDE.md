@@ -118,7 +118,8 @@ with the cost of a frame.
 Every finished segment goes into a segment store under `.scianim/segments/`, shared by all renders of the
 project drawn by the same code at the same settings. Before drawing a play, a worker looks it up there by
 Manim's content hash, so a render after a change draws only the plays the change touched, whatever the
-number of workers; the report says how many plays were drawn and how many came from the store. The store and
+number of workers; the report says how many plays were drawn and how many came from the store, and the
+manifest records each play's content hash, so two renders can be compared play by play. The store and
 Manim's cache are keyed by a fingerprint of the bridge's code, so updating SciAnim never reuses pictures drawn
 by the old code; `scianim clean` removes both.
 

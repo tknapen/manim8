@@ -85,6 +85,10 @@ class PlayRecord(StrictModel):
     `None` only in records written before the field existed."""
     piece: int = Field(default=0, ge=0)
     """Which piece of its source play this record is, counting from zero; `0` for a whole play."""
+    content_hash: str | None = None
+    """Manim's content hash of the play when the worker drew it or found it cached: the name of its segment in
+    the store (ADR-033). None when the play was fast-forwarded, and, in a parallel render's manifest, for a play
+    cut into pieces, which have a hash each."""
 
 
 class ReachedCheckpoint(StrictModel):

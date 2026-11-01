@@ -141,6 +141,7 @@ def play_records(scene: Any) -> list[PlayRecord]:
             splittable=bool(e.get("splittable", True)),
             source_index=e.get("source_index"),
             piece=int(e.get("piece", 0)),
+            content_hash=e.get("hash"),
         )
         for e in scene.play_log
     ]

@@ -788,7 +788,7 @@ specimen was made from it and no output may change before the author has looked 
 
 ## ADR-033: A segment store shared by every render, keyed by the drawing code
 
-**Status:** accepted, 1 November 2026
+**Status:** accepted, 1 November 2026; the measurement below is corrected in ADR-039
 
 **Context.** The work plan asked for splicing: reuse the section videos of scenes a change does not touch. Two
 facts changed the design. First, Manim already keeps a per-play cache: before drawing a play it hashes the
@@ -1043,3 +1043,47 @@ exists.
 clips that matter, and publishing is a copy, so the history of versions stays a record of what was accepted.
 The candidate tokens to put forward first are the emphasis orange against the blue, the camera's starting
 angles and the light's azimuth, the motion ramp and hold, and the label sizes.
+
+## ADR-039: A play leaves the same state however Manim executes it
+
+**Status:** accepted, 1 November 2026
+
+**Context.** The segment store (ADR-033) reuses a play when Manim's hash of the scene's state at the play's start
+names a stored segment, and that state is whatever the earlier plays left. Manim executes a play in one of three
+ways: it draws it, applying every track once per frame; it fast-forwards it (a part's plays before its window,
+the planning pass, snapshots); or it finds it cached and skips it. The last two apply each track once, at the
+play's end. Three updates were incremental: a `function_plot` shifted its marker lines and labels from where the
+previous frame had left them (`set_x`, `next_to`), `move_object` moved a flat object with `move_to`, and a
+sphere's faces were shifted by the difference between successive positions. Floating-point addition is not
+associative, so ninety shifts end one rounding away from one shift to the same place. On the orientation clip
+the stimulus marker's label ended 8.9e-16 scene units from where a skipped play put it: invisible, but a
+different hash for the next play and for every play after it. A serial re-render of the unchanged clip after a
+first one therefore drew again every play after the first marker sweep (plays 20 to 25 of 26), and so did each
+part of a parallel render whose window began after that sweep. Of the 7 plays ADR-033 measured as redrawn
+after a change to the last sweep, only the 3 from that sweep on were redrawn because of the change.
+
+**Decision.** A track sets the state it owns from its fraction and from the state when it began, never by
+adding to the previous frame's state. `Placement` (bridge) moves a group by setting every member's points to
+base points plus one offset; a member's base is its points when the placement first saw it, less the offset
+then in force, so a member that another track redrew or added since is rebased as it now is. `move_object`
+uses one per object, with the object's centre when its first move began as the origin; a sphere uses one over
+its faces, with its world centre as built. A `function_plot` keeps every marker line and label as built and,
+on each rebuild, restores them and places them from the axes. `run_until` applies moves before every other
+track in each frame, so a sweep of a moving object redraws from the moved axes, and its last application, at
+the play's end, is the same in every mode; objects that a play brings into the scene still join it in the order
+the generated code lists the tracks, which is their drawing order. The bridge test `test_purity` runs a marker sweep, two moves beside
+a sweep of the moved plot, and a falling sphere, once drawn and once fast-forwarded, and compares Manim's own
+hash of the resulting states; before this change all three pairs differed. `PlayRecord.content_hash` records
+each play's hash, the name of its segment in the store, in serial and parallel manifests alike (none for a cut
+play, whose pieces each have one), so a miss can be traced to the play where two renders diverged.
+
+Measured at the storyboard profile after the change: on the orientation clip a serial render drew all 26
+plays, and an unchanged re-render drew none of them, serially and with three workers.
+
+**Why.** The alternative was a tolerant hash, rounding the points before Manim hashes them. Rounding makes
+misses rare, not impossible, because two values an ulp apart can sit on either side of a rounding boundary,
+and the key would no longer be Manim's. Exact state also keeps a part's frames those of a serial render
+(ADR-031) and a checkpoint the same in every mode (ADR-029), as the readouts' fresh text already did. The
+price is a copy of a moving object's points per frame, small beside drawing them. Tracks that set points from
+copies taken when they began, reveals and equation transforms, still do not follow a concurrent move of the
+same object; that was so before, and the purity test does not cover it.

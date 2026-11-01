@@ -30,3 +30,7 @@ Fixed:
   fades carries its running tracks through the fade. The camera of the Gabor and `drop_impact` clips now comes
   to rest at the clip's end. Regenerate scenes with `scianim codegen`.
 - Status and manifest files are written atomically, so the review server never reads one half written.
+- A re-render redrew every play after the first sweep that moved a plot marker, and after any `move_object`,
+  even when nothing had changed: those updates shifted points frame by frame, so a drawn play ended a rounding
+  away from a cached one and the next play's hash missed the segment store. Moves and markers are now placed
+  exactly, and an unchanged re-render draws nothing (ADR-039). Play records carry their content hash.

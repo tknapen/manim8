@@ -453,12 +453,14 @@ def _check_parts_against_plan(
 
 
 def _measured_plays(plan: Sequence[PlayRecord], parts: Sequence[WorkerResult]) -> list[PlayRecord]:
-    """The plan's plays with the wall time each took in the parts that produced its segments, and whether they
-    drew it or Manim served it from its cache, so the next render can balance by measurement. A play cut into
-    pieces sums its pieces and counts as drawn only when every piece was; the manifest keeps the planning
-    pass's numbering, so serial and parallel renders of a clip measure the same plays."""
+    """The plan's plays with the wall time each took in the parts that produced its segments, whether they
+    drew it or Manim served it from its cache, and its content hash, so the next render can balance by
+    measurement and a reader can see which plays matched the store. A play cut into pieces sums its pieces,
+    counts as drawn only when every piece was, and has no single hash; the manifest keeps the planning pass's
+    numbering, so serial and parallel renders of a clip measure the same plays."""
     seconds: dict[int, float] = {}
     drawn: dict[int, bool] = {}
+    hashes: dict[int, list[str | None]] = {}
     for part in parts:
         produced = {segment.play_index for segment in part.segments}
         for play in part.plays:
@@ -466,8 +468,15 @@ def _measured_plays(plan: Sequence[PlayRecord], parts: Sequence[WorkerResult]) -
                 source = play.source_index if play.source_index is not None else play.index
                 seconds[source] = seconds.get(source, 0.0) + play.seconds
                 drawn[source] = drawn.get(source, True) and play.drawn
+                hashes.setdefault(source, []).append(play.content_hash)
     return [
-        play.model_copy(update={"seconds": seconds[play.index], "drawn": drawn[play.index]})
+        play.model_copy(
+            update={
+                "seconds": seconds[play.index],
+                "drawn": drawn[play.index],
+                "content_hash": hashes[play.index][0] if len(hashes[play.index]) == 1 else None,
+            }
+        )
         if play.index in seconds
         else play
         for play in plan
