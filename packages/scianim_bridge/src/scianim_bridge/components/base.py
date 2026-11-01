@@ -96,6 +96,10 @@ class Component:
     on_ink: Callable[[], None] | None = None
     """Called after a fade changes the object's ink, for objects that keep parts of themselves hidden (a
     sphere's back faces) and must reapply that after every change."""
+    settle: Callable[[], None] | None = None
+    """Called at the end of every play, for objects that draw themselves lazily when a frame is captured (a raster
+    surface paints then): they bring their state up to date, so a play leaves the same state whether Manim drew
+    it or not, and the next play's hash sees it (ADR-039)."""
     placement: Any = None
     """The `Placement` that `move_object` actions move a flat object with, made by the first such move, with the
     object's centre at that moment as its origin (ADR-039)."""

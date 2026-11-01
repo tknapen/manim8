@@ -1060,7 +1060,11 @@ the stimulus marker's label ended 8.9e-16 scene units from where a skipped play 
 different hash for the next play and for every play after it. A serial re-render of the unchanged clip after a
 first one therefore drew again every play after the first marker sweep (plays 20 to 25 of 26), and so did each
 part of a parallel render whose window began after that sweep. Of the 7 plays ADR-033 measured as redrawn
-after a change to the last sweep, only the 3 from that sweep on were redrawn because of the change.
+after a change to the last sweep, only the 3 from that sweep on were redrawn because of the change. Two more
+pieces of hashed state were brought up to date only when Manim captured a frame: the camera's cached rotation
+matrix, which an orbit leaves behind its angles, and a raster surface's image, painted when the camera asks
+for its pixels (ADR-032). After an orbit or a raster sweep, a drawn play left them as of its last frame and a
+skipped one as of whenever they were last captured.
 
 **Decision.** A track sets the state it owns from its fraction and from the state when it began, never by
 adding to the previous frame's state. `Placement` (bridge) moves a group by setting every member's points to
@@ -1071,11 +1075,17 @@ its faces, with its world centre as built. A `function_plot` keeps every marker 
 on each rebuild, restores them and places them from the axes. `run_until` applies moves before every other
 track in each frame, so a sweep of a moving object redraws from the moved axes, and its last application, at
 the play's end, is the same in every mode; objects that a play brings into the scene still join it in the order
-the generated code lists the tracks, which is their drawing order. The bridge test `test_purity` runs a marker sweep, two moves beside
-a sweep of the moved plot, and a falling sphere, once drawn and once fast-forwarded, and compares Manim's own
-hash of the resulting states; before this change all three pairs differed. `PlayRecord.content_hash` records
-each play's hash, the name of its segment in the store, in serial and parallel manifests alike (none for a cut
-play, whose pieces each have one), so a miss can be traced to the play where two renders diverged.
+the generated code lists the tracks, which is their drawing order. `camera_moved`, which every orbit step calls,
+and `ensure_camera` refresh the camera's rotation matrix, so it follows the angles. A component may declare
+`settle`, which the end of every play calls: a raster surface paints there when anything changed, so the image
+a play leaves is painted for the play's end in every mode, at the cost of one painting per play that changed
+it, in fast-forward too. The bridge test `test_purity` runs six scenes once drawn and once fast-forwarded and
+compares Manim's own hash of the resulting states: a marker sweep; two moves beside a sweep of the moved plot;
+a falling sphere; a surface reshaped while the camera orbits and its axes fade, drawn by Cairo and by the
+raster renderer; and an equation transform beside an object fade. Before this change the first five pairs
+differed; the transform and the fade were already exact. `PlayRecord.content_hash` records each play's hash,
+the name of its segment in the store, in serial and parallel manifests alike (none for a cut play, whose pieces
+each have one), so a miss can be traced to the play where two renders diverged.
 
 Measured at the storyboard profile after the change: on the orientation clip a serial render drew all 26
 plays, and an unchanged re-render drew none of them, serially and with three workers.

@@ -456,6 +456,7 @@ def _raster_surface(
         rebuild=rebuild,
     )
     component.on_camera = raster.invalidate
+    component.settle = raster.refresh
     component.layout_bbox = layout_bbox
     # The data-to-world map other objects anchor to (a `sphere`, ADR-034): the same lifted axes as the Cairo path.
     component.to_world = lambda point: axes.c2p(*point)

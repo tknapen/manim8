@@ -67,6 +67,54 @@ def sphere(scene) -> None:
     scene.run_until(1.0, [fall])
 
 
+RIDGE = {**FLAT_SURFACE, "expression": "a * x * y / 9", "parameters": {"a": 0}}
+
+
+def _surface(scene, renderer: str) -> None:
+    """A surface reshaped by a sweep with a readout while the camera orbits and its axes fade out."""
+    from scianim_bridge import components as C
+
+    scene.surface_renderer = renderer
+    surface = C.surface_plot(scene, "surface", params=RIDGE)
+    _shown(scene, surface)
+    lift = scene.begin_vary(surface, "a", to=1.0, at_seconds=0, duration_seconds=1, action_id="lift")
+    turn = scene.begin_orbit(
+        to_theta_degrees=-20, to_phi_degrees=55, at_seconds=0, duration_seconds=1, action_id="turn"
+    )
+    hide = scene.begin_fade_axes(surface, visible=False, at_seconds=0, duration_seconds=1, action_id="hide")
+    scene.run_until(1.0, [lift, turn, hide])
+
+
+def cairo_surface(scene) -> None:
+    _surface(scene, "cairo")
+
+
+def raster_surface(scene) -> None:
+    _surface(scene, "raster")
+
+
+def fades_and_transform(scene) -> None:
+    """An equation transformed into another while a caption fades out."""
+    from types import SimpleNamespace
+
+    from scianim_bridge import components as C
+    from scianim_core.animation import Equation
+
+    before = Equation.model_validate(
+        {"id": "before", "typst": "g = cos(theta) + phi", "symbols": {"theta": {"meaning": "angle"}}}
+    )
+    after = Equation.model_validate(
+        {"id": "after", "typst": "g = cos(theta) sin(theta)", "symbols": {"theta": {"meaning": "angle"}}}
+    )
+    scene.ctx = SimpleNamespace(equations={"before": before, "after": after})
+    label = C.equation_label(scene, "label", equation={"id": "before"}, params={"text": "g", "anchor": "top_left"})
+    note = C.text_caption(scene, "note", params={"text": "a note", "anchor": "bottom_right"})
+    _shown(scene, label, note)
+    change = scene.begin_transform(label, to="after", at_seconds=0, duration_seconds=1, action_id="change")
+    away = scene.begin_fade_object(note, visible=False, at_seconds=0, duration_seconds=1, action_id="away")
+    scene.run_until(1.0, [change, away])
+
+
 def _run(tmp_path: Path, build: Callable, *, skip: bool) -> str:
     """The scene drawn (every frame interpolated and captured) or fast-forwarded (each play applied once); the
     state hash after the last play."""
@@ -108,6 +156,8 @@ def _run(tmp_path: Path, build: Callable, *, skip: bool) -> str:
     return scene.final_hash
 
 
-@pytest.mark.parametrize("build", [markers, moves, sphere], ids=lambda f: f.__name__)
+@pytest.mark.parametrize(
+    "build", [markers, moves, sphere, cairo_surface, raster_surface, fades_and_transform], ids=lambda f: f.__name__
+)
 def test_drawn_and_fast_forwarded_plays_leave_the_same_state(tmp_path: Path, build: Callable) -> None:
     assert _run(tmp_path, build, skip=False) == _run(tmp_path, build, skip=True)

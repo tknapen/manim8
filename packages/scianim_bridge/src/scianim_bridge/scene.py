@@ -682,6 +682,9 @@ class SnapshotScene(ThreeDScene):
             run_time = (frames + 0.5) / fps if static else (frames - 0.5) / fps
             self.wait(run_time, frozen_frame=static)
         self.renderer.time = (start + frames) / fps
+        for component in self.objects.values():  # lazily drawn objects catch up, drawn or not (ADR-039)
+            if component.settle is not None:
+                component.settle()
         # Manim leaves `skip_animations` set when it fast-forwarded the play or served it from its per-play cache.
         drawn = not bool(getattr(self.renderer, "skip_animations", False))
         hashes = getattr(self.renderer, "animations_hashes", None) or [None]
@@ -707,6 +710,7 @@ class SnapshotScene(ThreeDScene):
         self.set_camera_orientation(
             phi=math.radians(three_d.camera_phi_degrees), theta=math.radians(three_d.camera_theta_degrees)
         )
+        self.renderer.camera.reset_rotation_matrix()  # as `camera_moved` does: the cache follows the angles
         self._camera_set = True
 
     def fix_in_frame(self, mobject: Mobject) -> None:
@@ -765,7 +769,12 @@ class SnapshotScene(ThreeDScene):
         self.wait_until(end_seconds)
 
     def camera_moved(self) -> None:
-        """The camera has a new viewpoint: objects that draw themselves for one (raster surfaces) redraw."""
+        """The camera has a new viewpoint: objects that draw themselves for one (raster surfaces) redraw.
+
+        Manim refreshes the camera's cached rotation matrix only when it captures a frame, and the matrix is part
+        of the per-play hash; refreshed here, it follows the angles whether the play was drawn or not (ADR-039).
+        """
+        self.renderer.camera.reset_rotation_matrix()
         for component in self.objects.values():
             if component.on_camera is not None:
                 component.on_camera()
