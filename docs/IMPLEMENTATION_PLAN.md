@@ -214,6 +214,21 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 - [x] G. Distribution and versioning under the name manim8: one version, release-mode families, packaged styles and examples, `scianim migrate`, a wheel install check in CI (ADR-037).
 - [x] H. Personal signature process: `style stills` and `style publish` (ADR-038).
 
+## Milestone 10 — from a paper to a clip
+
+The review loop as a sequence of stages with approvals and gates, and the boundary between a model, the package
+and the web interface, planned in [`WORKFLOW_PLAN.md`](WORKFLOW_PLAN.md) (proposed; its decisions are open).
+
+- [ ] I. Stages, approvals and gates: a derived project status, stage approvals bound to revisions and hashes, a
+  final render that requires an approved draft.
+- [ ] J. Figures and equations from PDFs: page images, figures with captions and anchors; transcribed equations
+  always wait for sign-off.
+- [ ] K. The storyboard sheet: scene cards to comment on before anything renders.
+- [ ] L. The agent interface and the playbook: an operations layer, a local agent server, answer records, a policy
+  for what an agent may apply.
+- [ ] M. Agent turns from the web interface, if route A asks for it.
+- [ ] N. The tutorial, run in CI with recorded proposals.
+
 ## Core automated test matrix
 
 | Test | Category | Minimum assertion |

@@ -40,7 +40,7 @@ class Placement:
     that another track changed since the last placement (a curve redrawn by a sweep), or that joined the group
     since (a fresh readout), is rebased the same way, as it now is. A track that changes members of a moving
     group should therefore apply after the move within a frame and set them from the moved state, as sweeps do
-    from their axes; `SnapshotScene.run_until` applies moves first.
+    from their axes; `SnapshotScene.run_until` applies sweeps after every other track.
     """
 
     __slots__ = ("_members", "group", "offset", "origin")
