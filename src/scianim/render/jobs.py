@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from scianim.config.loader import SpecError, format_validation_error, load_animation, load_storyboard
 from scianim.families.resolve import FamilyContext, probe_environment
 from scianim.planning.checks import Report
+from scianim.planning.dependencies import scene_fingerprints
 from scianim.project import Project, scene_class_name
 from scianim.revisions.store import RevisionSources
 from scianim_core import (
@@ -179,15 +180,47 @@ def input_hashes(project: Project, sources: JobSources, family: FamilyContext | 
         if sources.code_dir.is_dir()
         else {}
     )
+    data = {source_id: sha256_file(path) for source_id, path in sources.data_paths.items()}
     return InputHashes(
         animation_spec=sha256_file(sources.animation_path),
         storyboard=sha256_file(sources.storyboard_path),
         scene_code=sha256_file(sources.scene_module),
         resolved_style=sources.style.hash,
-        data_files={source_id: sha256_file(path) for source_id, path in sources.data_paths.items()},
+        data_files=data,
         custom_code=custom,
         lockfile=sha256_file(family.lockfile) if family and family.lockfile.exists() else None,
+        scene_fingerprints=scene_fingerprints(
+            sources.animation,
+            sources.storyboard,
+            style_hash=sources.style.hash,
+            data_hashes=data,
+            custom_hashes=custom,
+        ),
     )
+
+
+def media_directory(project: Project, revision_id: str, tool_versions: dict[str, object] | None) -> str:
+    """Manim's media directory for a revision, under the bridge's code fingerprint (ADR-033): Manim's per-play
+    cache knows the scene's content but not the code that draws it, so drawings made by other code are never
+    found."""
+    base = project.scianim_dir / "media" / revision_id
+    fingerprint = str((tool_versions or {}).get("bridge_fingerprint") or "")
+    if fingerprint:
+        base = base / fingerprint[:12]
+    return base.relative_to(project.root).as_posix()
+
+
+def segment_store_directory(
+    project: Project, manim: ManimSettings, tool_versions: dict[str, object] | None
+) -> str | None:
+    """The segment store shared by every render of the project drawn by the same code at the same settings
+    (ADR-033), or None when the environment reports no code fingerprint."""
+    fingerprint = (tool_versions or {}).get("bridge_fingerprint")
+    if not fingerprint:
+        return None
+    settings = manim.model_dump(mode="json", exclude={"media_dir", "save_sections", "disable_caching"})
+    key = sha256_json({"bridge": fingerprint, "manim": settings})[:16]
+    return (project.scianim_dir / "segments" / key).relative_to(project.root).as_posix()
 
 
 def cache_key(
@@ -199,7 +232,9 @@ def cache_key(
         "operation": operation,
         "snapshot_ids": sorted(snapshot_ids),
         "registry_version": REGISTRY_VERSION,
-        "tools": {k: tool_versions.get(k) for k in ("manim", "scianim_bridge", "typst", "python")},
+        "tools": {
+            k: tool_versions.get(k) for k in ("manim", "scianim_bridge", "typst", "python", "bridge_fingerprint")
+        },
     }
     return f"sha256:{sha256_json(payload)}"
 
@@ -244,7 +279,7 @@ def build_snapshot_job(
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
-    media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
+    media_dir = media_directory(project, sources.revision_id, tool_versions)
     manim = manim_settings(spec, style, profile, media_dir, surface_renderer=surface_renderer)
     hashes = input_hashes(project, sources, family)
     wanted = snapshot_ids or storyboard.snapshot_ids()
@@ -303,7 +338,7 @@ def build_video_job(
     spec, storyboard, style = sources.animation, sources.storyboard, sources.style
     job_id = job_id or new_job_id()
     paths = job_paths(project, job_id, sources.revision_id)
-    media_dir = (project.scianim_dir / "media" / sources.revision_id).relative_to(project.root).as_posix()
+    media_dir = media_directory(project, sources.revision_id, tool_versions)
     manim = manim_settings(spec, style, profile, media_dir, video=True, surface_renderer=surface_renderer)
     hashes = input_hashes(project, sources, family)
     targets = {
@@ -346,6 +381,7 @@ def build_video_job(
         output_dir=paths.output_dir.relative_to(project.root).as_posix(),
         cache_key=key,
         workers=max(1, workers),
+        segment_store=segment_store_directory(project, manim, tool_versions),
     )
     return job, paths, hashes
 
@@ -527,9 +563,11 @@ __all__ = [
     "launch_job",
     "manim_settings",
     "materialize_data_files",
+    "media_directory",
     "new_job_id",
     "read_worker_result",
     "run_job",
+    "segment_store_directory",
     "sources_from_report",
     "sources_from_revision",
     "tool_versions_for",

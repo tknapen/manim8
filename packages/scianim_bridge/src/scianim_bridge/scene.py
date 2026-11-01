@@ -591,6 +591,18 @@ class SnapshotScene(ThreeDScene):
         self._sweeps: list[Sweep] = []
         """The sweeps begun in the current storyboard scene, so a transformed equation can retarget them."""
 
+    def setup(self) -> None:
+        """Before `construct`: in a video or part render with a segment store, let Manim's per-play cache look
+        plays up in the store as well (ADR-033)."""
+        super().setup()
+        self.store_hits: list[str] = []
+        ctx = self.ctx
+        store = ctx.job.segment_store if ctx is not None else None
+        if store and ctx is not None and ctx.mode in ("video", "part"):
+            from scianim_bridge.segment_store import install
+
+            install(self.renderer.file_writer, ctx.project_root / store, self.store_hits)
+
     # --- context ------------------------------------------------------------------------------
     @property
     def tokens(self) -> Tokens:

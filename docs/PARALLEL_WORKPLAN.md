@@ -190,6 +190,10 @@ supersample is the mitigation, 3× is the fallback at three times the fill cost.
 
 ## 5. Package C: splicing and cache honesty
 
+**As built (ADR-033):** splicing of section files was replaced by a segment store shared by every render, keyed
+by the drawing code and the settings, which Manim's per-play cache consults before drawing; the design below
+is kept as the plan it was.
+
 **Goal.** A re-render after a change in one scene draws only that scene's plays and splices the others from
 the previous render; Manim's per-play cache never serves a segment made by other renderer code.
 

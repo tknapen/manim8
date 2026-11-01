@@ -707,6 +707,15 @@ def _print_video(manifest: ArtifactManifest) -> None:
     samples = [c for c in manifest.result.checkpoints if c.kind == "sampled_video_frame"]
     if samples:
         out.print(f"sampled frames: {', '.join(f'{c.snapshot_id}@{c.renderer_time_seconds:.3f}s' for c in samples)}")
+    plays = manifest.result.plays
+    if plays and manifest.job.operation == "render_video":
+        drawn = [p for p in plays if p.drawn]
+        reused = len(plays) - len(drawn)
+        out.print(
+            f"drew {len(drawn)} of {len(plays)} plays ({sum(p.frames for p in drawn)} of "
+            f"{sum(p.frames for p in plays)} frames)"
+            + (f"; {reused} came unchanged from the segment store or Manim's cache" if reused else "")
+        )
     if manifest.result.parts:
         out.print(
             f"{len(manifest.result.parts)} workers: "
@@ -1282,7 +1291,9 @@ def review_sheet(
 def clean(
     project: Annotated[Path, typer.Argument(help="Project directory.")],
     keep: Annotated[int, typer.Option(help="Newest working jobs to keep.")] = 1,
-    media: Annotated[bool, typer.Option(help="Also remove Manim's media cache under .scianim/media.")] = True,
+    media: Annotated[
+        bool, typer.Option(help="Also remove Manim's media cache and the segment store under .scianim.")
+    ] = True,
     dry_run: Annotated[bool, typer.Option(help="Report what would be removed without deleting.")] = False,
 ) -> None:
     """Reclaim space: media cache, old job logs and superseded working renders. Revisions are never touched."""

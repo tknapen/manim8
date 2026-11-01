@@ -264,3 +264,48 @@ def _frame_difference(a: Path, b: Path) -> int:
         assert first.size == second.size
         diff = ImageChops.difference(first.convert("RGB"), second.convert("RGB"))
         return max(high for _low, high in diff.getextrema())
+
+
+def test_a_rerender_draws_only_what_changed(workspace: Path, scianim) -> None:
+    """ADR-033: after a change to one action, a render takes every play the change did not touch from the segment
+    store, whatever the number of workers, and the untouched scenes' sampled frames are the same bytes."""
+    project = workspace / "families" / "computational_neuroscience" / "orientation_tuning"
+    assert scianim("codegen", str(project)).returncode == 0
+
+    def latest() -> ArtifactManifest:
+        return ArtifactManifest.model_validate_json(
+            sorted((project / "renders" / "working").glob("*/manifest.json"))[-1].read_text()
+        )
+
+    first_run = scianim("render", str(project), "--profile", "storyboard", "--no-cache")
+    assert first_run.returncode == 0, first_run.stdout + first_run.stderr
+    first = latest()
+    assert first.job.segment_store and first.inputs.scene_fingerprints
+    assert (project / first.job.segment_store).is_dir() and any((project / first.job.segment_store).iterdir())
+
+    storyboard = project / "storyboard.yaml"
+    text = storyboard.read_text()
+    start = text.index("id: sharpen")
+    target = text.index("to: 8", start)
+    storyboard.write_text(text[:target] + "to: 6" + text[target + len("to: 8") :])
+    assert scianim("codegen", str(project)).returncode == 0
+    second_run = scianim("render", str(project), "--profile", "storyboard", "--no-cache", "--workers", "2")
+    assert second_run.returncode == 0, second_run.stdout + second_run.stderr
+    second = latest()
+    assert second.job.job_id != first.job.job_id and second.result.status == "succeeded"
+    changed = [s for s, f in second.inputs.scene_fingerprints.items() if first.inputs.scene_fingerprints.get(s) != f]
+    assert changed == ["model"]
+    by_scene: dict[str, list] = {}
+    for play in second.result.plays:
+        by_scene.setdefault(str(play.scene_id), []).append(play)
+    assert not any(p.drawn for p in by_scene["circuit"] + by_scene["data"])  # all from the store
+    assert any(p.drawn for p in by_scene["model"])  # the sharpening was drawn anew
+    assert "came unchanged from the segment store" in second_run.stdout
+    log = (project / ".scianim" / "jobs" / second.job.job_id / "worker.log").read_text()
+    assert "expected from the segment store" in log and "['circuit', 'data']" in log
+    before = {c.snapshot_id: c.sha256 for c in first.result.checkpoints}
+    after = {c.snapshot_id: c.sha256 for c in second.result.checkpoints}
+    for snapshot_id in ("circuit_shown", "curve_cited", "model_labelled"):
+        assert after[snapshot_id] == before[snapshot_id], snapshot_id
+    assert after["model_complete"] != before["model_complete"]  # kappa ends at 6 now
+    assert second.result.timing is not None and second.result.timing.within_tolerance

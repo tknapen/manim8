@@ -173,6 +173,43 @@ def measured_weights(project: Project, plays: Sequence[PlayRecord]) -> tuple[lis
     return None
 
 
+def _scene_plays(plays: Sequence[PlayRecord]) -> dict[str | None, list[tuple[int, bool]]]:
+    by_scene: dict[str | None, list[tuple[int, bool]]] = {}
+    for play in sorted(plays, key=lambda p: p.index):
+        by_scene.setdefault(play.scene_id, []).append((play.frames, play.static))
+    return by_scene
+
+
+def predicted_reuse(
+    project: Project, job: RenderJob, hashes: InputHashes, plays: Sequence[PlayRecord]
+) -> tuple[frozenset[int], str | None]:
+    """The plays a render will find in the segment store: those of every scene whose fingerprint and plays equal
+    the most recent succeeded video render's with the same store (ADR-033). The prediction steers the
+    planner only; whether a play is drawn is decided by Manim's hash when the worker reaches it."""
+    if not job.segment_store or not hashes.scene_fingerprints:
+        return frozenset(), None
+    now = _scene_plays(plays)
+    manifests = sorted(project.renders_dir.glob("*/*/manifest.json"), key=lambda path: path.parent.name, reverse=True)
+    for path in manifests:
+        try:
+            manifest = ArtifactManifest.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if manifest.job.operation != "render_video" or manifest.result.status != "succeeded":
+            continue
+        if manifest.job.segment_store != job.segment_store or not manifest.inputs.scene_fingerprints:
+            continue
+        before = manifest.inputs.scene_fingerprints
+        then = _scene_plays(manifest.result.plays)
+        unchanged = {
+            scene_id
+            for scene_id, fingerprint in hashes.scene_fingerprints.items()
+            if before.get(scene_id) == fingerprint and now.get(scene_id) == then.get(scene_id)
+        }
+        return frozenset(play.index for play in plays if play.scene_id in unchanged), manifest.job.job_id
+    return frozenset(), None
+
+
 def split_plan(plays: Sequence[PlayRecord], boundaries: Sequence[int], frame_rate: float) -> list[PlayRecord]:
     """The plan's plays as every part will play them: each play that a boundary falls inside becomes one piece
     per interval, numbered in order, carrying its `source_index` and `piece`; the others are unchanged apart
@@ -239,9 +276,8 @@ def plan_parts(
     pieces of `split_plan(plays, boundaries_of(parts), frame_rate)`, and every part carries the same
     `split_frames`, so all workers cut the same plays at the same frames. `frame_rate` sets the half-second
     minimum piece. `reusable` names plays whose segments an earlier render supplies, so no range has to draw
-    them (splicing, ADR-033); until that lands, no play is reusable."""
-    if reusable:
-        raise NotImplementedError("splicing reusable segments into a render is not implemented yet (ADR-033)")
+    them (ADR-033): they weigh next to nothing, because a worker links them from the segment store, and they
+    are never cut, because a piece of a play has a new content hash and would miss the store."""
     ordered = ordered_plays(plays)
     if not ordered:
         return []
@@ -249,6 +285,12 @@ def plan_parts(
         weights = [estimated_weight(play) for play in ordered]
     if len(weights) != len(ordered):
         raise ValueError("one weight per play")
+    if reusable:
+        mean = sum(max(0.0, float(w)) for w in weights) / len(weights) or 1.0
+        weights = [mean * 1e-6 if play.index in reusable else w for play, w in zip(ordered, weights, strict=True)]
+        ordered = [
+            play.model_copy(update={"splittable": False}) if play.index in reusable else play for play in ordered
+        ]
     min_piece = max(1, round(MIN_PIECE_SECONDS * frame_rate))
     boundaries = window_boundaries(ordered, weights, workers, min_piece_frames=min_piece)
     pieces = split_plan(ordered, boundaries, frame_rate)
@@ -465,7 +507,8 @@ def run_parallel_video(
         raise SpecError(plan_paths.log_file, "the planning pass failed:\n" + "\n".join(plan.errors))
     measured = measured_weights(project, plan.plays)
     fps = job.manim.frame_rate
-    ranges = plan_parts(plan.plays, measured[0] if measured else None, job.workers, frame_rate=fps)
+    reusable, reuse_source = predicted_reuse(project, job, hashes, plan.plays)
+    ranges = plan_parts(plan.plays, measured[0] if measured else None, job.workers, reusable=reusable, frame_rate=fps)
     pieces = split_plan(plan.plays, boundaries_of(ranges), fps)
     cut = sorted({p.source_index for p in pieces if p.piece and p.source_index is not None})
     balance = f"balanced by the play times measured in {measured[1]}" if measured else "balanced by frames"
@@ -474,6 +517,14 @@ def run_parallel_video(
         f"plan: {len(plan.plays)} plays, {total_frames} frames, {len(plan.reached)} checkpoints "
         f"in {plan.elapsed_seconds:.1f}s -> {len(ranges)} part(s), {balance}"
     )
+    if reusable:
+        unchanged = sorted({str(p.scene_id) for p in plan.plays if p.index in reusable})
+        note = (
+            f"{len(reusable)} play(s) of unchanged scene(s) {unchanged} expected from the segment store "
+            f"(fingerprints as in {reuse_source}); they are not cut and weigh next to nothing"
+        )
+        lines.append(note)
+        say(note)
     if cut:
         lines.append(
             f"window boundaries at frames {boundaries_of(ranges)} cut play(s) {cut} into pieces; "

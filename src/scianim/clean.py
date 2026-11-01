@@ -32,6 +32,8 @@ def clean_project(project: Project, keep: int = 1, media: bool = True, dry_run: 
     targets: list[Path] = []
     if media and (project.scianim_dir / "media").exists():
         targets.append(project.scianim_dir / "media")
+    if media and (project.scianim_dir / "segments").exists():
+        targets.append(project.scianim_dir / "segments")
     jobs = sorted((project.scianim_dir / "jobs").glob("job_*")) if (project.scianim_dir / "jobs").is_dir() else []
     working = (
         sorted((project.renders_dir / "working").glob("job_*")) if (project.renders_dir / "working").is_dir() else []
