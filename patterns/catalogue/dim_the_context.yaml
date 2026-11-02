@@ -7,19 +7,21 @@ summary: >-
   returns to normal afterwards. The context stays visible for orientation but stops competing for attention.
 use_when:
   - A scene holds a complete picture and one part of it is about to be explained.
-  - A salient but irrelevant motion would otherwise draw the eye.
+  - A salient but irrelevant object would otherwise draw the eye (a stimulus that has done its work).
 avoid_when:
   - The dimmed parts are needed to read the subject (its axes, its labels).
 beats:
-  - Lower the ink of everything but the subject.
+  - Lower the ink of everything but the subject to about three tenths (fade_object with ink).
   - Explain or animate the subject.
-  - Restore the ink of the rest.
+  - Restore the ink of the rest (fade_object with visible true), or let the scene end on the dimmed context.
 timing:
   change: {min: 0.5, max: 1.0}
-status: partial
+status: available
 actions: [fade_object]
-needs:
-  - Fading an object to a given ink level (for example 0.3) and back, rather than out completely, or a page-coloured veil laid over everything but the subject.
+recipes:
+  - project: computational_neuroscience/orientation_tuning
+    scene: model
+    note: Once the stimulus has turned, the grating dims to 0.3 of its ink while kappa sharpens the curve.
 corpus:
   idioms: [dim others]
   exemplars:
@@ -31,4 +33,7 @@ corpus:
     also lays a dark translucent rectangle (opacity 0.8 to 0.85) over what is not yet in play, which the
     survey does not count.
 research: [lowe2003, alpizar2020]
+pitfalls:
+  - A dimmed object cannot be swept, transformed or pulsed until its ink is restored, since its redrawn parts would show at full ink; dim what has finished changing.
+  - Dimming below about a fifth of the ink makes the context unreadable, which defeats keeping it.
 related: [signal_before_change]

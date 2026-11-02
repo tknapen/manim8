@@ -26,7 +26,7 @@ def write_sheet(styles: Path, name: str, version: str, body: str) -> Path:
 def test_versioned_layout_is_listed(styles_copy: Path) -> None:
     found = list_styles([styles_copy])
     assert set(found) == {"default", "tomas_scientific"}
-    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.5.0"}
+    assert set(found["tomas_scientific"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.5.0", "0.5.1"}
     assert set(found["default"]) == {"0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.5.0"}
 
 
@@ -125,7 +125,7 @@ def test_unknown_version_lists_available_ones(styles_copy: Path) -> None:
     with pytest.raises(
         StyleResolutionError,
         match=r"not found.*available versions of 'tomas_scientific': "
-        r"\['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1', '0\.4\.0', '0\.5\.0'\]",
+        r"\['0\.1\.0', '0\.2\.0', '0\.3\.0', '0\.3\.1', '0\.4\.0', '0\.5\.0', '0\.5\.1'\]",
     ):
         resolve_style(StyleSelection(name="tomas_scientific", version="9.9.9"), [styles_copy])
 

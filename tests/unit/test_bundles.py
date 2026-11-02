@@ -43,7 +43,7 @@ def test_export_inspect_and_import_round_trip(project_copy: Project, tmp_path: P
     assert "projects/divisive_normalization/animation.yaml" in names
     assert "projects/divisive_normalization/revisions/rev_0001/revision.json" in names
     assert "projects/divisive_normalization/data/synthetic_responses.csv" in names
-    assert "styles/tomas_scientific/0.5.0/style.yaml" in names and "styles/default/0.5.0/style.yaml" in names
+    assert "styles/tomas_scientific/0.5.1/style.yaml" in names and "styles/default/0.5.0/style.yaml" in names
     assert "styles/default/0.4.0/style.yaml" in names
     assert (
         "styles/default/0.3.1/style.yaml" in names and "styles/default/0.3.0/style.yaml" in names

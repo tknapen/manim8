@@ -235,11 +235,29 @@ actions:
   - {id: aside, kind: move_object, target: caption, by: [0.1, 0], at_seconds: 6, duration_seconds: 1}
 ```
 
-A `fade_object` fades any object out (`visible: false`) or back in; a faded object stays in the storyboard
-but leaves the layout report until it returns:
+A `fade_object` fades any object out (`visible: false`, or nothing given) or back in (`visible: true`); a
+faded object stays in the storyboard but leaves the layout report until it returns. With `ink` it fades to a
+level of its full ink instead (ADR-041): `ink: 0.3` dims the context so the subject stands out, and the dimmed
+object stays in the layout report. Every fade starts from the ink the object has, so a later `visible: true`
+restores a dimmed object smoothly. A dimmed object cannot be swept, transformed or pulsed until its ink is
+restored, because its redrawn parts would show at full ink; dim what has finished changing:
 
 ```yaml
   - {id: vanish, kind: fade_object, target: drop, at_seconds: 5.5, duration_seconds: 0.3}
+  - {id: dim_stimulus, kind: fade_object, target: grating, ink: 0.3, at_seconds: 19.9, duration_seconds: 0.6}
+```
+
+An `emphasize` action points at something without changing it (ADR-041). By default a box in the style's
+emphasis ink appears around the target, holds and fades out; `symbols` puts it around symbols of the target's
+equation instead (each in its `highlight` list). With `from_target` and `from_symbols` the box appears at the
+symbol first and travels to the target, so the cue shows what the symbol names. `cue: pulse` grows the named
+symbols once instead, as a sweep's lead-in does. The box's ink rises and falls over the style's reveal time (at
+most a quarter of the window each) and travels in the transition time. Cues are drawn in the frame, so they
+point at flat objects, not at a surface or a sphere:
+
+```yaml
+  - {id: name_kappa, kind: emphasize, target: model_curve, from_target: kappa_label, from_symbols: [kappa], at_seconds: 20, duration_seconds: 3.3}
+  - {id: pulse_sigma, kind: emphasize, target: label, symbols: [sigma], cue: pulse, at_seconds: 4, duration_seconds: 1}
 ```
 
 A `transform_equation` turns the equation an `equation_block` or `equation_label` shows into another one
@@ -270,7 +288,10 @@ actions:
 ```
 
 Two moves, two fades or two transforms of one object may not overlap, and `scianim validate` asks for the
-style's rest between two moves of one object as it does between two sweeps.
+style's rest between two moves of one object as it does between two sweeps (`motion.hold_seconds`: one second
+in `tomas_scientific@0.5.1`, half of one in the baseline). The halves of a ballistic arc, a move that rises to
+rest with `ease_out_quad` followed by one that falls with `ease_in_quad`, need no rest between them: a thrown
+body does not pause at its apex.
 
 ## Choosing how a scene moves: the pattern library
 

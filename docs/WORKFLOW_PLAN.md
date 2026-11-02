@@ -203,14 +203,15 @@ Scenes name the patterns they stage in `Scene.patterns`; validation checks the i
 something the pattern is realized with; the context bundle carries the library, and the playbook (package L)
 starts the storyboard stage from it. Research and method are in [ANIMATION_PATTERNS.md](ANIMATION_PATTERNS.md).
 
-**State.** A first version exists: 19 patterns (8 available, 4 partial, 7 planned), 11 references, the survey's
+**State.** A first version exists: 19 patterns (10 available, 2 partial, 7 planned), 11 references, the survey's
 output, `scianim patterns list|show|check`, the Patterns section and `patterns.json` of the context bundle, and the
 `patterns` field, named in the example storyboards (ADR-040). Unit tests cover the library, the scene checks, the
 bundle, the commands and the survey script; the examples that serve as recipes render in the integration tests.
 
 **Next.** The registry gaps the partial and planned patterns name, in the order proposed in section 5 of
-ANIMATION_PATTERNS.md (first an `emphasize` action and fading to an ink level); further corpora once a second one
-is chosen (the corpus must allow its scene code to be read; nothing from it is copied).
+ANIMATION_PATTERNS.md; the first two, an `emphasize` action and fading to an ink level, landed with ADR-041, so
+derive by copy comes next. Further corpora once a second one is chosen (the corpus must allow its scene code to
+be read; nothing from it is copied).
 
 ## 9. Order and decisions
 

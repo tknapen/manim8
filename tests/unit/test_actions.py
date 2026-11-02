@@ -375,7 +375,7 @@ def test_sphere_anchor_rules() -> None:
 def test_move_fade_and_transform_validation() -> None:
     board = Storyboard.model_validate(_storyboard(actions=[MOVE, FADE_OUT, MORPH], objects=_world_objects()))
     fall, vanish, morph = board.actions()
-    assert fall.end_seconds == 5 and vanish.visible is False and morph.match == "by_symbol" and morph.end_seconds == 5.8
+    assert fall.end_seconds == 5 and vanish.target_ink == 0 and morph.match == "by_symbol" and morph.end_seconds == 5.8
 
     def rejected(message: str, *actions: dict[str, Any], objects: list[dict[str, Any]] | None = None) -> None:
         with pytest.raises(ValueError, match=message):
@@ -535,7 +535,7 @@ def test_codegen_emits_moves_fades_and_transforms(project_copy: Project, tmp_pat
     assert "self.run_until(4, [fall])" in lines and 'checkpoint(self, "midfall", expected_time=4)' in lines
     assert "self.run_until(5, [fall])" in lines
     assert (
-        'vanish = self.begin_fade_object(ball, visible=False, at_seconds=5, duration_seconds=0.3, action_id="vanish", '
+        'vanish = self.begin_fade_object(ball, ink=0, at_seconds=5, duration_seconds=0.3, action_id="vanish", '
         "easing=None)"
     ) in lines
     assert (

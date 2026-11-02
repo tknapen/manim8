@@ -171,6 +171,44 @@ def transform_beside_a_sweep(scene) -> list:
     return [clock, impact]
 
 
+def cues_and_dims(scene) -> list:
+    """A caption dimmed while a box travels from a symbol of an equation to a plot whose curve a sweep widens, and
+    another symbol pulses (ADR-041). The play ends inside every window, so the box is mid-travel and the symbol
+    mid-pulse; the box follows the curve as the sweep leaves it in each frame."""
+    from types import SimpleNamespace
+
+    from scianim_bridge import components as C
+    from scianim_core.animation import Equation
+
+    gauss = Equation.model_validate(
+        {
+            "id": "gauss",
+            "typst": "g(x) = exp(-(x - x_0)^2 / (2 sigma^2))",
+            "symbols": {"sigma": {"meaning": "width"}, "x_0": {"meaning": "centre"}},
+        }
+    )
+    scene.ctx = SimpleNamespace(equations={"gauss": gauss})
+    label = C.equation_label(
+        scene,
+        "label",
+        equation={"id": "gauss", "highlight": ["sigma", "x_0"]},
+        params={"text": "g", "anchor": "top_left"},
+    )
+    plot = C.function_plot(scene, "plot", params=PLOT)
+    note = C.text_caption(scene, "note", params={"text": "a note", "anchor": "bottom_right"})
+    _shown(scene, label, plot, note)
+    dim = scene.begin_fade_object(note, ink=0.3, at_seconds=0, duration_seconds=1, action_id="dim")
+    widen = scene.begin_vary(plot, "sigma", to=3.0, at_seconds=0, duration_seconds=1, action_id="widen")
+    trip = scene.begin_emphasize(
+        plot, from_target=label, from_symbols=["sigma"], at_seconds=0, duration_seconds=1, action_id="trip"
+    )
+    pulse = scene.begin_emphasize(
+        label, symbols=["x_0"], cue="pulse", at_seconds=0, duration_seconds=1, action_id="pulse"
+    )
+    scene.run_until(0.6, [dim, widen, trip, pulse])
+    return [dim, widen, trip, pulse]
+
+
 def _run(tmp_path: Path, build: Callable, *, skip: bool) -> str:
     """The scene drawn (every frame interpolated and captured) or fast-forwarded (each play applied once); the
     state hash after the last play."""
@@ -213,7 +251,16 @@ def _run(tmp_path: Path, build: Callable, *, skip: bool) -> str:
 
 @pytest.mark.parametrize(
     "build",
-    [markers, moves, sphere, cairo_surface, raster_surface, fades_and_transform, transform_beside_a_sweep],
+    [
+        markers,
+        moves,
+        sphere,
+        cairo_surface,
+        raster_surface,
+        fades_and_transform,
+        transform_beside_a_sweep,
+        cues_and_dims,
+    ],
     ids=lambda f: f.__name__,
 )
 def test_drawn_and_fast_forwarded_plays_leave_the_same_state(tmp_path: Path, build: Callable) -> None:

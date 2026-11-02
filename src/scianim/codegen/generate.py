@@ -16,6 +16,7 @@ from pathlib import Path
 from scianim.project import scene_class_name
 from scianim_core import AnimationSpec, ResolvedStyle, Storyboard
 from scianim_core.storyboard import (
+    Emphasize,
     FadeAxes,
     FadeObject,
     MoveObject,
@@ -101,13 +102,26 @@ def action_call(action: SceneAction, indent: int) -> str:
     if isinstance(action, FadeObject):
         args = [
             action.target,
-            f"visible={action.visible!r}",
+            f"ink={action.target_ink:g}",
             f"at_seconds={action.at_seconds:g}",
             f"duration_seconds={action.duration_seconds:g}",
             f'action_id="{action.id}"',
             f"easing={action.easing!r}",
         ]
         return f"{pad}{action.id} = self.begin_fade_object({', '.join(args)})"
+    if isinstance(action, Emphasize):
+        args = [
+            action.target,
+            f"symbols={action.symbols!r}",
+            f'cue="{action.cue}"',
+            f"from_target={action.from_target or None}",
+            f"from_symbols={action.from_symbols!r}",
+            f"at_seconds={action.at_seconds:g}",
+            f"duration_seconds={action.duration_seconds:g}",
+            f'action_id="{action.id}"',
+            f"easing={action.easing!r}",
+        ]
+        return f"{pad}{action.id} = self.begin_emphasize({', '.join(args)})"
     if isinstance(action, TransformEquation):
         args = [
             action.target,

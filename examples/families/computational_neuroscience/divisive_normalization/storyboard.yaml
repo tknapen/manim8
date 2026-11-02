@@ -90,7 +90,7 @@ scenes:
         target: response_curve
         parameter: sigma
         to: 3
-        at_seconds: 13
+        at_seconds: 13.5
         duration_seconds: 3.5
         emphasize: [normalization_equation]
       - id: lower_pool
@@ -98,7 +98,7 @@ scenes:
         target: response_curve
         parameter: P
         to: 1
-        at_seconds: 13
+        at_seconds: 13.5
         duration_seconds: 3.5
     snapshots:
       - id: pool_introduced

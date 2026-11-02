@@ -102,13 +102,13 @@ scenes:
         kind: move_object
         target: droplet
         to_point: [0, 0, 0.45]
-        at_seconds: 10.1
+        at_seconds: 9.6
         duration_seconds: 1.2
         easing: ease_in_quad
       - id: merge
         kind: fade_object
         target: droplet
-        at_seconds: 11.3
+        at_seconds: 10.8
         duration_seconds: 0.3
     snapshots:
       - id: still_water

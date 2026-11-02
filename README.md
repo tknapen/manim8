@@ -113,7 +113,9 @@ example, `drop_impact` (a drop falls onto an analytic model of a water surface, 
 10 begins with a pattern library (ADR-040, [docs/ANIMATION_PATTERNS.md](docs/ANIMATION_PATTERNS.md)): named ways
 of making a mechanism move, drawn from a survey of the 3Blue1Brown videos repository and from studies on
 learning from animation, each with a recipe scene from the examples, for the agent to choose from
-(`scianim patterns list`). Deferred: section splicing for incremental video and voiceover. See
+(`scianim patterns list`), and the first two capabilities the library found missing: an `emphasize` action that
+points (a box, travelling from a symbol to what it names, or a pulse) and fades to a level of ink (ADR-041).
+Deferred: section splicing for incremental video and voiceover. See
 `docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status

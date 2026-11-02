@@ -98,6 +98,107 @@
       "title": "DataEncoding",
       "type": "object"
     },
+    "Emphasize": {
+      "additionalProperties": false,
+      "description": "Point at an object, or at named symbols of the equation it shows, without changing it (ADR-041).\n\nWith `cue: box` (the default) a box in the style's emphasis ink appears around the place, holds and fades\nout. With `from_target` (and `from_symbols`) the box appears at another place first and travels to the\ntarget, so the cue itself shows what a symbol names: the sigma in the equation, then the curve it widens. With\n`cue: pulse` the named symbols grow, take the emphasis ink and settle once over the window, as a sweep's\nlead-in does, while no value moves. A box surrounds the first occurrence of each named symbol. Cues are\ndrawn in the frame, so their places are flat objects, not a surface or a sphere that turns with the camera.",
+      "properties": {
+        "at_seconds": {
+          "minimum": 0,
+          "title": "At Seconds",
+          "type": "number"
+        },
+        "cue": {
+          "default": "box",
+          "enum": [
+            "box",
+            "pulse"
+          ],
+          "title": "Cue",
+          "type": "string"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "number"
+        },
+        "easing": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "ease_in_out_sine",
+                "smooth",
+                "ease_out_cubic",
+                "eased_linear",
+                "ease_in_quad",
+                "ease_out_quad"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Easing"
+        },
+        "from_symbols": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "From Symbols",
+          "type": "array"
+        },
+        "from_target": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From Target"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "emphasize",
+          "title": "Kind",
+          "type": "string"
+        },
+        "symbols": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Symbols",
+          "type": "array"
+        },
+        "target": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "target",
+        "at_seconds",
+        "duration_seconds"
+      ],
+      "title": "Emphasize",
+      "type": "object"
+    },
     "EquationRef": {
       "additionalProperties": false,
       "properties": {
@@ -198,7 +299,7 @@
     },
     "FadeObject": {
       "additionalProperties": false,
-      "description": "Fade an object out (`visible: false`) or back in over a window (ADR-034). A faded object stays registered\nbut is absent from layout reports until a fade brings it back; two fades of one object may not overlap.\n`fade_axes` remains the special case for a surface's frame.",
+      "description": "Fade an object out (`visible: false`, the default), back in (`visible: true`), or to a level of its full\nink (`ink`, ADR-041) over a window (ADR-034).\n\n`ink: 0.3` dims the object to three tenths of its ink, so the context stays readable without competing with\nthe subject; a later fade with `visible: true` or `ink: 1` restores it. Every fade starts from the ink the\nobject has, so a dimmed object fades out from its dimmed level. A faded-out object stays registered but is\nabsent from layout reports until a fade brings it back; a dimmed one stays in them. Two fades of one object\nmay not overlap, and an object is not redrawn (swept, emphasized by a sweep, transformed or pulsed) while it\nis dimmed or a fade to or from a partial level runs, since its redrawn parts would show at full ink.\n`fade_axes` remains the special case for a surface's frame.",
       "properties": {
         "at_seconds": {
           "minimum": 0,
@@ -236,6 +337,20 @@
           "title": "Id",
           "type": "string"
         },
+        "ink": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ink"
+        },
         "kind": {
           "const": "fade_object",
           "title": "Kind",
@@ -247,9 +362,16 @@
           "type": "string"
         },
         "visible": {
-          "default": false,
-          "title": "Visible",
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
         }
       },
       "required": [
@@ -622,6 +744,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "emphasize": "#/$defs/Emphasize",
                 "fade_axes": "#/$defs/FadeAxes",
                 "fade_object": "#/$defs/FadeObject",
                 "move_object": "#/$defs/MoveObject",
@@ -649,6 +772,9 @@
               },
               {
                 "$ref": "#/$defs/TransformEquation"
+              },
+              {
+                "$ref": "#/$defs/Emphasize"
               }
             ]
           },

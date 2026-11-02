@@ -283,17 +283,98 @@ class MoveObject(StrictModel):
 
 
 class FadeObject(StrictModel):
-    """Fade an object out (`visible: false`) or back in over a window (ADR-034). A faded object stays registered
-    but is absent from layout reports until a fade brings it back; two fades of one object may not overlap.
+    """Fade an object out (`visible: false`, the default), back in (`visible: true`), or to a level of its full
+    ink (`ink`, ADR-041) over a window (ADR-034).
+
+    `ink: 0.3` dims the object to three tenths of its ink, so the context stays readable without competing with
+    the subject; a later fade with `visible: true` or `ink: 1` restores it. Every fade starts from the ink the
+    object has, so a dimmed object fades out from its dimmed level. A faded-out object stays registered but is
+    absent from layout reports until a fade brings it back; a dimmed one stays in them. Two fades of one object
+    may not overlap, and an object is not redrawn (swept, emphasized by a sweep, transformed or pulsed) while it
+    is dimmed or a fade to or from a partial level runs, since its redrawn parts would show at full ink.
     `fade_axes` remains the special case for a surface's frame."""
 
     kind: Literal["fade_object"]
     id: Slug
     target: Slug
-    visible: bool = False
+    visible: bool | None = None
+    """True fades the object back to full ink, false (or omitting both this and `ink`) fades it out."""
+    ink: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    """The fraction of its full ink the object ends at; give this or `visible`, not both."""
     at_seconds: float = Field(ge=0)
     duration_seconds: float = Field(gt=0)
     easing: Easing | None = None
+
+    @model_validator(mode="after")
+    def _one_level(self) -> FadeObject:
+        if self.ink is not None and self.visible is not None:
+            raise ValueError(f"fade_object '{self.id}': give visible or ink, not both")
+        return self
+
+    @property
+    def target_ink(self) -> float:
+        """The fraction of full ink the object has when the fade ends."""
+        if self.ink is not None:
+            return self.ink
+        return 1.0 if self.visible else 0.0
+
+    @property
+    def end_seconds(self) -> float:
+        return self.at_seconds + self.duration_seconds
+
+
+SymbolName = Annotated[str, Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")]
+
+CueKind = Literal["box", "pulse"]
+
+
+class Emphasize(StrictModel):
+    """Point at an object, or at named symbols of the equation it shows, without changing it (ADR-041).
+
+    With `cue: box` (the default) a box in the style's emphasis ink appears around the place, holds and fades
+    out. With `from_target` (and `from_symbols`) the box appears at another place first and travels to the
+    target, so the cue itself shows what a symbol names: the sigma in the equation, then the curve it widens. With
+    `cue: pulse` the named symbols grow, take the emphasis ink and settle once over the window, as a sweep's
+    lead-in does, while no value moves. A box surrounds the first occurrence of each named symbol. Cues are
+    drawn in the frame, so their places are flat objects, not a surface or a sphere that turns with the camera.
+    """
+
+    kind: Literal["emphasize"]
+    id: Slug
+    target: Slug
+    symbols: list[SymbolName] = []
+    """Symbols of the target's equation (each in its `equation.highlight`); omitted means the whole object."""
+    cue: CueKind = "box"
+    from_target: Slug | None = None
+    """Where a box appears before it travels to `target`; omitted means it appears around the target."""
+    from_symbols: list[SymbolName] = []
+    """Symbols of `from_target`'s equation the box starts around."""
+    at_seconds: float = Field(ge=0)
+    duration_seconds: float = Field(gt=0)
+    easing: Easing | None = None
+    """Profile of the box's travel; omitted means the style's `motion.easing`."""
+
+    @model_validator(mode="after")
+    def _consistent(self) -> Emphasize:
+        ensure_unique(self.symbols, f"symbol (action '{self.id}')")
+        ensure_unique(self.from_symbols, f"from symbol (action '{self.id}')")
+        if self.cue == "pulse" and not self.symbols:
+            raise ValueError(f"emphasize '{self.id}': a pulse grows symbols; name them in `symbols`")
+        if self.cue == "pulse" and self.from_target is not None:
+            raise ValueError(f"emphasize '{self.id}': only a box travels; a pulse has no from_target")
+        if self.from_symbols and self.from_target is None:
+            raise ValueError(f"emphasize '{self.id}': from_symbols needs from_target")
+        if self.from_target == self.target and self.from_symbols == self.symbols:
+            raise ValueError(f"emphasize '{self.id}': the box would travel from its target to itself")
+        return self
+
+    @property
+    def places(self) -> list[tuple[str, list[str]]]:
+        """The objects the cue sits on, with the symbols named on each."""
+        places = [(self.target, self.symbols)]
+        if self.from_target is not None:
+            places.append((self.from_target, self.from_symbols))
+        return places
 
     @property
     def end_seconds(self) -> float:
@@ -329,7 +410,8 @@ class TransformEquation(StrictModel):
 
 
 SceneAction = Annotated[
-    VaryParameter | OrbitCamera | FadeAxes | MoveObject | FadeObject | TransformEquation, Field(discriminator="kind")
+    VaryParameter | OrbitCamera | FadeAxes | MoveObject | FadeObject | TransformEquation | Emphasize,
+    Field(discriminator="kind"),
 ]
 """Actions run concurrently; the validator refuses two that drive the same thing at once."""
 
@@ -475,6 +557,30 @@ class Scene(StrictModel):
                 continue
             if isinstance(action, FadeObject):
                 continue
+            if isinstance(action, Emphasize):
+                for place_id, symbols in action.places:
+                    place = objects.get(place_id)
+                    if place is None:
+                        raise ValueError(f"action '{action.id}': '{place_id}' is not an object of scene '{self.id}'")
+                    if reveal_time(place) > action.at_seconds:
+                        raise ValueError(
+                            f"action '{action.id}' at {action.at_seconds:g}s points at '{place_id}' before it is "
+                            f"revealed at {reveal_time(place):g}s"
+                        )
+                    if place.kind in WORLD_KINDS:
+                        raise ValueError(
+                            f"action '{action.id}': '{place_id}' is a {place.kind}, which turns with the camera; a cue "
+                            "is drawn in the frame, so point at a flat object"
+                        )
+                    missing = [
+                        name for name in symbols if place.equation is None or name not in place.equation.highlight
+                    ]
+                    if missing:
+                        raise ValueError(
+                            f"action '{action.id}': '{place_id}' must reference an equation whose highlight includes "
+                            f"{missing} to point at them"
+                        )
+                continue
             if isinstance(action, TransformEquation):
                 if target.equation is None:
                     raise ValueError(
@@ -555,6 +661,54 @@ class Scene(StrictModel):
                     f"actions '{first.id}' and '{second.id}' both vary '{first.target}.{first.parameter}' at the "
                     "same time"
                 )
+            for cue, other in ((first, second), (second, first)):
+                if not isinstance(cue, Emphasize):
+                    continue
+                if isinstance(other, TransformEquation) and other.target in {place for place, _ in cue.places}:
+                    raise ValueError(
+                        f"emphasize '{cue.id}' points at '{other.target}' while '{other.id}' replaces its glyphs; "
+                        "let the transform end first"
+                    )
+                if cue.cue != "pulse":
+                    continue
+                if isinstance(other, VaryParameter) and cue.target in other.emphasize:
+                    raise ValueError(
+                        f"emphasize '{cue.id}' pulses '{cue.target}' while '{other.id}' emphasizes it; one pulse at a time"
+                    )
+                if isinstance(other, Emphasize) and other.cue == "pulse" and other.target == cue.target:
+                    raise ValueError(f"pulses '{first.id}' and '{second.id}' of '{cue.target}' overlap")
+        self._check_ink()
+
+    def _check_ink(self) -> None:
+        """No object is redrawn while it is dimmed or while a fade to or from a partial ink level runs: a redraw
+        (a sweep, a sweep's emphasis, a transform, a pulse) builds parts at full ink (ADR-041)."""
+        fades = sorted((a for a in self.actions if isinstance(a, FadeObject)), key=lambda a: a.at_seconds)
+        unsettled: dict[str, list[tuple[float, float, str]]] = {}
+        level: dict[str, float] = {}
+        for index, fade in enumerate(fades):
+            start, end = level.get(fade.target, 1.0), fade.target_ink
+            later = next((f.at_seconds for f in fades[index + 1 :] if f.target == fade.target), self.end_seconds)
+            windows = unsettled.setdefault(fade.target, [])
+            if 0 < start < 1 or 0 < end < 1:
+                windows.append((fade.at_seconds, fade.end_seconds, fade.id))
+            if 0 < end < 1:
+                windows.append((fade.end_seconds, later, fade.id))
+            level[fade.target] = end
+        for action in self.actions:
+            if isinstance(action, VaryParameter):
+                redrawn = [action.target, *action.emphasize]
+            elif isinstance(action, TransformEquation) or (isinstance(action, Emphasize) and action.cue == "pulse"):
+                redrawn = [action.target]
+            else:
+                continue
+            for object_id in redrawn:
+                for start, end, fade_id in unsettled.get(object_id, []):
+                    if action.at_seconds < end - 1e-9 and start < action.end_seconds - 1e-9:
+                        raise ValueError(
+                            f"action '{action.id}' redraws '{object_id}' while '{fade_id}' dims it or fades it from a "
+                            f"partial ink ({start:g}-{end:g}s); redrawn parts would show at full ink, so restore its "
+                            "ink first or move the action"
+                        )
 
     @property
     def duration_seconds(self) -> float:

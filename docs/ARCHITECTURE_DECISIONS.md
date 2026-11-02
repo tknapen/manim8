@@ -1186,3 +1186,56 @@ one author uses often is one that works for viewers. The corpus is licensed CC B
 records observations about it (counts, the names of scenes) and describes idioms in its own words; no code is
 copied. The planned patterns, ranked by how often the corpus uses them and how much they matter to scientific
 clips, are the candidates for the next components and actions (docs/IMPLEMENTATION_PLAN.md, Milestone 10).
+
+## ADR-041: Cues, partial ink, and a one-second rest in the personal theme
+
+**Status:** accepted, 2 November 2026
+
+**Context.** The pattern library (ADR-040) named two gaps that the corpus leans on and that cost little to
+close: a cue that points without changing anything (boxes and indications in 11 to 17% of recent 3Blue1Brown
+scenes, `signal_before_change`) and dimming the context to a faint ink rather than fading it out (12%,
+`dim_the_context`). The author asked for both, and accepted a rest of one second between two motions of one
+object, the survey's median pause, in place of the baseline's half second.
+
+**Decision.**
+
+1. *`emphasize`.* A new storyboard action points at its `target`, or at `symbols` of the equation it shows.
+   `cue: box` (the default) draws a rounded box in the palette's `emphasis` role, with the annotation stroke
+   and a padding and corner radius of one baseline-grid unit, whose ink rises and falls over
+   `motion.reveal_seconds` each (at most a quarter of the window); with `from_target` and `from_symbols` it
+   appears there first and travels to the target in `motion.transition_seconds` (at most half of what the
+   ramps leave), so the cue itself shows what a symbol names. `cue: pulse` grows the named symbols by
+   `motion.emphasis_scale` and blends them into the emphasis ink and back on a raised cosine, leaving the glyphs
+   as they were. A box surrounds the first occurrence of each named symbol. Cues are drawn in the frame, so
+   their places are flat objects; they are not registered objects and stay out of layout reports.
+2. *Partial ink.* `fade_object` takes `ink` (0 to 1), the fraction of full ink to end at; `visible` becomes
+   optional (true means 1, false or omitted 0) and the two are exclusive. Every fade, the end-of-scene fade
+   included, now starts from the ink the object has; before, a fade out started from full ink, so a dimmed
+   object would have flashed back before leaving. A dimmed object stays in layout reports.
+3. *Rules.* Validation refuses a pulse that overlaps a sweep emphasizing the same equation or another pulse of
+   it, and any cue on an equation while a transform replaces its glyphs. An object is not redrawn (swept,
+   emphasized by a sweep, transformed or pulsed) while it is dimmed or while a fade to or from a partial level
+   runs, because a redraw builds parts at full ink; a full fade out and back in stays allowed. A move that rises
+   to rest (`ease_out_quad`) followed by one that falls from rest (`ease_in_quad`) is one ballistic arc, and
+   the rest rule no longer asks for a pause at its apex.
+4. *Order within a frame.* Tracks apply in the order of `Track.order`: moves, fades and transforms, then sweeps,
+   then cues, so a box rebuilt from its places' bounds in every frame follows a curve a sweep is redrawing
+   exactly as a fast-forwarded play leaves it (ADR-039).
+5. *The rest.* `tomas_scientific@0.5.1`, published with `scianim style publish`, sets `motion.hold_seconds: 1.0`
+   on `default@0.5.0`; the example family and its projects pin it. The examples were re-timed to keep
+   validating without warnings: the second segment of `divisive_normalization` starts at 13.5 s; the model
+   scene of `orientation_tuning` dims the grating after its turn, sends a box from kappa in the label to the
+   model curve and then sharpens it; the droplet of `drop_impact` falls from its apex without the half-second
+   pause the old rule forced.
+6. *One description of an action.* The review server and the context bundle share `scianim.actions.
+   action_summary`. The bundle's own summary had assumed every action other than an orbit or an axes fade was a
+   sweep, so `scianim context` failed on `drop_impact`.
+
+**Why.** A box is a cue of shape, not of colour alone, which the style's `accessibility.do_not_rely_on_color_alone`
+asks for, and a travelling box carries the correspondence between a symbol and its referent that colour-linking
+alone leaves to the viewer. Partial ink keeps the context legible while lowering its salience, which is what
+the evidence on salience and relevance asks of a picture (Lowe, 2003); refusing redraws of dimmed objects is
+cheaper and more honest than re-dimming every part a sweep rebuilds. The box's dimensions come from existing
+tokens, so no new token was needed. The purity test covers a dim, a travelling box around a curve being swept,
+and a pulse in one play, drawn and fast-forwarded; `tests/unit/test_cues_and_dims.py` and the bridge's
+`test_cues.py` cover the contracts, the rules and the drawing.

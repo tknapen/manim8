@@ -1,0 +1,14 @@
+description: 'Personal layer on the line-and-wash baseline after Keenan Crane: lit
+  matte surfaces, a quiet mesh, Palatino labels, round line ends. Deliberately thin:
+  it pins default@0.5.0 and records only the choices that differ from the baseline,
+  so the signature can grow one reviewed token at a time. 0.5.1 asks for a rest of
+  one second between two motions of one object, where the baseline asks for half of
+  one: the median pause between plays in the survey of the 3Blue1Brown videos (docs/ANIMATION_PATTERNS.md)
+  is one second. Accepted by the author on 2 November 2026; it changes what `scianim
+  validate` asks of a storyboard, not a picture.'
+inherits: default@0.5.0
+motion: {hold_seconds: 1.0}
+name: tomas_scientific
+palette: {}
+schema_version: '1.0'
+version: 0.5.1

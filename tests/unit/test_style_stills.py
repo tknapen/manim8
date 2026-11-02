@@ -19,7 +19,7 @@ CANDIDATE = """schema_version: "1.0"
 name: tomas_scientific
 version: "0.6.0"
 description: a warmer accent, tried out
-inherits: tomas_scientific@0.5.0
+inherits: tomas_scientific@0.5.1
 palette:
   emphasis: "#D9772A"
 motion:
@@ -128,6 +128,6 @@ def test_publish_copies_a_candidate_once(tmp_path: Path) -> None:
     with pytest.raises(SpecError, match="never edited"):
         stills.publish_candidate(candidate, "tomas_scientific@0.6.0", styles_dir)
     orphan = tmp_path / "orphan.yaml"
-    orphan.write_text(CANDIDATE.replace("inherits: tomas_scientific@0.5.0", "inherits: null"))
+    orphan.write_text(CANDIDATE.replace("inherits: tomas_scientific@0.5.1", "inherits: null"))
     with pytest.raises(SpecError, match="inherits"):
         stills.publish_candidate(orphan, "tomas_scientific@0.7.0", styles_dir)

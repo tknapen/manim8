@@ -234,9 +234,11 @@ B; the storyboard sheet before snapshots; layout and timing changes applied by t
   status and recipe scenes; `Scene.patterns` checked by validation; the library in the context bundle;
   `scianim patterns list|show|check`. Tests: `tests/unit/test_patterns.py`; the recipe examples render in
   `tests/integration/test_snapshots.py`.
-- [ ] O2. The registry gaps the library names, in the order of ANIMATION_PATTERNS.md section 5: an `emphasize`
-  action, fading to an ink level, derive by copy, staggered and stroke-drawing reveals, trails, a flat camera,
-  shaded areas with a traced integral, illustrative samples, ghosts, morphs and maps.
+- [ ] O2. The registry gaps the library names, in the order of ANIMATION_PATTERNS.md section 5. Done (ADR-041):
+  an `emphasize` action (a box, travelling or not, or a pulse) and fading to an ink level, with the personal
+  theme's one-second rest; tests `tests/unit/test_cues_and_dims.py`, `packages/scianim_bridge/tests/test_cues.py`
+  and the purity case `cues_and_dims`. Open: derive by copy, staggered and stroke-drawing reveals, trails, a flat
+  camera, shaded areas with a traced integral, illustrative samples, ghosts, morphs and maps.
 
 ## Core automated test matrix
 

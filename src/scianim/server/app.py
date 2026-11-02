@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from scianim import __version__
+from scianim.actions import action_summary
 from scianim.agent.feedback_proposals import addressed_ids
 from scianim.agent.feedback_proposals import generate as generate_from_feedback
 from scianim.agent.proposals import list_applied, list_pending
@@ -39,7 +40,6 @@ from scianim.render.manifests import (
 from scianim.server.runner import JobRequest, JobRunner
 from scianim_core import ArtifactManifest, CheckpointRecord
 from scianim_core.feedback import FeedbackKind, Region, ReviewStatus, Severity
-from scianim_core.storyboard import FadeAxes, FadeObject, MoveObject, OrbitCamera, SceneAction, TransformEquation
 
 STATIC_DIR = Path(__file__).parent / "static"
 SLUG = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -78,35 +78,6 @@ class FeedbackCreate(BaseModel):
     job_id: str | None = Field(default=None, pattern=JOB_ID_PATTERN.pattern)
     author: str | None = None
     time_seconds: float | None = None
-
-
-def action_summary(action: SceneAction) -> str:
-    if isinstance(action, OrbitCamera):
-        parts = []
-        if action.to_theta_degrees is not None:
-            parts.append(f"azimuth to {action.to_theta_degrees:g} deg")
-        if action.to_phi_degrees is not None:
-            parts.append(f"elevation to {action.to_phi_degrees:g} deg")
-        return "camera " + ", ".join(parts)
-    if isinstance(action, FadeAxes):
-        return f"axes of {action.target} fade {'in' if action.visible else 'out'}"
-    if isinstance(action, MoveObject):
-        if action.to_anchor is not None:
-            return f"{action.target} moves to {action.to_anchor.replace('_', ' ')}"
-        if action.by is not None:
-            return f"{action.target} moves by ({action.by[0]:g}, {action.by[1]:g}) of the safe frame"
-        assert action.to_point is not None
-        return f"{action.target} moves to ({', '.join(f'{v:g}' for v in action.to_point)})"
-    if isinstance(action, FadeObject):
-        return f"{action.target} fades {'in' if action.visible else 'out'}"
-    if isinstance(action, TransformEquation):
-        return f"{action.target} becomes equation {action.to} ({action.match.replace('_', ' ')})"
-    text = f"{action.target}.{action.parameter} to {action.to:g}"
-    if action.emphasize:
-        text += ", emphasizing " + ", ".join(action.emphasize)
-    if action.lead_in_seconds:
-        text += f", after a {action.lead_in_seconds:g} s lead-in"
-    return text
 
 
 def create_app(workspace_root: Path, index: Index | None = None) -> FastAPI:

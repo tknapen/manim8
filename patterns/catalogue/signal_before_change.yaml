@@ -3,31 +3,34 @@ id: signal_before_change
 name: Point, then move
 group: attention
 summary: >-
-  Before something changes, the viewer is shown where to look: the term takes its colour and pulses, a box
-  surrounds the region, the rest stays still. The change then happens where attention already is.
+  Before something changes, the viewer is shown where to look: a box in the emphasis ink surrounds the place,
+  or travels there from the symbol that names it, or the term itself pulses, while nothing else moves. The
+  change then happens where attention already is.
 use_when:
   - The change to watch is small relative to the picture, or several things are on screen.
   - The change that matters is less salient than another one (a slow shift beside a fast motion).
+  - A symbol in the equation names something in the picture, and the clip should show which.
 avoid_when:
   - The change is already the most salient thing on screen; a cue then adds nothing.
 beats:
-  - Cue the place (colour, pulse, box) while nothing moves.
-  - Make the change.
-  - Release the cue once the change has ended.
+  - Cue the place while nothing moves; to link a symbol with what it names, let the box appear around the symbol and travel to the object.
+  - Make the change while the cue holds.
+  - Release the cue as the change ends.
 timing:
-  lead_in: {min: 0.5, max: 1.2}
+  lead_in: {min: 0.5, max: 1.5}
   change: {min: 1.0, max: 4.0}
-  note: Indications in the survey take 1 to 2 s.
-status: partial
-components: [equation_block, equation_label]
-actions: [vary_parameter]
-needs:
-  - An emphasize action for any object or equation term without a sweep (a surrounding box, a flash, a colour change), with its own window.
-  - A cue that travels from a symbol in an equation to the object it names, instead of a new cue appearing.
+  note: >-
+    Indications in the survey take 1 to 2 s. A box's ink rises and falls over the style's reveal time (at most a
+    quarter of the window each), and a travel takes the transition time.
+status: available
+actions: [emphasize, vary_parameter]
 recipes:
+  - project: computational_neuroscience/orientation_tuning
+    scene: model
+    note: A box appears around kappa in the label, travels to the model curve and holds while kappa sharpens it.
   - project: computational_neuroscience/gabor_filter
     scene: gabor
-    note: Each sweep's term lights up a second before its value moves; the cue exists only as part of a sweep.
+    note: The lighter variant inside a sweep, where each term lights up a second before its value moves.
 corpus:
   idioms: [indicate, surrounding box, colour-linked terms]
   exemplars:
@@ -41,4 +44,5 @@ corpus:
 research: [alpizar2020, lowe2003]
 pitfalls:
   - A cue that stays on through the next change points at the wrong thing.
+  - A pulse rewrites the glyphs it grows, so it cannot run while a sweep emphasizes the same equation; a box can.
 related: [staged_terms, dim_the_context]

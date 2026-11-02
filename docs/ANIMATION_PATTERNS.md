@@ -1,6 +1,7 @@
 # Animation patterns: what a corpus and the studies say, and the library built from them
 
-Status: first version, 2 November 2026 (ADR-040). The library itself is data in [`patterns/`](../patterns/);
+Status: first version, 2 November 2026 (ADR-040); cues and partial ink added the same day (ADR-041). The library
+itself is data in [`patterns/`](../patterns/);
 `scianim patterns list`, `show` and `check` read it, and the agent's context bundle carries it.
 
 The question was which transitions, animations and dynamics serve a short scientific clip, so that an agent
@@ -145,9 +146,9 @@ outside this project's mission. Flip-book stepping with instant changes reads as
 | `orbit_to_reveal_depth` | viewpoint | available | prf_tuning / prf |
 | `let_time_run` | motion | available | drop_impact / splash |
 | `motion_under_a_law` | motion | available | drop_impact / splash |
+| `signal_before_change` | attention | available | orientation_tuning / model; gabor_filter / gabor |
+| `dim_the_context` | attention | available | orientation_tuning / model |
 | `reveal_in_reading_order` | attention | partial | orientation_tuning / circuit |
-| `signal_before_change` | attention | partial | gabor_filter / gabor |
-| `dim_the_context` | attention | partial | none |
 | `sliding_window` | motion | partial | none |
 | `derive_by_copy` | form | planned | |
 | `morph_between_representations` | form | planned | |
@@ -165,9 +166,9 @@ timing above), its pitfalls (most of them from the studies), and its corpus evid
 The partial and planned patterns name what is missing. Ordered by how much a scientific clip would gain and
 how often the corpus relies on the idiom, a proposal for the author:
 
-1. An `emphasize` action for any object or equation term, without a sweep: the cue of `signal_before_change`,
-   in 11 to 17% of recent scenes, and the cheapest of the list.
-2. Fading to a given ink level rather than out (`dim_the_context`, 12%).
+1. Done (ADR-041): an `emphasize` action for any object or equation term without a sweep, a box that can travel
+   from a symbol to what it names, or a pulse; the cue of `signal_before_change`, in 11 to 17% of recent scenes.
+2. Done (ADR-041): fading to a given ink level rather than out (`dim_the_context`, 12%).
 3. Sending a copy of a term or picture element into another equation (`derive_by_copy`, 17%, the most
    frequent transform of recent years).
 4. Staggered and stroke-drawing reveals within one object (`reveal_in_reading_order`; staggering in 35% of

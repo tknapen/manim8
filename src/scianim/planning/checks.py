@@ -22,7 +22,7 @@ from scianim_core.components import (
     FunctionPlotParams,
     NetworkGraphParams,
 )
-from scianim_core.storyboard import MoveObject, Scene, SceneObject, TransformEquation, VaryParameter
+from scianim_core.storyboard import Emphasize, MoveObject, Scene, SceneObject, TransformEquation, VaryParameter
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -262,7 +262,9 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
     """Warn about a checkpoint that falls while an object is still fading in, about a track that the scene's
     fade-out would cut short, and about motion that breaks the style's rules of smoothness: a linear profile,
     a lead-in shorter than the pulse, or a rest shorter than `motion.hold_seconds` between two motions of one
-    object. Tracks run concurrently, so nothing starts late because of a reveal."""
+    object. A move that rises to rest (`ease_out_quad`) followed by one that falls from rest (`ease_in_quad`) is
+    one ballistic arc, which does not pause at its apex, so no rest is asked between its halves. Tracks run
+    concurrently, so nothing starts late because of a reveal."""
     motion = style.tokens.motion
     fade_start = scene.end_seconds - motion.transition_seconds
     frame = 1.0 / fps
@@ -308,6 +310,12 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
         for earlier in motions:
             for later in motions:
                 if later is earlier or later.target != earlier.target or type(later) is not type(earlier):
+                    continue
+                if (
+                    isinstance(earlier, MoveObject)
+                    and earlier.easing == "ease_out_quad"
+                    and later.easing == "ease_in_quad"  # the halves of one arc
+                ):
                     continue
                 starts = later.moves_at_seconds if isinstance(later, VaryParameter) else later.at_seconds
                 rest = starts - earlier.end_seconds
@@ -362,6 +370,20 @@ def check_equation_transforms(scene: Scene, equations: dict[str, Any], engine: s
                     f"action '{action.id}': highlighted symbols {silent} do not occur in '{action.to}', so they cannot be "
                     "emphasized after the transform"
                 )
+        elif isinstance(action, Emphasize):
+            for object_id, symbols in action.places:
+                obj = objects[object_id]
+                if not symbols or obj.equation is None:
+                    continue
+                shown, via = active_equation(scene, obj, action.at_seconds)
+                equation = equations.get(shown)
+                absent = [name for name in symbols if equation is not None and not equation.mentions(name, engine)]  # type: ignore[arg-type]
+                if absent:
+                    how = f"transformed by '{via}'" if via is not None else "the equation declared on the object"
+                    report.error(
+                        f"action '{action.id}' points at {absent} on '{object_id}', but at {action.at_seconds:g}s that "
+                        f"object shows equation '{shown}' ({how}), which does not contain them"
+                    )
         elif isinstance(action, VaryParameter):
             for object_id in action.emphasize:
                 obj = objects[object_id]

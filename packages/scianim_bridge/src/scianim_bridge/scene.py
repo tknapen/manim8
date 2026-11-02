@@ -18,12 +18,13 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from itertools import pairwise
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from manim import (
     DOWN,
     LEFT,
+    RIGHT,
     UP,
     Animation,
     FadeIn,
@@ -31,6 +32,7 @@ from manim import (
     ImageMobject,
     ManimColor,
     Mobject,
+    RoundedRectangle,
     Text,
     ThreeDScene,
     Transform,
@@ -110,6 +112,10 @@ def state_easing(name: str) -> Callable[[float], float]:
 @dataclass
 class Track:
     """Something that unfolds over the storyboard window [at_seconds, at_seconds + duration_seconds]."""
+
+    order: ClassVar[int] = 0
+    """When the track applies within a frame, lowest first: moves, fades and transforms, then sweeps (which
+    redraw from what those leave), then cues (which surround what the sweeps leave), ADR-039 and ADR-041."""
 
     scene: SnapshotScene
     track_id: str
@@ -193,6 +199,8 @@ class Sweep(Track):
     the glyphs this action `released` (the term of the previous action on that equation) return to
     `base_color` at the same time.
     """
+
+    order: ClassVar[int] = 1
 
     component: ParametricComponent = field(kw_only=True)
     parameter: str = field(kw_only=True)
@@ -439,6 +447,101 @@ class RevealTrack(FadeTrack):
         """The object's full ink as built, or as it recorded it (a sphere's faces), without recording it on the
         object: a later fade captures the members it has by then (a transformed equation's new glyphs)."""
         self.originals = self.component.ink_originals if self.component.ink_originals is not None else self._full_ink()
+
+
+@dataclass
+class CueTrack(Track):
+    """One `emphasize` action (ADR-041): a box in the emphasis ink around a place, or a pulse of named symbols.
+
+    The box's ink rises over the first `edge` of the window and falls over the last; with a `source` it appears
+    there and travels to the target during the `travel` fraction that follows the rise, then holds. Its outline
+    is rebuilt in every frame from the places' bounds as they are in that frame, and cues apply after moves and
+    sweeps, so a box around a curve being swept follows the curve exactly as a skipped play leaves it (ADR-039).
+    A pulse grows each named symbol's occurrences and blends them into the emphasis ink and back on a raised
+    cosine over the whole window; at the end the glyphs are as they were when the cue began."""
+
+    order: ClassVar[int] = 2
+
+    target: Component = field(kw_only=True)
+    symbols: tuple[str, ...] = field(kw_only=True)
+    source: Component | None = field(kw_only=True)
+    source_symbols: tuple[str, ...] = field(kw_only=True)
+    box: VMobject | None = field(kw_only=True)
+    pulse: list[tuple[Mobject, Mobject]] = field(kw_only=True)
+    edge: float = field(kw_only=True)
+    travel: float = field(kw_only=True)
+    easing: Callable[[float], float] = field(kw_only=True)
+    pulse_scale: float = field(kw_only=True)
+    color: ManimColor = field(kw_only=True)
+    stroke_width: float = field(kw_only=True)
+    padding: float = field(kw_only=True)
+
+    @property
+    def mobject(self) -> Mobject:
+        return self.box if self.box is not None else self.target.group
+
+    @staticmethod
+    def bounds(component: Component, symbols: Sequence[str]) -> np.ndarray:
+        """[x0, y0, x1, y1] of the first occurrence of each named symbol, or of the whole object."""
+        parts: list[Mobject] = []
+        if symbols and isinstance(component, EquationComponent):
+            for name in symbols:
+                part = component.highlights.get(name)
+                if part is not None:
+                    parts.append(part.submobjects[0] if part.submobjects else part)
+        parts = [part for part in parts if part.family_members_with_points()] or [component.group]
+        corners = np.array([[*part.get_corner(DOWN + LEFT)[:2], *part.get_corner(UP + RIGHT)[:2]] for part in parts])
+        return np.array([corners[:, 0].min(), corners[:, 1].min(), corners[:, 2].max(), corners[:, 3].max()])
+
+    def ink_at(self, fraction: float) -> float:
+        if fraction < self.edge:
+            return smooth(fraction / self.edge)
+        if fraction > 1.0 - self.edge:
+            return smooth((1.0 - fraction) / self.edge)
+        return 1.0
+
+    def apply(self, fraction: float) -> None:
+        fraction = min(1.0, max(0.0, fraction))
+        if self.box is not None:
+            rect = self.bounds(self.target, self.symbols)
+            if self.source is not None and self.travel > 0.0:
+                start = self.bounds(self.source, self.source_symbols)
+                progress = min(1.0, max(0.0, (fraction - self.edge) / self.travel))
+                rect = start + (rect - start) * self.easing(progress)
+            x0, y0, x1, y1 = rect
+            width = max(x1 - x0, 0.0) + 2.0 * self.padding
+            height = max(y1 - y0, 0.0) + 2.0 * self.padding
+            outline = RoundedRectangle(
+                width=width,
+                height=height,
+                corner_radius=min(self.padding, width / 2.0, height / 2.0),
+                **self.scene.tokens.line_kwargs(),
+            )
+            outline.move_to(np.array([(x0 + x1) / 2.0, (y0 + y1) / 2.0, 0.0]))
+            outline.set_fill(opacity=0.0)
+            outline.set_stroke(self.color, width=self.stroke_width, opacity=self.ink_at(fraction))
+            self.box.become(outline)
+            self.scene.fix_in_frame(self.box)
+        if self.pulse:
+            lift = math.sin(math.pi * fraction) ** 2 if 0.0 < fraction < 1.0 else 0.0
+            scale = 1.0 + (self.pulse_scale - 1.0) * lift
+            for part, pristine in self.pulse:
+                part.become(pristine)
+                for glyph, kept in zip(
+                    part.family_members_with_points(), pristine.family_members_with_points(), strict=True
+                ):
+                    glyph.set_color(kept.get_color().interpolate(self.color, lift))
+                if scale != 1.0:
+                    for occurrence in part.submobjects or [part]:  # each occurrence grows about its own centre
+                        occurrence.scale(scale)
+                self.scene.fix_in_frame(part)
+
+    def finish(self) -> None:
+        if self.box is not None and self.box in self.scene.mobjects:
+            self.scene.remove(self.box)
+        for part, pristine in self.pulse:
+            part.become(pristine)
+            self.scene.fix_in_frame(part)
 
 
 @dataclass
@@ -793,7 +896,8 @@ class SnapshotScene(ThreeDScene):
         easing: str | None = None,
         action_id: str | None = None,
     ) -> FadeTrack:
-        """Start fading an object out (or back in) now; `run_until` plays it, alone or beside other tracks."""
+        """Start fading an object out (or back in) now, from the ink it has; `run_until` plays it, alone or beside
+        other tracks."""
         motion = self.tokens.t.motion
         duration = duration_seconds if duration_seconds is not None else motion.transition_seconds
         track = FadeTrack(
@@ -802,7 +906,7 @@ class SnapshotScene(ThreeDScene):
             at_seconds=self.clock,
             duration_seconds=max(duration, self.frame_seconds),
             component=component,
-            start_factor=0.0 if visible else 1.0,
+            start_factor=self.current_ink(component),
             end_factor=1.0 if visible else 0.0,
             easing=state_easing(easing or motion.easing),
             remove=remove,
@@ -811,6 +915,10 @@ class SnapshotScene(ThreeDScene):
             self.add(component.group)
         track.apply(0.0)
         return track
+
+    def current_ink(self, component: Component) -> float:
+        """The fraction of its full ink an object shows now: none before it is revealed or once it faded out."""
+        return component.ink_factor if component.visible and component.group in self.mobjects else 0.0
 
     def begin_reveal(self, component: Component, duration_seconds: float | None = None) -> RevealTrack:
         """Start revealing an object now; `run_until` plays the fade, alone or beside other tracks."""
@@ -1143,28 +1251,92 @@ class SnapshotScene(ThreeDScene):
         self,
         component: Component,
         *,
-        visible: bool,
+        visible: bool | None = None,
+        ink: float | None = None,
         at_seconds: float,
         duration_seconds: float,
         action_id: str,
         easing: Easing | None = None,
     ) -> FadeTrack:
-        """Start a `fade_object` action on the storyboard window: the object's ink goes to nothing and the group
-        leaves the scene (it stays registered, invisible), or comes back to full ink."""
+        """Start a `fade_object` action on the storyboard window: from the ink the object has to `ink`, a fraction of
+        its full ink (ADR-041). At nothing the group leaves the scene (it stays registered, invisible); `visible`,
+        the older form, means 1 or 0."""
         motion = self.tokens.t.motion
+        end = ink if ink is not None else (1.0 if visible else 0.0)
         track = FadeTrack(
             scene=self,
             track_id=action_id,
             at_seconds=at_seconds,
             duration_seconds=max(duration_seconds, self.frame_seconds),
             component=component,
-            start_factor=0.0 if visible else 1.0,
-            end_factor=1.0 if visible else 0.0,
+            start_factor=self.current_ink(component),
+            end_factor=end,
             easing=state_easing(easing or motion.easing),
             remove=True,
         )
-        if visible and component.group not in self.mobjects:
+        if end > 0.0 and component.group not in self.mobjects:
             self.add(component.group)
+        track.apply(0.0)
+        return track
+
+    def begin_emphasize(
+        self,
+        component: Component,
+        *,
+        symbols: Sequence[str] = (),
+        cue: str = "box",
+        from_target: Component | None = None,
+        from_symbols: Sequence[str] = (),
+        at_seconds: float,
+        duration_seconds: float,
+        action_id: str,
+        easing: Easing | None = None,
+    ) -> CueTrack:
+        """Start an `emphasize` action (ADR-041): a box around the target (or around named symbols of its
+        equation), appearing at `from_target` first when given, or a pulse of named symbols. The ink ramps take
+        `motion.reveal_seconds` each, at most a quarter of the window; a travel takes `motion.transition_seconds`,
+        at most half of what the ramps leave."""
+        motion = self.tokens.t.motion
+        tokens = self.tokens
+        duration = max(duration_seconds, self.frame_seconds)
+        for place, names in ((component, symbols), (from_target, from_symbols)):
+            if place is None or not names:
+                continue
+            if not isinstance(place, EquationComponent):
+                raise ValueError(
+                    f"action '{action_id}': '{place.object_id}' is a {place.kind} with no symbols to point at"
+                )
+            missing = [name for name in names if name not in place.highlights]
+            if missing:
+                raise ValueError(f"action '{action_id}': '{place.object_id}' shows no highlighted {missing}")
+        edge = min(motion.reveal_seconds, duration / 4.0)
+        travel = min(motion.transition_seconds, (duration - 2.0 * edge) / 2.0) if from_target is not None else 0.0
+        pulse: list[tuple[Mobject, Mobject]] = []
+        if cue == "pulse":
+            if not isinstance(component, EquationComponent) or not symbols:
+                raise ValueError(f"action '{action_id}': a pulse grows named symbols of an equation")
+            pulse = [(component.highlights[name], component.highlights[name].copy()) for name in symbols]
+        track = CueTrack(
+            scene=self,
+            track_id=action_id,
+            at_seconds=at_seconds,
+            duration_seconds=duration,
+            target=component,
+            symbols=tuple(symbols),
+            source=from_target,
+            source_symbols=tuple(from_symbols),
+            box=VMobject() if cue == "box" else None,
+            pulse=pulse,
+            edge=edge / duration,
+            travel=travel / duration,
+            easing=rate_function(easing or motion.easing, max(travel, self.frame_seconds), motion.ramp_seconds),
+            pulse_scale=motion.emphasis_scale,
+            color=tokens.color("emphasis"),
+            stroke_width=tokens.stroke_width(tokens.t.geometry.annotation_stroke_px_at_1080p),
+            padding=tokens.units(tokens.t.layout.baseline_grid_px_at_1080p),
+        )
+        if track.box is not None:
+            self.add(track.box)
         track.apply(0.0)
         return track
 
@@ -1267,8 +1439,9 @@ class SnapshotScene(ThreeDScene):
     def run_until(self, seconds: float, tracks: Sequence[Track]) -> None:
         """Advance every track to the storyboard time `seconds` in one play, frame-exact.
 
-        Sweeps apply last in every frame: they redraw curves and markers from their axes and place readouts beside
-        their anchors, so they must see the objects that moves and transforms have already brought to this frame;
+        Sweeps apply after moves, fades and transforms in every frame, and cues after sweeps (`Track.order`):
+        sweeps redraw curves and markers from their axes and place readouts beside their anchors, so they must see
+        the objects that moves and transforms have already brought to this frame;
         otherwise a drawn play leaves them one frame behind and a skipped one does not, and the next play's hash
         differs (ADR-039). An object that a segment brings into the scene still joins it in the order the tracks
         were given, which is its drawing order."""
@@ -1281,14 +1454,14 @@ class SnapshotScene(ThreeDScene):
                 if segment.mobject not in present:
                     self.add(segment.mobject)
                     present += segment.mobject.get_family()
-            self.play_frames(frames, *sorted(segments, key=lambda segment: isinstance(segment.track, Sweep)))
+            self.play_frames(frames, *sorted(segments, key=lambda segment: segment.track.order))
         else:
             if seconds < self.clock - self.frame_seconds:
                 names = ", ".join(track.track_id for track in tracks)
                 self.timing_warnings.append(
                     f"tracks {names} should reach {seconds:g}s but the clock is already {self.clock:.3f}s"
                 )
-            for track, f1 in sorted(targets, key=lambda target: isinstance(target[0], Sweep)):
+            for track, f1 in sorted(targets, key=lambda target: target[0].order):
                 track.apply(f1)
         for track, f1 in targets:
             track.fraction = f1

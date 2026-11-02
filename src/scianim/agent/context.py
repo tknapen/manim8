@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scianim.actions import action_summary
 from scianim.config.loader import SpecError
 from scianim.feedback.store import list_feedback
 from scianim.patterns import PatternLibrary, load_library, recipe_scene
@@ -46,6 +47,10 @@ YAML in the project is the specification, and nothing you say in a conversation 
    The picture follows, the term pulses, and a readout shows the value. Actions run concurrently when they
    drive different things (a surface's parameter while the camera orbits; two parameters of one plot), so
    let several things move at once where it helps, one after another where the viewer must follow each.
+   To show where to look before something changes, add an `emphasize` action: a box around an object or
+   around symbols of its equation, which can travel from a symbol to the object it names (`from_target`,
+   `from_symbols`), or a `pulse` of the symbols. To quiet the context, `fade_object` it to an `ink` level such
+   as 0.3 once it has finished changing, and restore it with `visible: true`.
    A `surface_plot` is a fine mesh of z = f(x, y) that an `orbit_camera` action turns; a `function_image`
    is a field sampled to pixels (a grating, a kernel). Keep ranges fixed on anything that varies. Do not
    place two conditions side by side when one quantity can vary while the viewer watches.
@@ -257,18 +262,9 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
                     + ")"
                 )
             for action in scene.actions:
-                if action.kind == "orbit_camera":
-                    what = "camera orbit"
-                elif action.kind == "fade_axes":
-                    what = f"axes of `{action.target}` fade {'in' if action.visible else 'out'}"
-                else:
-                    what = (
-                        f"`{action.target}.{action.parameter}` to {action.to:g}"
-                        + (f", emphasizing {', '.join(f'`{e}`' for e in action.emphasize)}" if action.emphasize else "")
-                        + (f", after a {action.lead_in_seconds:g} s lead-in" if action.lead_in_seconds else "")
-                    )
                 lines.append(
-                    f"  - action `{action.id}` ({action.kind}): {what} over {action.at_seconds:g}-{action.end_seconds:g} s"
+                    f"  - action `{action.id}` ({action.kind}): {action_summary(action)} over "
+                    f"{action.at_seconds:g}-{action.end_seconds:g} s"
                 )
             for snap in scene.snapshots:
                 lines.append(f"  - snapshot `{snap.id}` at {snap.at_seconds:g} s: {snap.description}")

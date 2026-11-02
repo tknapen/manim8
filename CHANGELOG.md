@@ -29,9 +29,19 @@ First version under the name manim8 (ADR-037).
   the agent's context bundle gains a Patterns section and `patterns.json`. Storyboard scenes may name the
   patterns they stage (`patterns: [sweep_with_readout]`); validation checks the ids. The wheel carries the
   library. `tools/survey_corpus.py` reproduces the survey.
+- An `emphasize` action (ADR-041): a box in the emphasis ink around an object or symbols of its equation,
+  optionally travelling from a symbol to the object it names, or a pulse of the symbols. `fade_object` takes
+  `ink`, a fraction of full ink, to dim the context and restore it.
+- `tomas_scientific@0.5.1` asks for a rest of one second between two motions of one object
+  (`motion.hold_seconds`), after the survey's median pause; the examples pin it. The halves of a ballistic arc
+  (`ease_out_quad` then `ease_in_quad`) need no rest between them.
 
 Fixed:
 
+- `scianim context` failed on a storyboard with moves, fades or transforms (it read every action other than an
+  orbit or an axes fade as a sweep); the bundle and the review server now share one action summary.
+- Fades started from full ink whatever the object showed; they start from its current ink, so a dimmed object
+  fades out from its dimmed level at the end of a scene.
 - A track still moving near a scene's end (an orbit to the end of the clip) stopped `motion.transition_seconds`
   early, at speed: generated scenes advanced tracks only to the start of the end-of-scene fade, even in the last
   scene, which keeps its objects and never fades. The last scene's tracks now run to its end, and a scene that
