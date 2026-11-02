@@ -238,7 +238,7 @@ def test_drop_impact_moves_fades_and_transforms(workspace: Path, scianim) -> Non
     assert scianim("codegen", str(project)).returncode == 0
     generated = (project / "code" / "scene_drop_impact.py").read_text()
     assert "fall = self.begin_move(drop, to_anchor=None, by=None, to_point=[0.0, 0.0, 0.0]" in generated
-    assert "vanish = self.begin_fade_object(drop, visible=False, at_seconds=5.5" in generated
+    assert "vanish = self.begin_fade_object(drop, ink=0, at_seconds=5.5" in generated
     assert 'impact = self.begin_transform(model, to="splash", at_seconds=5.5, duration_seconds=0.8' in generated
     assert "self.run_until(5.8, [orbit, clock, vanish, impact])" in generated
     assert generated.count("merge = self.begin_fade_object(droplet") == 1
