@@ -9,6 +9,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.tree import Tree
 
@@ -1203,17 +1204,17 @@ def patterns_show(
     if as_json:
         out.print_json(json.dumps(pattern.model_dump(mode="json")))
         return
-    out.print(f"[bold]{pattern.name}[/bold] (`{pattern.id}`, {pattern.group}, {pattern.status})")
-    out.print(pattern.summary, highlight=False)
+    out.print(f"[bold]{escape(pattern.name)}[/bold] (`{pattern.id}`, {pattern.group}, {pattern.status})")
+    out.print(pattern.summary, highlight=False, markup=False)
     sections = [("Use when", pattern.use_when), ("Avoid when", pattern.avoid_when)]
     for title, items in sections:
         if items:
             out.print(f"\n[bold]{title}[/bold]")
             for item in items:
-                out.print(f"  - {item}", highlight=False)
+                out.print(f"  - {item}", highlight=False, markup=False)
     out.print("\n[bold]Beats[/bold]")
     for number, beat in enumerate(pattern.beats, 1):
-        out.print(f"  {number}. {beat}", highlight=False)
+        out.print(f"  {number}. {beat}", highlight=False, markup=False)
     timing = [
         f"{name} {r.min:g}-{r.max:g} s"
         for name, r in (
@@ -1225,36 +1226,43 @@ def patterns_show(
     ]
     if timing or pattern.timing.note:
         out.print(
-            "\n[bold]Timing[/bold] " + "; ".join(timing) + (f". {pattern.timing.note}" if pattern.timing.note else "")
+            "\n[bold]Timing[/bold] "
+            + escape("; ".join(timing) + (f". {pattern.timing.note}" if pattern.timing.note else ""))
         )
-    out.print(f"\n[bold]Realized with[/bold] {_realized_with(pattern)}")
+    out.print(f"\n[bold]Realized with[/bold] {escape(_realized_with(pattern))}")
     for need in pattern.needs:
-        out.print(f"  needs: {need}", highlight=False)
+        out.print(f"  needs: {need}", highlight=False, markup=False)
     for recipe in pattern.recipes:
         found = recipe_scene(recipe.project, recipe.scene)
         out.print(
             f"\n[bold]Recipe[/bold] {recipe.project}, scene `{recipe.scene}`"
-            + (f": {recipe.note}" if recipe.note else "")
+            + escape(f": {recipe.note}" if recipe.note else "")
         )
         if found.mapping is not None:
             out.print(yaml_text(found.mapping), highlight=False, markup=False)
         if found.problem:
-            out.print(f"  [red]{found.problem}[/red]")
+            out.print(f"  [red]{escape(found.problem)}[/red]")
     for survey, idioms in library.idiom_shares(pattern).items():
         out.print(f"\n[bold]Corpus[/bold] {survey}: share of scenes using the idiom, by era")
         for idiom, eras in idioms.items():
-            out.print(f"  {idiom}: " + ", ".join(f"{era} {share:g}%" for era, share in eras.items()), highlight=False)
+            out.print(
+                f"  {idiom}: " + ", ".join(f"{era} {share:g}%" for era, share in eras.items()),
+                highlight=False,
+                markup=False,
+            )
     if pattern.corpus and pattern.corpus.exemplars:
-        out.print("  e.g. " + "; ".join(pattern.corpus.exemplars), highlight=False)
+        out.print("  e.g. " + "; ".join(pattern.corpus.exemplars), highlight=False, markup=False)
     if pattern.research:
         out.print("\n[bold]Research[/bold]")
         for key in pattern.research:
             reference = library.references[key]
-            out.print(f"  - {reference.citation} {reference.finding} [{reference.checked}]", highlight=False)
+            out.print(
+                f"  - {reference.citation} {reference.finding} [{reference.checked}]", highlight=False, markup=False
+            )
     if pattern.pitfalls:
         out.print("\n[bold]Pitfalls[/bold]")
         for item in pattern.pitfalls:
-            out.print(f"  - {item}", highlight=False)
+            out.print(f"  - {item}", highlight=False, markup=False)
     if pattern.related:
         out.print(f"\n[bold]Related[/bold] {', '.join(pattern.related)}")
 

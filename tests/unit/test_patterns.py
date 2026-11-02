@@ -140,6 +140,7 @@ def test_the_commands_list_show_and_check() -> None:
     assert {entry["status"] for entry in json.loads(planned.output)} == {"planned"}
     shown = runner.invoke(app, ["patterns", "show", "sweep_with_readout"])
     assert shown.exit_code == 0 and "raise_pool" in shown.output and "Ploetzner" in shown.output
+    assert "[abstract]" in shown.output  # entry text is printed as text, not read as console markup
     assert runner.invoke(app, ["patterns", "show", "hologram"]).exit_code == 1
     checked = runner.invoke(app, ["patterns", "check"])
     assert checked.exit_code == 0 and "ok" in checked.output
