@@ -1135,3 +1135,54 @@ enters the bridge's fingerprint, and the purity test runs on Manim's own hash, s
 rather than the store. The prices are a copy of a moving object's points per frame and one raster painting per
 play, small beside drawing. An equation transform still sets points from copies taken when it begins, so a
 concurrent `move_object` of the same equation does not compose with it.
+
+## ADR-040: A pattern library primes the agent; scenes may name the patterns they stage
+
+**Status:** accepted, 2 November 2026
+
+**Context.** The registry says what can be drawn and the actions say what can move, but nothing told an agent
+which ways of moving serve an explanation: when a parameter sweep shows a dependence, when two pictures should
+share one value, when to cue a term before it changes, how long each of these takes. A survey of the
+3Blue1Brown videos repository (4,814 scenes and 30,103 plays from 2015 to 2026, docs/ANIMATION_PATTERNS.md)
+showed which idioms one experienced author reaches for and how he times them; studies of learning from
+animation say where animation helps (when the features of a change must be learned) and where it fails
+(when salience and relevance part, when too much moves at once). The two kinds of evidence answer different
+questions and the library keeps them apart.
+
+**Decision.**
+
+1. *The library is data with a contract.* `patterns/catalogue/<id>.yaml` holds one `Pattern` each (in
+   `scianim_core.patterns`): a name, a group (change, form, attention, viewpoint, motion, chance), a summary,
+   when to use it and when not, its beats in order, usual durations as ranges, a status, the component kinds
+   and action kinds that realize it, what a full realization still needs, recipes, corpus evidence, research
+   keys, pitfalls and related patterns. `patterns/references.yaml` lists the cited works with how far each was
+   checked (record, abstract or full text); `patterns/survey/*.json` is the survey's output. The control plane
+   loads and cross-checks the three (kinds and actions exist, keys resolve, surveyed idioms exist) and ships
+   them in the wheel beside the styles and examples (ADR-037).
+2. *Status is honest about the renderer.* `available` means registered components and actions stage the
+   pattern as described, with no `needs`; `partial` means they stage an approximation and `needs` says what is
+   missing; `planned` means nothing stages it without a custom builder. The model refuses an entry whose
+   status and needs disagree.
+3. *A recipe is a rendered example, not a fragment.* A recipe names a scene of an example project. `scianim
+   patterns check` (and a unit test) verify that the scene exists, validates and uses something the pattern is
+   realized with; the examples render in the integration tests and in the release check, so a recipe never
+   claims a picture that no test produced. Planned patterns have no recipes.
+4. *Scenes may name their patterns.* `Scene.patterns` is an optional list of ids. Project validation reports an
+   unknown id as an error, a planned pattern as a warning, and a scene that uses none of its pattern's actions
+   or components as a warning. The field records intent for the reviewer and the agent and changes no picture,
+   so scene fingerprints (ADR-033) exclude it; it does change the storyboard file and so the job key, as every
+   edit does.
+5. *The agent sees the library.* The context bundle gains a Patterns section (usable patterns in full, planned
+   ones with what they need), `patterns.json` with every entry, the recipe scenes as written and the cited
+   references, and an instruction to choose one pattern per scene, two at most, to start from its recipe, to
+   name it in `patterns`, and to report a planned pattern's need under `uncertainties` rather than approximate
+   it silently. `scianim patterns list|show|check` serve people and agents alike.
+
+**Why.** Prose guidance in the bundle's instructions could say some of this, but it could not be checked: a
+contract lets the validator, the review sheet and a future agent server refer to a pattern by id, lets tests
+fail when a recipe stops staging its pattern, and lets the gaps in the registry be counted rather than
+remembered. Keeping counts and experiments apart avoids the inference the survey cannot support: that an idiom
+one author uses often is one that works for viewers. The corpus is licensed CC BY-NC-SA 4.0, so the library
+records observations about it (counts, the names of scenes) and describes idioms in its own words; no code is
+copied. The planned patterns, ranked by how often the corpus uses them and how much they matter to scientific
+clips, are the candidates for the next components and actions (docs/IMPLEMENTATION_PLAN.md, Milestone 10).

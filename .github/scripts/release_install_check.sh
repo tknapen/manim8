@@ -15,6 +15,7 @@ export UV_FIND_LINKS="$work/dist"
 cd "$work"
 m8="$work/venv/bin/manim8"
 "$m8" workspace init ws --with-example
+"$m8" patterns check  # the pattern library and its recipe examples come from the wheel's data (ADR-040)
 family="ws/families/computational_neuroscience"
 project="$family/divisive_normalization"
 grep -q "manim8-bridge==$version" "$family/pyproject.toml"

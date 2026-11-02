@@ -6,6 +6,7 @@ scenes:
     start_seconds: 0
     end_seconds: 20
     purpose: "A drop falls onto still water: crater, ring wave and rebound column, from an analytic model of the surface, under a slowly turning camera."
+    patterns: [let_time_run, motion_under_a_law]
     narration:
       text: >-
         A drop falls onto still water. Where it lands a crater opens and a ring wave runs outward, while the

@@ -13,6 +13,7 @@ from scianim import workspace as ws
 from scianim.config.loader import SpecError
 from scianim.families.resolve import load_family_context, sync_environment
 from scianim.migrate import migrate_family_pyproject, migrate_tree, stale_family_pyproject
+from scianim.patterns import patterns_root
 from scianim_core.components import REGISTRY_VERSION
 
 REPO = Path(__file__).resolve().parents[2]
@@ -48,9 +49,11 @@ def test_release_mode_family_takes_the_bridge_from_the_index(monkeypatch, tmp_pa
     data = tmp_path / "_data"
     (data / "styles" / "default" / "0.5.0").mkdir(parents=True)
     (data / "examples").mkdir(parents=True)
+    (data / "patterns" / "catalogue").mkdir(parents=True)
     monkeypatch.setattr(ws, "DATA_ROOT", data)
     assert ws.packages_root() is None and ws.packages_relative_to(tmp_path) is None
     assert ws.bundled_styles_root() == data / "styles" and ws.examples_root() == data / "examples"
+    assert patterns_root() == data / "patterns"
 
 
 def test_migration_renames_old_family_environments(workspace: Path) -> None:

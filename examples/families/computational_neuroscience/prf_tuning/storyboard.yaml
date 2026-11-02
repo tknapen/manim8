@@ -6,6 +6,7 @@ scenes:
     start_seconds: 0
     end_seconds: 16
     purpose: "The pRF as a Gaussian over the visual field: move its centre, then grow its size, while the camera turns."
+    patterns: [orbit_to_reveal_depth, sweep_with_readout]
     narration:
       text: >-
         A population receptive field weights the visual field around a centre with a size. Moving

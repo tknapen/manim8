@@ -1,7 +1,8 @@
 # From a paper to a clip: work plan for the review loop
 
-Status: proposed, 1 November 2026. Sections 2 and 9 hold decisions that belong to the author; the packages in
-sections 3 to 8 are written so that the first of them can start before those decisions are taken.
+Status: accepted, 2 November 2026. The author took the decisions of section 9 on 2 November (the paper for the
+tutorial remains open); package O, the pattern library, was added the same day and has a first version
+(ADR-040, [ANIMATION_PATTERNS.md](ANIMATION_PATTERNS.md)).
 
 The loop this plan codifies: a scientist drops in a PDF; a model reads it, extracts its figures and decides how
 the topic can move on screen; it proposes a first storyboard, which the scientist edits and comments on; a first
@@ -67,7 +68,7 @@ adapter calls a model API with the same tools; the turn has a log, a cost estima
 which is the proposals and answers it wrote. Keys come from the environment or the operating system's keychain,
 never from project files.
 
-Recommendation: build A first and B on top of it. A needs no keys, no cost control and no new trust boundary, and
+Decided: A first, and B on top of it. A needs no keys, no cost control and no new trust boundary, and
 it exercises exactly the tools B will use; B is then a loop around the same operations plus a provider adapter.
 Under both routes the web interface is the scientist's surface and the files are the record.
 
@@ -95,9 +96,10 @@ environment's render worker.
 ### 2.4 How much the model may do on its own
 
 A project-level policy file (`agent.yaml`, versioned with the project) sets what `apply` may do without the
-scientist: by default nothing; a common setting lets the agent apply visual and timing changes (layout, durations,
-easing) and render previews, while anything that touches equations, data, sources, claims or custom code waits for
-acceptance in the web interface. Science always waits for sign-off, whatever the policy says.
+scientist. The default, decided on 2 November: the agent applies visual and timing changes (layout, durations,
+easing) and renders previews on its own, while anything that touches equations, data, sources, claims or custom
+code waits for acceptance in the web interface. A project can narrow this to nothing. Science always waits for
+sign-off, whatever the policy says.
 
 ### 2.5 What the web interface becomes
 
@@ -150,9 +152,10 @@ the figures it draws on, in the web interface and as static HTML. The sheet is l
 requires of anything that is not a Manim render. Comments on a card are feedback records anchored to the scene,
 an object or an action.
 
-**Alternative.** Treat storyboard-profile snapshots (one to three minutes for the examples) as the storyboard
-review and skip the sheet. Cheaper to build and shows real pictures; the sheet lets the narrative be fixed before
-any render and costs nothing per round. The two can coexist: sheet first, snapshots once the order is settled.
+**Decided: both, in that order.** The sheet fixes the narrative before any render and costs nothing per round;
+once the order of scenes is settled, storyboard-profile snapshots (one to three minutes for the examples) show
+real pictures. Each card names the patterns its scene stages (section 8a), so a comment can say "this should be a
+sweep, not a rewrite".
 
 **Tests.** The sheet of each example renders; a card comment validates as a feedback record anchored to its scene.
 
@@ -180,7 +183,7 @@ through the agent server.
 result listing the records it wrote; buttons in the review views to start a turn on the open comments of a
 revision or on a stage. Keys from the environment or the keychain, never from project files.
 
-**Starts after** package L, and only if route A proves too slow in daily use.
+**Starts after** package L, on the same tools.
 
 ## 8. Package N: the tutorial
 
@@ -190,21 +193,43 @@ no model access. A second, shorter page for agents: the playbook as prose.
 
 **Needs** a paper chosen by the author (section 9).
 
-## 9. Order, and what remains with the author
+## 8a. Package O: the pattern library
+
+**Scope.** Named ways of making a mechanism move, for the agent to choose from and for the scientist to comment
+in: a survey of the 3Blue1Brown videos repository (which idioms one experienced author uses, how often, and how
+he times them), the studies on learning from animation (where animation helps and where it misleads), and from
+both a catalogue of patterns with their beats, durations, pitfalls, status and a recipe scene from the examples.
+Scenes name the patterns they stage in `Scene.patterns`; validation checks the ids and that the scene uses
+something the pattern is realized with; the context bundle carries the library, and the playbook (package L)
+starts the storyboard stage from it. Research and method are in [ANIMATION_PATTERNS.md](ANIMATION_PATTERNS.md).
+
+**State.** A first version exists: 19 patterns (8 available, 4 partial, 7 planned), 11 references, the survey's
+output, `scianim patterns list|show|check`, the Patterns section and `patterns.json` of the context bundle, and the
+`patterns` field, named in the example storyboards (ADR-040). Unit tests cover the library, the scene checks, the
+bundle, the commands and the survey script; the examples that serve as recipes render in the integration tests.
+
+**Next.** The registry gaps the partial and planned patterns name, in the order proposed in section 5 of
+ANIMATION_PATTERNS.md (first an `emphasize` action and fading to an ink level); further corpora once a second one
+is chosen (the corpus must allow its scene code to be read; nothing from it is copied).
+
+## 9. Order and decisions
 
 Order: I first, since the status and the gates are what the playbook and the interface rest on; J and K in
-parallel with it; L once I has landed; N last; M only if the daily use of route A asks for it.
+parallel with it; L once I has landed, with O feeding its storyboard stage; M after L; N last.
 
-Decisions for the author:
+Decided by the author on 2 November 2026:
 
-1. The route for the model: A first and B later (recommended), B first, or A only.
-2. The storyboard review: the sheet, low-resolution snapshots, or both in that order.
-3. The default policy for what the agent applies on its own.
-4. Threads only, or threads with a chat panel that writes records.
-5. The paper for the tutorial, and whether its figures may be shown in published material.
+1. The route for the model: A first, then B on top of it.
+2. The storyboard review: the sheet first, then low-resolution snapshots once the order is settled.
+3. The default policy: the agent applies layout and timing changes and renders previews on its own; equations,
+   data, sources, claims and custom code wait for acceptance; science waits for sign-off.
+4. Threads only for now; a chat panel may come later, as a way of writing records.
+
+Open: the paper for the tutorial (package N), and whether its figures may be shown in published material.
 
 Risks worth naming: the component registry bounds what a model can make without writing Python, and custom
 builders are where quality and safety risks concentrate, so they get their own review and tests; equations read
-from images are the likeliest place for a silent scientific error, hence their mandatory sign-off; and a
-model's cost per round grows with the paper and the images it is shown, which route B must display before a turn
-starts.
+from images are the likeliest place for a silent scientific error, hence their mandatory sign-off; a model's
+cost per round grows with the paper and the images it is shown, which route B must display before a turn
+starts; and the pattern library describes one author's practice next to experimental findings, so a pattern's
+frequency in the corpus is never evidence that it teaches.

@@ -1,0 +1,34 @@
+schema_version: "1.0"
+id: sliding_window
+name: Slide one function across another
+group: motion
+summary: >-
+  A kernel slides along a signal while their product is drawn and its integral accumulates, so a convolution,
+  a receptive field scanning a stimulus or a moving bar's response is seen being computed.
+use_when:
+  - The science is a filter, a convolution or a receptive field applied across space or time.
+  - A response is the overlap of two functions at each offset.
+avoid_when:
+  - Only the result matters; then show the output curve and its relation to the input.
+beats:
+  - Show the signal and the kernel at one offset, with their product.
+  - Sweep the offset steadily; the product changes with it.
+  - Trace the integral of the product as a second curve, point by point.
+timing:
+  change: {min: 4.0, max: 8.0}
+status: partial
+components: [function_plot]
+actions: [vary_parameter]
+needs:
+  - Shading the area under a series of a function_plot.
+  - A second plot that traces the running value of an integral as the offset sweeps.
+corpus:
+  idioms: [area under graph, parameter sweep]
+  exemplars:
+    - _2023/convolutions2/continuous.py::ProbConvolutions
+    - _2023/gauss_int/integral.py::BellCurveArea
+  note: >-
+    A function_plot can already draw a signal, a kernel shifted by a parameter and their product as three
+    series and sweep the offset; the area and the traced integral are what is missing.
+research: [ploetzner2020]
+related: [sweep_with_readout, linked_views]

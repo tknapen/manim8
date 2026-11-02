@@ -1,0 +1,29 @@
+schema_version: "1.0"
+id: samples_accumulate
+name: Let samples pile up
+group: chance
+summary: >-
+  Random samples arrive one by one, then faster, and fill a histogram beside the distribution they come from,
+  so the viewer sees a density emerge from chance rather than being shown its formula.
+use_when:
+  - The science is a distribution, a noise process or a limit theorem.
+  - Trial-to-trial variability is the point (spike counts, response noise).
+avoid_when:
+  - The samples would be read as data; illustrative samples must be labelled as such.
+beats:
+  - Show the generating process and empty histogram axes.
+  - Draw the first samples slowly, one at a time.
+  - Accelerate until the histogram approaches the density; overlay the density.
+timing:
+  change: {min: 4.0, max: 10.0}
+status: planned
+needs:
+  - A component that draws seeded samples from a declared distribution into a histogram, with the density beside it and a data label saying the samples are illustrative.
+corpus:
+  idioms: [random samples, point cloud]
+  exemplars:
+    - _2023/clt/galton_board.py::GaltonBoard
+    - _2023/clt/main.py::BuildUpGaussian
+  note: Random draws appear in 12% of recent scenes.
+research: [ploetzner2020]
+related: [morph_between_representations]

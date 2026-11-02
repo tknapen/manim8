@@ -1,0 +1,42 @@
+schema_version: "1.0"
+id: let_time_run
+name: Let time run
+group: motion
+summary: >-
+  A time parameter advances steadily through the scene, so the system keeps evolving through every hold and
+  each event (an impact, a stimulus onset) happens at its moment on that clock rather than as an animation of
+  its own.
+use_when:
+  - The model is a function of time (a wave, a decay, a response time course) and its unfolding is the point.
+  - Several events must keep their real timing relative to one another.
+avoid_when:
+  - The clip is about a dependence on a parameter other than time; a running clock beside that sweep competes with it.
+beats:
+  - Start the clock at the scene's first change, easing into its steady rate.
+  - Schedule events (a fall, a rewrite of the equation) at their times on the clock.
+  - Let the clock run through holds; pause it, by ending one sweep of time and starting the next later, while another parameter changes.
+timing:
+  change: {min: 5.0, max: 20.0}
+  note: Processes that run in linear time last 5 to 16 s in the exemplar scenes, longer for accumulations.
+status: available
+components: [surface_plot, function_plot, function_image]
+actions: [vary_parameter]
+recipes:
+  - project: computational_neuroscience/drop_impact
+    scene: splash
+    note: The surface's time t runs from 0 to 1.2 over 15 s with eased_linear while the drop falls, the equation changes at impact and the droplet rebounds.
+corpus:
+  idioms: [updaters]
+  exemplars:
+    - _2025/laplace/shm.py::ShowFamilyOfComplexSolutions
+    - _2024/holograms/diffraction.py::DoubleSlit
+    - _2019/diffyq/part2/heat_equation.py::DiscreteSetup
+  note: >-
+    Updaters that advance a time variable every frame keep these scenes moving through waits of 3 to 20 s,
+    and time is frozen while coefficients change. The survey counts updaters of any kind (20% of recent
+    scenes), not clocks alone.
+research: [hoffler2007, berney2016]
+pitfalls:
+  - A linear clock that starts at full rate jars; ease into it.
+  - Changing another parameter while the clock runs confounds the two changes.
+related: [motion_under_a_law, sweep_with_readout]

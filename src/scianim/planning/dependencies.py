@@ -154,7 +154,7 @@ def scene_fingerprints(
     camera: list[Any] = []
     prints: dict[str, str] = {}
     for scene in storyboard.scenes:
-        mapping = scene.model_dump(mode="json")
+        mapping = scene.model_dump(mode="json", exclude={"patterns"})  # intent only: no picture depends on it
         named = _strings(mapping)
         uses_custom = any(o.kind == "custom" for o in scene.objects)
         payload = {

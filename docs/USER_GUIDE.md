@@ -272,6 +272,33 @@ actions:
 Two moves, two fades or two transforms of one object may not overlap, and `scianim validate` asks for the
 style's rest between two moves of one object as it does between two sweeps.
 
+## Choosing how a scene moves: the pattern library
+
+The library names ways of making a mechanism move (a sweep with a readout, one term at a time, one value driving
+two pictures, a rewrite whose shared terms glide), each with when to use it, its beats, usual durations,
+pitfalls and a scene of an example that shows it. It comes from a survey of the 3Blue1Brown videos repository
+and from studies on learning from animation (`docs/ANIMATION_PATTERNS.md`); the agent's context bundle carries
+it.
+
+```bash
+scianim patterns list                      # every pattern, its status and what realizes it
+scianim patterns list --status planned     # what the registry cannot stage yet, and what it would need
+scianim patterns show staged_terms         # one pattern in full, with its recipe scene as YAML
+```
+
+A scene may name the patterns it stages; they change no picture, and `scianim validate` reports an unknown id,
+a planned pattern, or a scene that uses none of what its pattern is realized with:
+
+```yaml
+scenes:
+  - id: gabor
+    purpose: "One Gabor filter in three dimensions, in segments."
+    patterns: [staged_terms, orbit_to_reveal_depth]
+```
+
+A pattern marked `available` is staged by registered components and actions; `partial` goes as far as its
+recipe shows; `planned` needs a capability the registry lacks, named in the entry.
+
 ## Trying a style change
 
 ```bash

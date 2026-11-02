@@ -1,0 +1,34 @@
+schema_version: "1.0"
+id: release_the_scaffolding
+name: Show the frame, then let it go
+group: attention
+summary: >-
+  Axes, ticks and labels stay while the viewer learns what the picture's dimensions mean, then fade, so the
+  shape alone carries the meaning when things start to move.
+use_when:
+  - A surface or plot needs its axes to be read once, and the motion that follows is about shape.
+  - The frame would otherwise clutter a turning or changing picture.
+avoid_when:
+  - Values must be read off the axes during the change; keep them.
+beats:
+  - Show the object with its axes and labels; name the dimensions.
+  - Hold until they are read.
+  - Fade the axes; the object stays.
+timing:
+  lead_in: {min: 1.5, max: 3.0}
+  change: {min: 0.8, max: 1.0}
+status: available
+components: [surface_plot]
+actions: [fade_axes, fade_object]
+recipes:
+  - project: computational_neuroscience/gabor_filter
+    scene: gabor
+    note: The axes of the Gabor surface leave at 3 s, before the first sweep.
+  - project: computational_neuroscience/drop_impact
+    scene: splash
+    note: The box around the water fades at 2 s, as the clock starts.
+corpus:
+  idioms: [fade]
+  note: FadeOut is the second most frequent animation of the corpus, 277 per 1,000 plays in 2023-2026.
+research: [lowe2003, tversky2002]
+related: [reveal_in_reading_order, orbit_to_reveal_depth]

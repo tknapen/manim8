@@ -40,6 +40,7 @@ from scianim_core.jobs import (
     VideoRecord,
     WorkerResult,
 )
+from scianim_core.patterns import Pattern, PatternRecipe, Reference, ReferenceList
 from scianim_core.proposals import AppliedProposal, Claim, PatchOperation, Proposal, ProposalTarget
 from scianim_core.revisions import RevisionHashes, RevisionRecord
 from scianim_core.sources import Inference, SourceExtract
@@ -97,10 +98,14 @@ __all__ = [
     "PartRange",
     "PartReport",
     "PatchOperation",
+    "Pattern",
+    "PatternRecipe",
     "PlayRecord",
     "Proposal",
     "ProposalTarget",
     "ReachedCheckpoint",
+    "Reference",
+    "ReferenceList",
     "Region",
     "RelPath",
     "RenderJob",

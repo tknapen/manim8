@@ -109,9 +109,12 @@ the camera, ramps, a minimum rest) that `scianim validate` checks a storyboard a
 brief clips (16 to 26 s) built around such motion rather than decks of static scenes. Milestone 9's package D
 (ADR-034) adds actions that move an object, fade one out and turn one equation into another, sweeps of a
 parameter named by a data binding's transforms, a `sphere` anchored in a surface's coordinates, and the fifth
-example, `drop_impact` (a drop falls onto an analytic model of a water surface, labelled as such). Deferred:
-section splicing for incremental video and voiceover. See `docs/IMPLEMENTATION_PLAN.md` for the
-checklist.
+example, `drop_impact` (a drop falls onto an analytic model of a water surface, labelled as such). Milestone
+10 begins with a pattern library (ADR-040, [docs/ANIMATION_PATTERNS.md](docs/ANIMATION_PATTERNS.md)): named ways
+of making a mechanism move, drawn from a survey of the 3Blue1Brown videos repository and from studies on
+learning from animation, each with a recipe scene from the examples, for the agent to choose from
+(`scianim patterns list`). Deferred: section splicing for incremental video and voiceover. See
+`docs/IMPLEMENTATION_PLAN.md` for the checklist.
 
 ## Example status
 

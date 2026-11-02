@@ -6,6 +6,7 @@ scenes:
     start_seconds: 0
     end_seconds: 6
     purpose: 'Where the signal comes from: a schematic circuit and a population of units.'
+    patterns: [reveal_in_reading_order]
     narration:
       text: A stimulus drives a population in V1, read out downstream and checked by inhibition.
     objects:
@@ -66,6 +67,7 @@ scenes:
     start_seconds: 6
     end_seconds: 12
     purpose: 'The tuning curve: response against orientation, with the model named beside it.'
+    patterns: [reveal_in_reading_order]
     narration:
       text: Response against orientation is a bell-shaped tuning curve peaking near ninety degrees.
     objects:
@@ -120,6 +122,7 @@ scenes:
     start_seconds: 12
     end_seconds: 24
     purpose: The stimulus turns while a marker follows it on the model curve; then the concentration rises.
+    patterns: [linked_views, sweep_with_readout]
     narration:
       text: As the grating turns, the model's response follows the marker over the curve; raising kappa 
         sharpens the peak.

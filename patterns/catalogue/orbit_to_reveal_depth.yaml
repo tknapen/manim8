@@ -1,0 +1,40 @@
+schema_version: "1.0"
+id: orbit_to_reveal_depth
+name: Turn slowly to show depth
+group: viewpoint
+summary: >-
+  The camera turns slowly around a surface for the whole scene while its parameters change, so parallax
+  shows the third dimension. Equations and readouts stay fixed in the frame and do not turn.
+use_when:
+  - A quantity depends on two variables and its shape is the point (a receptive field, a filter, a wave).
+  - A three-dimensional picture would be ambiguous from one viewpoint.
+avoid_when:
+  - The surface is nearly flat, or one viewpoint shows everything; the motion then only distracts.
+  - The viewer must read values off the axes while the camera turns.
+beats:
+  - Start from a viewpoint that already reads (elevation of about 60 degrees).
+  - Turn steadily through the scene, by a quarter to a whole turn, and let the sweeps start inside the turn so that the camera leads and the content follows.
+  - End on a viewpoint that shows the final shape well.
+timing:
+  change: {min: 8.0, max: 26.0}
+  note: >-
+    Three-dimensional camera moves are the longest plays of the survey: 7.5 s at the median (quartiles about 4
+    and 12 s). They usually share their window with a change of content, offset so that one leads (a 10 s
+    turn with a sweep from 0.5 to 10 s), and ambient turns run 24 to 30 s.
+status: available
+components: [surface_plot]
+actions: [orbit_camera]
+recipes:
+  - project: computational_neuroscience/prf_tuning
+    scene: prf
+    note: A population receptive field moves and widens under a 16-second orbit.
+corpus:
+  idioms: [camera 3d, labels fixed in frame, ambient camera motion]
+  exemplars:
+    - _2024/holograms/diffraction.py::DoubleSlit
+    - _2023/gauss_int/integral.py::CylinderSlices
+    - _2025/laplace/integration.py::IntegrateComplexExponential
+research: [tversky2002, lowe2003]
+pitfalls:
+  - A fast orbit is the most salient motion on screen and pulls attention from the change it accompanies; keep it slow and even.
+related: [release_the_scaffolding, sweep_with_readout]

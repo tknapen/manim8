@@ -1,0 +1,34 @@
+schema_version: "1.0"
+id: dim_the_context
+name: Dim the rest
+group: attention
+summary: >-
+  Everything not under discussion drops to a faint ink while the subject keeps its full ink, and the scene
+  returns to normal afterwards. The context stays visible for orientation but stops competing for attention.
+use_when:
+  - A scene holds a complete picture and one part of it is about to be explained.
+  - A salient but irrelevant motion would otherwise draw the eye.
+avoid_when:
+  - The dimmed parts are needed to read the subject (its axes, its labels).
+beats:
+  - Lower the ink of everything but the subject.
+  - Explain or animate the subject.
+  - Restore the ink of the rest.
+timing:
+  change: {min: 0.5, max: 1.0}
+status: partial
+actions: [fade_object]
+needs:
+  - Fading an object to a given ink level (for example 0.3) and back, rather than out completely, or a page-coloured veil laid over everything but the subject.
+corpus:
+  idioms: [dim others]
+  exemplars:
+    - _2023/convolutions2/dice.py::SumAlongDiagonal
+    - _2024/transformers/mlp.py::BasicMLPWalkThrough
+    - _2025/cosmic_distance/planets.py::KeplersMethod
+  note: >-
+    Counted from opacity and fade changes made in place: 12% of recent scenes, 4% in 2015-2019. The corpus
+    also lays a dark translucent rectangle (opacity 0.8 to 0.85) over what is not yet in play, which the
+    survey does not count.
+research: [lowe2003, alpizar2020]
+related: [signal_before_change]

@@ -1,0 +1,306 @@
+{
+  "$defs": {
+    "CorpusEvidence": {
+      "additionalProperties": false,
+      "description": "Where a corpus shows the idiom: counted by the survey, found by reading scenes, or both.",
+      "properties": {
+        "exemplars": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Exemplars",
+          "type": "array"
+        },
+        "idioms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Idioms",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "title": "CorpusEvidence",
+      "type": "object"
+    },
+    "PatternRecipe": {
+      "additionalProperties": false,
+      "description": "A scene of an example project that shows the pattern.",
+      "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "project": {
+          "pattern": "^[a-z][a-z0-9_]*(/[a-z][a-z0-9_]*)+$",
+          "title": "Project",
+          "type": "string"
+        },
+        "scene": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Scene",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "scene"
+      ],
+      "title": "PatternRecipe",
+      "type": "object"
+    },
+    "PatternTiming": {
+      "additionalProperties": false,
+      "description": "Usual durations of the beats, in seconds of the clip. A guide drawn from the survey and the style's\nmotion rules, not a constraint the validator enforces.",
+      "properties": {
+        "change": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecondsRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hold": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecondsRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lead_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecondsRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "title": "PatternTiming",
+      "type": "object"
+    },
+    "SecondsRange": {
+      "additionalProperties": false,
+      "properties": {
+        "max": {
+          "minimum": 0,
+          "title": "Max",
+          "type": "number"
+        },
+        "min": {
+          "minimum": 0,
+          "title": "Min",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "SecondsRange",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "avoid_when": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Avoid When",
+      "type": "array"
+    },
+    "beats": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Beats",
+      "type": "array"
+    },
+    "components": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "corpus": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CorpusEvidence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "group": {
+      "enum": [
+        "change",
+        "form",
+        "attention",
+        "viewpoint",
+        "motion",
+        "chance"
+      ],
+      "title": "Group",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "needs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Needs",
+      "type": "array"
+    },
+    "pitfalls": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Pitfalls",
+      "type": "array"
+    },
+    "recipes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PatternRecipe"
+      },
+      "title": "Recipes",
+      "type": "array"
+    },
+    "related": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "title": "Related",
+      "type": "array"
+    },
+    "research": {
+      "default": [],
+      "items": {
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "type": "string"
+      },
+      "title": "Research",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "partial",
+        "planned"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "timing": {
+      "$ref": "#/$defs/PatternTiming",
+      "default": {
+        "change": null,
+        "hold": null,
+        "lead_in": null,
+        "note": null
+      }
+    },
+    "use_when": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Use When",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "group",
+    "summary",
+    "use_when",
+    "beats",
+    "status"
+  ],
+  "title": "Pattern",
+  "type": "object"
+}

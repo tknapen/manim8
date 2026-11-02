@@ -6,6 +6,7 @@ scenes:
     start_seconds: 0
     end_seconds: 26
     purpose: "One Gabor filter in three dimensions, in segments: the box and its axes leave once they are read, then the orientation, the frequency, the location and the size change in turn, each announced by its term in the equation."
+    patterns: [staged_terms, orbit_to_reveal_depth]
     narration:
       text: >-
         A Gabor filter is a sinusoidal carrier under a Gaussian envelope, and each term of the equation is

@@ -1,0 +1,41 @@
+schema_version: "1.0"
+id: linked_views
+name: One value, several pictures
+group: change
+summary: >-
+  The same quantity drives two representations at once (the stimulus and the tuning curve, a ball and the
+  graph of its height), so the viewer sees the correspondence between them move rather than being told it.
+use_when:
+  - Two pictures of one system share a variable (a stimulus and a response, a space and a plot over it).
+  - The brief asks the viewer to connect a physical change with its effect on a curve.
+avoid_when:
+  - The two pictures do not share the variable exactly; a loose correspondence misleads.
+beats:
+  - Show both representations side by side, each at the same starting value.
+  - Sweep the shared value in both over the same window and with the same easing.
+  - Hold, then let one of them act alone if the clip continues (a second parameter of the curve).
+timing:
+  change: {min: 3.0, max: 6.0}
+  hold: {min: 1.0, max: 2.0}
+status: available
+components: [function_plot, surface_plot, function_image]
+actions: [vary_parameter]
+recipes:
+  - project: computational_neuroscience/orientation_tuning
+    scene: model
+    note: The grating turns while a marker follows it on the model curve (two sweeps of theta over one window).
+corpus:
+  idioms: [one value drives several objects]
+  exemplars:
+    - _2023/optics_puzzles/adding_waves.py::AddTwoSineWaves
+    - _2019/diffyq/part2/heat_equation.py::DiscreteSetup
+    - _2024/holograms/diffraction.py::FullDiffractionGrating
+    - _2019/diffyq/part1/staging.py::SimpleProjectileEquation
+  note: >-
+    The corpus often joins the two pictures with a line that follows the value (a phasor projected onto its
+    sine wave, a ball linked to its height graph by a dashed line); the registry has no such connector yet.
+research: [tversky2002, ploetzner2021]
+pitfalls:
+  - The validator does not tie the two sweeps together; their start, duration, target value and easing must match by hand.
+  - Readouts on both pictures say the same number twice; show it once.
+related: [sweep_with_readout]

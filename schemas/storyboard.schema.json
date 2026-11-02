@@ -684,6 +684,15 @@
           "title": "Objects",
           "type": "array"
         },
+        "patterns": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
         "purpose": {
           "minLength": 1,
           "title": "Purpose",

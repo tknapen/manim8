@@ -1,0 +1,31 @@
+schema_version: "1.0"
+id: zoom_to_detail
+name: Zoom in, then back out
+group: viewpoint
+summary: >-
+  The camera moves in on a region of a flat picture to show a detail at a readable size, then returns to the
+  whole, so the viewer keeps track of where the detail sits.
+use_when:
+  - A small region holds the mechanism (the peak of a curve, one unit of a population).
+  - The full picture must stay the reference frame.
+avoid_when:
+  - The detail could simply be drawn larger from the start.
+beats:
+  - Show the whole and mark the region.
+  - Move in, smoothly, keeping the region centred.
+  - Act or explain at the detail; then move back out.
+timing:
+  change: {min: 1.5, max: 3.0}
+  hold: {min: 1.0, max: 3.0}
+  note: Flat camera moves in the survey last 2.75 s at the median.
+status: planned
+needs:
+  - A camera action for flat scenes that pans and zooms to a region of the frame and back, with text kept at a legible size.
+corpus:
+  idioms: [camera 2d]
+  exemplars:
+    - _2024/transformers/attention.py::AttentionPatterns
+    - _2025/cosmic_distance/planets.py::DistanceToSun
+  note: In 16% of recent scenes, against 4% in 2020-2022.
+research: [tversky2002]
+related: [orbit_to_reveal_depth, dim_the_context]

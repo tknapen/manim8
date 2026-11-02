@@ -1,0 +1,29 @@
+schema_version: "1.0"
+id: trace_the_path
+name: Leave a trail
+group: motion
+summary: >-
+  A moving point leaves a fading trail, so a motion becomes a curve the viewer can still see after the point
+  has moved on: a trajectory, an orbit, the path a stimulus took across the visual field.
+use_when:
+  - The shape of a trajectory matters (a limit cycle, a phase portrait, a scan path).
+  - The viewer must compare where something is with where it was.
+avoid_when:
+  - Only the current position matters; the trail is clutter.
+beats:
+  - Start the point moving with its trail.
+  - Let the trail fade with age so the recent past dominates.
+  - Hold on the traced shape when the motion ends.
+timing:
+  change: {min: 3.0, max: 8.0}
+status: planned
+needs:
+  - A trail left by a moving object or by a plot marker driven by a sweep, fading over a set time.
+corpus:
+  idioms: [trail]
+  exemplars:
+    - _2025/cosmic_distance/planets.py::EarthAroundSun
+    - _2025/laplace/shm.py::ShowFamilyOfComplexSolutions
+  note: In 2% of recent scenes, nearly absent before 2020.
+research: [tversky2002]
+related: [motion_under_a_law]

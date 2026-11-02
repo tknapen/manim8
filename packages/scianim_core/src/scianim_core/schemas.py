@@ -13,6 +13,7 @@ from scianim_core.family import FamilyManifest
 from scianim_core.feedback import FeedbackRecord
 from scianim_core.group import GroupManifest
 from scianim_core.jobs import ArtifactManifest, RenderJob, WorkerResult
+from scianim_core.patterns import Pattern, ReferenceList
 from scianim_core.proposals import AppliedProposal, Proposal
 from scianim_core.revisions import RevisionRecord
 from scianim_core.sources import SourceExtract
@@ -26,6 +27,8 @@ PUBLIC_SCHEMAS: dict[str, type[BaseModel]] = {
     "style": StyleSheet,
     "family": FamilyManifest,
     "group": GroupManifest,
+    "pattern": Pattern,
+    "pattern_references": ReferenceList,
     "workspace": WorkspaceManifest,
     "revision": RevisionRecord,
     "resolved_style": ResolvedStyle,

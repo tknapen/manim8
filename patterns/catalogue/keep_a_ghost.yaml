@@ -1,0 +1,31 @@
+schema_version: "1.0"
+id: keep_a_ghost
+name: Keep a ghost of the old state
+group: form
+summary: >-
+  Before an object changes, a faint copy of it stays where it was, so the new state is seen against the old
+  one on screen rather than against the viewer's memory of it.
+use_when:
+  - The size of a deformation matters (a grid under a map, a curve before and after normalization).
+  - The viewer must compare two states of one object.
+avoid_when:
+  - The two states nearly coincide, so the ghost reads as a second object.
+beats:
+  - Leave a faint copy (about a third of the ink) at the old state.
+  - Change the object.
+  - Hold both; remove the ghost when the next change begins.
+timing:
+  change: {min: 2.0, max: 4.0}
+  hold: {min: 1.0, max: 2.0}
+status: planned
+needs:
+  - A ghost option on sweeps and moves that leaves a faint copy of the object's state at the start of the window, removed at a set time.
+corpus:
+  exemplars:
+    - _2024/linalg/eigenlecture.py::Transformation
+    - _2025/laplace/integration.py::IntegrateComplexExponential
+  note: >-
+    A grey copy of the grid stays under a linear map; a copy of a path at 0.4 opacity stays while the path
+    changes. Found by reading exemplar scenes; the survey does not count it.
+research: [tversky2002]
+related: [map_a_space, sweep_with_readout]

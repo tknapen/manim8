@@ -1,0 +1,44 @@
+schema_version: "1.0"
+id: signal_before_change
+name: Point, then move
+group: attention
+summary: >-
+  Before something changes, the viewer is shown where to look: the term takes its colour and pulses, a box
+  surrounds the region, the rest stays still. The change then happens where attention already is.
+use_when:
+  - The change to watch is small relative to the picture, or several things are on screen.
+  - The change that matters is less salient than another one (a slow shift beside a fast motion).
+avoid_when:
+  - The change is already the most salient thing on screen; a cue then adds nothing.
+beats:
+  - Cue the place (colour, pulse, box) while nothing moves.
+  - Make the change.
+  - Release the cue once the change has ended.
+timing:
+  lead_in: {min: 0.5, max: 1.2}
+  change: {min: 1.0, max: 4.0}
+  note: Indications in the survey take 1 to 2 s.
+status: partial
+components: [equation_block, equation_label]
+actions: [vary_parameter]
+needs:
+  - An emphasize action for any object or equation term without a sweep (a surrounding box, a flash, a colour change), with its own window.
+  - A cue that travels from a symbol in an equation to the object it names, instead of a new cue appearing.
+recipes:
+  - project: computational_neuroscience/gabor_filter
+    scene: gabor
+    note: Each sweep's term lights up a second before its value moves; the cue exists only as part of a sweep.
+corpus:
+  idioms: [indicate, surrounding box, colour-linked terms]
+  exemplars:
+    - _2024/transformers/mlp.py::BasicMLPWalkThrough
+    - _2025/laplace/main_equations.py::IntroduceTransform
+    - _2023/optics_puzzles/driven_harmonic_oscillator.py::DrivenHarmonicOscillator
+    - _2025/laplace/derivatives.py::DerivativeFormula
+  note: >-
+    Cues are coloured like the symbol they point at, and a box often moves from a term of the formula to the
+    thing the term names (a label, then the dot it labels), so the cue itself shows the correspondence.
+research: [alpizar2020, lowe2003]
+pitfalls:
+  - A cue that stays on through the next change points at the wrong thing.
+related: [staged_terms, dim_the_context]

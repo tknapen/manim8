@@ -369,6 +369,10 @@ class Scene(StrictModel):
     actions: list[SceneAction] = []
     """Things that happen to objects while the scene plays, in time order; see `VaryParameter`."""
     snapshots: list[Snapshot] = []
+    patterns: list[Slug] = []
+    """Ids of the library patterns the scene stages (ADR-040), e.g. `sweep_with_readout`. They record intent for
+    the reviewer and the agent and change no picture; project validation checks that each id exists and that
+    the scene uses something the pattern is realized with."""
 
     @model_validator(mode="after")
     def _checks(self) -> Scene:
@@ -378,6 +382,7 @@ class Scene(StrictModel):
             )
         ensure_unique((o.id for o in self.objects), f"object (scene '{self.id}')")
         ensure_unique((s.id for s in self.snapshots), f"snapshot (scene '{self.id}')")
+        ensure_unique(self.patterns, f"pattern (scene '{self.id}')")
         ensure_unique(
             (*(o.id for o in self.objects), *(a.id for a in self.actions)), f"object or action (scene '{self.id}')"
         )

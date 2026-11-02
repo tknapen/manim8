@@ -23,6 +23,12 @@ First version under the name manim8 (ADR-037).
 - Baseline theme `default@0.5.0`, line and wash after Keenan Crane (ADR-030).
 - `SCIANIM_HASH_TRACE=1` makes a render write the inputs of Manim's per-play hash beside its job, to find why a
   play was drawn again instead of coming from the segment store (ADR-039).
+- A pattern library (ADR-040, `docs/ANIMATION_PATTERNS.md`): 19 named ways of making a mechanism move, from a
+  survey of the 3Blue1Brown videos repository and from studies on learning from animation, each with its beats,
+  usual durations, pitfalls, status and a recipe scene from the examples. `scianim patterns list|show|check`;
+  the agent's context bundle gains a Patterns section and `patterns.json`. Storyboard scenes may name the
+  patterns they stage (`patterns: [sweep_with_readout]`); validation checks the ids. The wheel carries the
+  library. `tools/survey_corpus.py` reproduces the survey.
 
 Fixed:
 

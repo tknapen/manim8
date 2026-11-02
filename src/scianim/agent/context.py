@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scianim.config.loader import SpecError
 from scianim.feedback.store import list_feedback
+from scianim.patterns import PatternLibrary, load_library, recipe_scene
 from scianim.planning.checks import Report
 from scianim.project import Project
 from scianim.render.manifests import list_manifests
@@ -19,6 +21,7 @@ from scianim.revisions.store import list_revisions
 from scianim.sources.adapters import load_extracts
 from scianim_core import REGISTRY, REGISTRY_VERSION, SourceExtract
 from scianim_core.hashing import sha256_file
+from scianim_core.patterns import Pattern
 from scianim_core.schemas import PUBLIC_SCHEMAS, schema_text
 
 CONTEXT_DIR = ".scianim/context"
@@ -46,19 +49,24 @@ YAML in the project is the specification, and nothing you say in a conversation 
    A `surface_plot` is a fine mesh of z = f(x, y) that an `orbit_camera` action turns; a `function_image`
    is a field sampled to pixels (a grating, a kernel). Keep ranges fixed on anything that varies. Do not
    place two conditions side by side when one quantity can vary while the viewer watches.
-4. Answer with proposal files under `proposals/` in the project (template in `proposal.template.yaml`):
+4. Choose how each scene moves from the pattern library (section "Patterns"): one pattern per scene, two at
+   most, whose "use when" fits the claim the scene makes. Follow its beats and timing, start from its recipe
+   scene, and name it in the scene's `patterns` list. A partial pattern goes only as far as its recipe shows;
+   a planned one cannot be staged with registered components, so say what you would need under
+   `uncertainties` rather than approximating it silently.
+5. Answer with proposal files under `proposals/` in the project (template in `proposal.template.yaml`):
    `create_spec` or `revise_spec` targets `animation.yaml`; `create_storyboard` or `revise_storyboard` targets
    `storyboard.yaml`. A `revise_*` proposal should be a small `patch` (JSON-pointer operations); a `create_*`
    proposal carries a whole `document`. Name the feedback ids you answer in `in_response_to`.
-5. Every scientific statement your proposal relies on goes in `claims` with a `source_id` and a `locator`
+6. Every scientific statement your proposal relies on goes in `claims` with a `source_id` and a `locator`
    (page, figure, column). Synthetic or illustrative data must be labelled as such in the storyboard
    (`data_label`) and in the source `citation`.
-6. Validate before you apply: `scianim propose validate <project> proposals/<id>.yaml`, then
+7. Validate before you apply: `scianim propose validate <project> proposals/<id>.yaml`, then
    `scianim propose apply ...`, `scianim codegen`, `scianim snapshot --all`, `scianim inspect`. Read the
    inspection findings and the layout reports against each snapshot description, fix what you can, and only
    then ask for human review. A proposal that touches equations, sources or constraints is flagged for
    scientific sign-off; you cannot approve it.
-7. Change the smallest scope after feedback; do not rewrite unrelated scenes.
+8. Change the smallest scope after feedback; do not rewrite unrelated scenes.
 """
 
 
@@ -163,6 +171,10 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
     revisions = list_revisions(project)
     manifests = [m for m in list_manifests(project) if m.result.status == "succeeded"]
     latest = manifests[-1] if manifests else None
+    try:
+        library, library_problem = load_library(), None
+    except SpecError as exc:
+        library, library_problem = None, str(exc)
 
     lines: list[str] = [
         f"# Context for project `{animation.id if animation else project.root.name}`",
@@ -275,6 +287,7 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
             f"narration at {style.tokens.motion.narration_words_per_minute:g} words per minute."
         )
         lines.append("")
+    lines += _pattern_lines(library, library_problem)
     lines += [f"## Registry (version {REGISTRY_VERSION})", ""]
     for kind in REGISTRY:
         described = describe_kind(kind)
@@ -342,7 +355,79 @@ def export_context(project: Project, report: Report, out_dir: Path | None = None
         "validation": {"ok": report.ok, "errors": report.errors, "warnings": report.warnings},
     }
     (out / "context.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    if library is not None:
+        (out / "patterns.json").write_text(json.dumps(_pattern_document(library), indent=2), encoding="utf-8")
     return out
+
+
+def _seconds(pattern: Pattern) -> str:
+    parts = [
+        f"{name} {r.min:g}-{r.max:g} s"
+        for name, r in (
+            ("lead-in", pattern.timing.lead_in),
+            ("change", pattern.timing.change),
+            ("hold", pattern.timing.hold),
+        )
+        if r is not None
+    ]
+    return "; ".join(parts)
+
+
+def _pattern_lines(library: PatternLibrary | None, problem: str | None) -> list[str]:
+    lines = ["## Patterns", ""]
+    if library is None:
+        return [*lines, f"pattern library unavailable: {problem}", ""]
+    lines += [
+        "Ways of making a mechanism move, from a survey of a large corpus of explanatory animation and from "
+        "studies of learning from animation. `patterns.json` holds every entry in full with its recipe scene; "
+        "`scianim patterns show <id>` prints one.",
+        "",
+    ]
+    usable = [p for p in library.ordered() if p.status != "planned"]
+    for pattern in usable:
+        realized = ", ".join([*pattern.actions, *pattern.components])
+        lines.append(f"### `{pattern.id}`: {pattern.name} ({pattern.status}, {pattern.group})")
+        lines.append("")
+        lines.append(pattern.summary)
+        lines.append(f"- use when: {' '.join(pattern.use_when)}")
+        if pattern.avoid_when:
+            lines.append(f"- avoid when: {' '.join(pattern.avoid_when)}")
+        lines.append("- beats: " + " ".join(f"({n}) {beat}" for n, beat in enumerate(pattern.beats, 1)))
+        if timing := _seconds(pattern):
+            lines.append(f"- timing: {timing}")
+        lines.append(f"- realized with: {realized}")
+        lines += [f"- not yet possible: {need}" for need in pattern.needs]
+        lines += [
+            f"- recipe: `{r.project}`, scene `{r.scene}`" + (f": {r.note}" if r.note else "") for r in pattern.recipes
+        ]
+        lines += [f"- pitfall: {item}" for item in pattern.pitfalls]
+        lines.append("")
+    planned = [p for p in library.ordered() if p.status == "planned"]
+    if planned:
+        lines += ["Planned, not stageable with registered components yet:", ""]
+        for pattern in planned:
+            lines.append(f"- `{pattern.id}` ({pattern.name}): needs {'; '.join(pattern.needs)}")
+        lines.append("")
+    return lines
+
+
+def _pattern_document(library: PatternLibrary) -> dict[str, Any]:
+    """Every pattern, the recipe scenes as written in their examples (once each, keyed `project#scene`), and
+    the references the patterns cite."""
+    entries = []
+    scenes: dict[str, Any] = {}
+    for pattern in library.ordered():
+        entry = pattern.model_dump(mode="json", exclude_defaults=True)
+        entry["corpus_shares"] = library.idiom_shares(pattern)
+        entries.append(entry)
+        for r in pattern.recipes:
+            scenes.setdefault(f"{r.project}#{r.scene}", recipe_scene(r.project, r.scene).mapping)
+    cited = sorted({key for pattern in library.patterns.values() for key in pattern.research})
+    return {
+        "patterns": entries,
+        "recipe_scenes": scenes,
+        "references": [library.references[key].model_dump(mode="json", exclude_none=True) for key in cited],
+    }
 
 
 PROPOSAL_TEMPLATE = """\

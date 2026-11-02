@@ -1,0 +1,39 @@
+schema_version: "1.0"
+id: staged_terms
+name: One term at a time
+group: change
+summary: >-
+  A model with several parameters is taken apart in segments: each term is named (it lights up in the
+  equation) before its value moves, and the next term waits until the viewer has seen the first one act.
+use_when:
+  - An equation has two to five parameters whose roles the clip should separate.
+  - The viewer must attribute each visible change to one symbol.
+avoid_when:
+  - The point is how two terms interact; then move them together and say so in the narration.
+  - There are more terms than the clip has seconds for (budget 4 to 6 s per term).
+beats:
+  - Show the whole picture and the equation; let the axes or the frame go once read.
+  - Light the first term (lead-in), then sweep its value while everything else stays put.
+  - Hold briefly, then light the next term and sweep it.
+  - End on the full equation with every term having acted once.
+timing:
+  lead_in: {min: 0.8, max: 1.2}
+  change: {min: 3.0, max: 4.0}
+  hold: {min: 0.5, max: 1.5}
+status: available
+components: [function_plot, surface_plot, function_image]
+actions: [vary_parameter]
+recipes:
+  - project: computational_neuroscience/gabor_filter
+    scene: gabor
+    note: Orientation, frequency, location and size of a Gabor filter, each with a one-second lead-in, under a slow orbit.
+corpus:
+  idioms: [parameter sweep, colour-linked terms]
+  exemplars:
+    - _2025/laplace/derivatives.py::WalkThroughEquationSolution
+    - _2019/diffyq/part1/staging.py::SimpleProjectileEquation
+research: [heer2007, lowe2003, alpizar2020]
+pitfalls:
+  - A lead-in without a pause before the sweep merges the cue into the change; keep the value still during it.
+  - Changing the colour of a term in the equation but not in the picture breaks the link the cue is meant to make.
+related: [sweep_with_readout, signal_before_change]

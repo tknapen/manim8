@@ -1,0 +1,33 @@
+schema_version: "1.0"
+id: motion_under_a_law
+name: Move as the law says
+group: motion
+summary: >-
+  An object moves with the timing its physics gives it (falling from rest, rising to rest, settling), not
+  with the style's default slow-in and slow-out, so the motion itself carries the law.
+use_when:
+  - A body moves under a known law (free fall, projectile, decay) and the timing is part of the content.
+avoid_when:
+  - The motion is only a change of layout; use the style's easing there.
+beats:
+  - Show the object at rest where it starts.
+  - Move it with an easing that matches the law (quadratic in for a fall from rest, quadratic out for a rise to rest).
+  - Arrive without slowing where the law does not slow; hold.
+timing:
+  change: {min: 0.8, max: 3.0}
+status: available
+components: [sphere, text_caption, equation_label]
+actions: [move_object]
+recipes:
+  - project: computational_neuroscience/drop_impact
+    scene: splash
+    note: The drop falls with ease_in_quad; the rebound droplet rises with ease_out_quad and falls back with ease_in_quad.
+corpus:
+  idioms: [move along path]
+  note: >-
+    The corpus mostly moves objects through value trackers and updaters rather than along paths; explicit path
+    motions are rare (1% of recent scenes) and last 4.5 s at the median.
+research: [lasseter1987, ploetzner2021]
+pitfalls:
+  - The default easing slows an object before it lands, which reads as a soft touch-down, not an impact.
+related: [trace_the_path]

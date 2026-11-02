@@ -1,0 +1,47 @@
+schema_version: "1.0"
+id: sweep_with_readout
+name: Parameter sweep with a readout
+group: change
+summary: >-
+  One parameter of the model moves while the viewer watches. The picture follows the value, the term in the
+  equation lights up, and a readout shows the number, so the viewer sees a dependence happen rather than
+  inferring it from two panels.
+use_when:
+  - The claim is a dependence ("as the pool grows, the response compresses").
+  - One named symbol of a declared equation controls a visible feature of a curve, surface or image.
+avoid_when:
+  - The effect is a jump between two regimes with nothing worth seeing in between; two states with a rewrite may serve better.
+  - The viewer cannot yet read the picture at its starting value; show the reference state first.
+beats:
+  - Show the picture at a reference value, with the equation beside it and the readout at that value.
+  - Light the term that will move (a lead-in), so the change that follows is attributed to it.
+  - Sweep the value at a steady pace while the readout counts.
+  - Hold the new state long enough to compare it with the remembered one.
+  - Optionally sweep back to the reference value, so the clip ends where it began and the change reads as reversible.
+timing:
+  lead_in: {min: 0.5, max: 1.0}
+  change: {min: 2.0, max: 5.0}
+  hold: {min: 1.0, max: 2.0}
+  note: >-
+    In the 3Blue1Brown survey, tracker sweeps given a run time last 3 s at the median (quartiles 2 and 5 s),
+    against 1 s for a fade or a rewrite; sweeps stretch to 4 to 10 s where the viewer has to follow a
+    readout as it changes.
+status: available
+components: [function_plot, surface_plot, function_image]
+actions: [vary_parameter]
+recipes:
+  - project: computational_neuroscience/divisive_normalization
+    scene: normalization
+    note: The pool P rises with its term emphasized and the response compresses; σ and P then rebalance it.
+corpus:
+  idioms: [parameter sweep, number readout tied to a value]
+  exemplars:
+    - _2023/clt/main.py::BuildUpGaussian
+    - _2025/laplace/integration.py::IntegrateComplexExponential
+    - _2019/diffyq/part4/temperature_scenes.py::StepFunctionExample
+research: [ploetzner2020, hoffler2007, tversky2002]
+pitfalls:
+  - Two parameters swept at once leave the viewer unable to say which caused what; stage them (see staged_terms) unless their interaction is the point.
+  - Axis ranges that rescale during a sweep hide the change they should show; keep ranges fixed.
+  - A sweep shorter than about a second and a half reads as a jump.
+related: [staged_terms, linked_views, signal_before_change]

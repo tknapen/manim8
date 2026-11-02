@@ -1,0 +1,31 @@
+schema_version: "1.0"
+id: map_a_space
+name: Apply a map to a space
+group: form
+summary: >-
+  A grid, or a field drawn on one, is carried point by point through a mapping (a linear map, the
+  complex-logarithmic map from visual field to cortex), so the viewer sees what the map does to every
+  location at once.
+use_when:
+  - The science is a change of coordinates or a mapping between spaces (retinotopy, a linear transformation).
+  - The brief turns on where points go, not on a single curve.
+avoid_when:
+  - Only one or two points matter; move them instead.
+beats:
+  - Show the grid (and anything drawn on it) in the source space.
+  - Apply the map continuously from identity to the full map.
+  - Hold the deformed grid; optionally apply the inverse.
+timing:
+  change: {min: 2.0, max: 4.0}
+  hold: {min: 1.0, max: 2.0}
+status: planned
+needs:
+  - A grid or field component and an action that interpolates a declared pointwise map from the identity, applied to the component and to what is drawn on it.
+corpus:
+  idioms: [space transform]
+  exemplars:
+    - _2016/eola/chapter3.py::UsedToThinkinfOfFunctionsAsGraphs
+    - _2024/linalg/eigenlecture.py::Transformation
+  note: Bound to topic; 3% of the scenes of 2015-2019, which include the linear-algebra series, and under 1% since.
+research: [tversky2002]
+related: [morph_between_representations]

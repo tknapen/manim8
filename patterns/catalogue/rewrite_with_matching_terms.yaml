@@ -1,0 +1,41 @@
+schema_version: "1.0"
+id: rewrite_with_matching_terms
+name: Rewrite with matching terms
+group: form
+summary: >-
+  An equation becomes another while the symbols they share glide to their new places and the rest fades out
+  or in, so the viewer sees that the new form is the old one rearranged or extended, not a new statement.
+use_when:
+  - A model changes form at an event (before and after an impact, a limit taken, a term added).
+  - A derivation step keeps most symbols and the clip should show which ones survive.
+avoid_when:
+  - The two equations share almost nothing; a fade between them is more honest than a morph.
+  - A sweep is emphasizing a term of the same equation while it would change.
+beats:
+  - Hold the first equation long enough to be read.
+  - Rewrite it; named symbols pair by name, the rest by shape.
+  - Hold the new equation at least as long as it takes to read it.
+timing:
+  change: {min: 0.8, max: 1.5}
+  hold: {min: 1.0, max: 2.5}
+  note: >-
+    In the survey, rewrites with matching parts last 1 s at the median and are rarely given more than 1.5 s;
+    the reading time comes from the hold, not from slowing the rewrite.
+status: available
+components: [equation_block, equation_label]
+actions: [transform_equation]
+recipes:
+  - project: computational_neuroscience/drop_impact
+    scene: splash
+    note: At impact the free-fall equation becomes the two-line splash model in 0.8 s.
+corpus:
+  idioms: [rewrite with matching parts]
+  exemplars:
+    - _2025/laplace/derivatives.py::WalkThroughEquationSolution
+    - _2023/gauss_int/herschel.py::TwoProperties
+    - _2023/clt/main.py::BuildUpGaussian
+research: [tversky2002, heer2007]
+pitfalls:
+  - Glyphs matched by shape can pair symbols that merely look alike; name the symbols that matter in the equation's highlight list.
+  - Moving the equation while it is rewritten asks the eye to follow two motions.
+related: [derive_by_copy, morph_between_representations]

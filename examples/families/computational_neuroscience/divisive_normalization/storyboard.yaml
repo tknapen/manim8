@@ -49,6 +49,7 @@ scenes:
     start_seconds: 6
     end_seconds: 18
     purpose: "Divide by a normalization pool, then raise the pool and watch the response compress."
+    patterns: [sweep_with_readout]
     narration:
       text: >-
         Dividing by a pool P compresses the response as the pool grows; a larger sigma

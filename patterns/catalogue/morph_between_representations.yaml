@@ -1,0 +1,32 @@
+schema_version: "1.0"
+id: morph_between_representations
+name: Morph between representations
+group: form
+summary: >-
+  One picture turns into another that shows the same thing differently (bars into a density, a row of units
+  into a tuning curve), with corresponding parts moving into each other so that the identity is kept.
+use_when:
+  - Two representations of the same data or model are both needed and the link between them is the point.
+  - A discrete picture becomes a continuous one in a limit.
+avoid_when:
+  - The parts do not correspond one to one; an unmatched morph invents a correspondence.
+beats:
+  - Show the first representation and say what it shows.
+  - Morph, keeping each part's identity (colour, order) through the change.
+  - Hold the second representation; optionally return to the first.
+timing:
+  change: {min: 1.0, max: 2.5}
+  hold: {min: 1.0, max: 2.0}
+status: planned
+needs:
+  - A transform action between two components of compatible kinds (a population row and a curve, a histogram and a density) with declared part correspondence.
+corpus:
+  idioms: [morph]
+  exemplars:
+    - _2023/convolutions2/dice.py::ConvolveDiscreteDistributions
+    - _2023/clt/main.py::LimitingDistributions
+    - _2017/nn/part3.py::SimplestNetworkExample
+research: [heer2007, tversky2002]
+pitfalls:
+  - Morphing while the axes rescale stacks two transitions; change the axes first, then the marks.
+related: [rewrite_with_matching_terms]

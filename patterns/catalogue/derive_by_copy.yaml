@@ -1,0 +1,38 @@
+schema_version: "1.0"
+id: derive_by_copy
+name: Derive by copy
+group: form
+summary: >-
+  A copy of a term, or of an element of the picture, lifts off and travels to where it is used next (a new
+  equation, a label, a slot in a sum), while the original stays. The viewer sees where each piece of the new
+  expression comes from.
+use_when:
+  - An expression is built from parts already on screen (a force read off the diagram, a term carried into the next line).
+  - A quantity in the picture gets its symbol, or a symbol gets its place in the picture.
+avoid_when:
+  - The destination is far from the source and other objects lie between; the path crosses them.
+beats:
+  - Hold the source, coloured as its symbol.
+  - Send a copy along a short arc to its slot while the original stays.
+  - Let the rest of the destination expression appear around it.
+  - For a sum, let copies of many parts pour into the single number they add up to.
+timing:
+  change: {min: 1.0, max: 2.0}
+  hold: {min: 0.5, max: 1.5}
+status: planned
+needs:
+  - A storyboard action that sends a copy of an equation term or of a picture element to a place in another equation object, leaving the original where it was.
+corpus:
+  idioms: [derive by copy]
+  exemplars:
+    - _2019/diffyq/part1/pendulum.py::BuildUpEquation
+    - _2025/laplace/derivatives.py::DerivativeFormula
+    - _2024/transformers/mlp.py::BasicMLPWalkThrough
+    - _2023/convolutions2/dice.py::ConvolveDiscreteDistributions
+  note: >-
+    The most frequent transform of the recent era: TransformFromCopy appears 93 times per 1,000 plays in
+    2023-2026, against 19 in 2015-2019, and in 17% of recent scenes.
+research: [alpizar2020]
+pitfalls:
+  - Copies that fly in several directions at once break the cue; send them one after another.
+related: [rewrite_with_matching_terms]

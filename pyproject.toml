@@ -42,17 +42,18 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# An installed control plane carries the style sheets and the example templates (ADR-037); the specimens
-# and anything rendered stay in the repository.
-only-include = ["src/scianim", "styles", "examples"]
+# An installed control plane carries the style sheets, the example templates (ADR-037) and the pattern library
+# (ADR-040); the specimens and anything rendered stay in the repository.
+only-include = ["src/scianim", "styles", "examples", "patterns"]
 exclude = ["*.png", "*.pdf", "**/.venv", "**/renders", "**/.scianim", "**/__pycache__"]
-# An editable install (a checkout) puts `src/` on the path and reads styles and examples from the repository.
+# An editable install (a checkout) puts `src/` on the path and reads styles, examples and patterns from the repository.
 dev-mode-dirs = ["src"]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = ""
 "styles" = "scianim/_data/styles"
 "examples" = "scianim/_data/examples"
+"patterns" = "scianim/_data/patterns"
 
 [tool.ruff]
 line-length = 120

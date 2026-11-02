@@ -24,6 +24,7 @@ from scianim.doctor import Check, control_plane_checks, family_checks
 from scianim.families.resolve import load_family_context, locate_family, probe_environment, sync_environment
 from scianim.feedback.store import build_record, list_feedback, resolve_target, write_feedback
 from scianim.index import Index
+from scianim.patterns import load_library, recipe_problems, recipe_scene, yaml_text
 from scianim.planning.checks import Report, validate_project
 from scianim.planning.dependencies import compare_with_revision
 from scianim.planning.timing import propose_timing, write_proposed_storyboard
@@ -71,6 +72,7 @@ index_app = typer.Typer(no_args_is_help=True, help="The workspace SQLite index (
 sources_app = typer.Typer(no_args_is_help=True, help="Source adapters: what supplied files say.")
 propose_app = typer.Typer(no_args_is_help=True, help="Agent proposals: validate and apply spec or storyboard changes.")
 bundle_app = typer.Typer(no_args_is_help=True, help="Portable bundles: export, inspect and import.")
+patterns_app = typer.Typer(no_args_is_help=True, help="The pattern library: staging idioms to choose from (ADR-040).")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(workspace_app, name="workspace")
@@ -83,6 +85,7 @@ app.add_typer(index_app, name="index")
 app.add_typer(sources_app, name="sources")
 app.add_typer(propose_app, name="propose")
 app.add_typer(bundle_app, name="bundle")
+app.add_typer(patterns_app, name="patterns")
 
 out = Console()
 err = Console(stderr=True)
@@ -1146,6 +1149,134 @@ def inspect(
         out.print(f"recorded {len(written)} feedback record(s)")
     discrepancies = [f for f in findings if f.severity == "discrepancy"]
     raise typer.Exit(1 if discrepancies else 0)
+
+
+# --- the pattern library -------------------------------------------------------------------------
+
+
+def _library():
+    try:
+        return load_library()
+    except SpecError as exc:
+        fail(str(exc))
+
+
+def _realized_with(pattern) -> str:
+    return ", ".join([*pattern.actions, *pattern.components]) or "-"
+
+
+@patterns_app.command("list")
+def patterns_list(
+    status: Annotated[
+        str | None, typer.Option(help="Only patterns with this status: available, partial, planned.")
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the entries as JSON.")] = False,
+) -> None:
+    """List the patterns: staging idioms with the components and actions that realize them."""
+    library = _library()
+    rows = [p for p in library.ordered() if status is None or p.status == status]
+    if as_json:
+        out.print_json(json.dumps([p.model_dump(mode="json") for p in rows]))
+        return
+    table = Table(
+        show_header=True, header_style="bold", title=f"pattern library ({len(rows)} of {len(library.patterns)})"
+    )
+    for column in ("id", "status", "group", "name", "realized with / needs"):
+        table.add_column(column)
+    for p in rows:
+        table.add_row(
+            p.id, p.status, p.group, p.name, _realized_with(p) if p.status == "available" else "; ".join(p.needs)
+        )
+    out.print(table)
+
+
+@patterns_app.command("show")
+def patterns_show(
+    pattern_id: Annotated[str, typer.Argument(help="A pattern id, from `scianim patterns list`.")],
+    as_json: Annotated[bool, typer.Option("--json", help="Print the entry as JSON.")] = False,
+) -> None:
+    """Describe one pattern: when to use it, its beats and timing, a recipe scene, and its evidence."""
+    library = _library()
+    pattern = library.patterns.get(pattern_id)
+    if pattern is None:
+        fail(f"unknown pattern '{pattern_id}'; known: {sorted(library.patterns)}")
+    if as_json:
+        out.print_json(json.dumps(pattern.model_dump(mode="json")))
+        return
+    out.print(f"[bold]{pattern.name}[/bold] (`{pattern.id}`, {pattern.group}, {pattern.status})")
+    out.print(pattern.summary, highlight=False)
+    sections = [("Use when", pattern.use_when), ("Avoid when", pattern.avoid_when)]
+    for title, items in sections:
+        if items:
+            out.print(f"\n[bold]{title}[/bold]")
+            for item in items:
+                out.print(f"  - {item}", highlight=False)
+    out.print("\n[bold]Beats[/bold]")
+    for number, beat in enumerate(pattern.beats, 1):
+        out.print(f"  {number}. {beat}", highlight=False)
+    timing = [
+        f"{name} {r.min:g}-{r.max:g} s"
+        for name, r in (
+            ("lead-in", pattern.timing.lead_in),
+            ("change", pattern.timing.change),
+            ("hold", pattern.timing.hold),
+        )
+        if r is not None
+    ]
+    if timing or pattern.timing.note:
+        out.print(
+            "\n[bold]Timing[/bold] " + "; ".join(timing) + (f". {pattern.timing.note}" if pattern.timing.note else "")
+        )
+    out.print(f"\n[bold]Realized with[/bold] {_realized_with(pattern)}")
+    for need in pattern.needs:
+        out.print(f"  needs: {need}", highlight=False)
+    for recipe in pattern.recipes:
+        found = recipe_scene(recipe.project, recipe.scene)
+        out.print(
+            f"\n[bold]Recipe[/bold] {recipe.project}, scene `{recipe.scene}`"
+            + (f": {recipe.note}" if recipe.note else "")
+        )
+        if found.mapping is not None:
+            out.print(yaml_text(found.mapping), highlight=False, markup=False)
+        if found.problem:
+            out.print(f"  [red]{found.problem}[/red]")
+    for survey, idioms in library.idiom_shares(pattern).items():
+        out.print(f"\n[bold]Corpus[/bold] {survey}: share of scenes using the idiom, by era")
+        for idiom, eras in idioms.items():
+            out.print(f"  {idiom}: " + ", ".join(f"{era} {share:g}%" for era, share in eras.items()), highlight=False)
+    if pattern.corpus and pattern.corpus.exemplars:
+        out.print("  e.g. " + "; ".join(pattern.corpus.exemplars), highlight=False)
+    if pattern.research:
+        out.print("\n[bold]Research[/bold]")
+        for key in pattern.research:
+            reference = library.references[key]
+            out.print(f"  - {reference.citation} {reference.finding} [{reference.checked}]", highlight=False)
+    if pattern.pitfalls:
+        out.print("\n[bold]Pitfalls[/bold]")
+        for item in pattern.pitfalls:
+            out.print(f"  - {item}", highlight=False)
+    if pattern.related:
+        out.print(f"\n[bold]Related[/bold] {', '.join(pattern.related)}")
+
+
+@patterns_app.command("check")
+def patterns_check() -> None:
+    """Check the library: every entry validates, its references exist, and every recipe scene stages it."""
+    library = _library()
+    problems = recipe_problems(library)
+    counts = {
+        status: sum(p.status == status for p in library.patterns.values())
+        for status in ("available", "partial", "planned")
+    }
+    out.print(
+        f"{len(library.patterns)} patterns ({', '.join(f'{n} {s}' for s, n in counts.items())}), "
+        f"{len(library.references)} references, surveys: {', '.join(library.surveys) or 'none'}"
+    )
+    for problem in problems:
+        out.print(f"  [red]error[/red]   {problem}", highlight=False)
+    if problems:
+        raise typer.Exit(1)
+    out.print("[green]ok[/green]")
 
 
 # --- bundles ----------------------------------------------------------------------------------------

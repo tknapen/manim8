@@ -1,0 +1,1192 @@
+{
+  "corpus": "https://github.com/3b1b/videos",
+  "commit": "306a1346a356c7a7b097875ceb51c5cd67d0a56c",
+  "eras": {
+    "2015-2019": {
+      "files": 211,
+      "unparsed": 2,
+      "scenes": 2561,
+      "plays": 15646
+    },
+    "2020-2022": {
+      "files": 52,
+      "unparsed": 0,
+      "scenes": 823,
+      "plays": 5502
+    },
+    "2023-2026": {
+      "files": 112,
+      "unparsed": 1,
+      "scenes": 1430,
+      "plays": 8955
+    }
+  },
+  "plays per scene": {
+    "n": 4814,
+    "q1": 1.0,
+    "median": 3.0,
+    "q3": 7.0,
+    "mean": 6.253
+  },
+  "scene seconds (literal run times, default 1 s, plus waits)": {
+    "n": 4814,
+    "q1": 4.0,
+    "median": 8.0,
+    "q3": 17.0,
+    "mean": 15.961
+  },
+  "categories per 1000 plays": {
+    "2015-2019": {
+      "draw on": 326.0,
+      "fade": 290.4,
+      "morph": 188.4,
+      "unresolved": 131.7,
+      "character": 101.7,
+      "property move": 87.2,
+      "group or stagger": 64.1,
+      "grow": 60.2,
+      "property style": 44.4,
+      "property other": 29.2,
+      "indicate": 28.1,
+      "property scale": 27.3,
+      "helper": 21.9,
+      "derive by copy": 14.3,
+      "tracker sweep": 12.9,
+      "update in play": 12.1,
+      "rotate": 11.6,
+      "space transform": 6.4,
+      "count": 4.7,
+      "property rotate": 3.2,
+      "passing flash": 1.4,
+      "move along path": 1.3,
+      "property reshape": 0.8
+    },
+    "2020-2022": {
+      "fade": 437.7,
+      "draw on": 267.7,
+      "morph": 156.3,
+      "group or stagger": 121.4,
+      "character": 92.7,
+      "unresolved": 90.1,
+      "property move": 84.7,
+      "property style": 55.3,
+      "grow": 53.1,
+      "helper": 51.6,
+      "derive by copy": 42.7,
+      "property scale": 38.2,
+      "indicate": 36.2,
+      "update in play": 21.8,
+      "tracker sweep": 21.6,
+      "rotate": 19.4,
+      "rewrite": 18.5,
+      "property other": 17.6,
+      "count": 15.8,
+      "camera 2d": 10.4,
+      "property reshape": 6.9,
+      "camera 3d": 4.9,
+      "move along path": 2.7,
+      "passing flash": 2.5,
+      "space transform": 1.8,
+      "property rotate": 1.3
+    },
+    "2023-2026": {
+      "fade": 397.2,
+      "draw on": 219.3,
+      "group or stagger": 152.2,
+      "morph": 144.7,
+      "property style": 90.5,
+      "character": 82.1,
+      "property move": 73.3,
+      "camera 3d": 73.3,
+      "derive by copy": 67.7,
+      "tracker sweep": 67.2,
+      "grow": 64.8,
+      "helper": 64.3,
+      "camera 2d": 58.1,
+      "unresolved": 46.1,
+      "property scale": 35.0,
+      "indicate": 35.0,
+      "rewrite": 32.6,
+      "rotate": 18.4,
+      "update in play": 15.6,
+      "property other": 10.7,
+      "count": 6.4,
+      "property reshape": 6.3,
+      "passing flash": 6.0,
+      "property rotate": 4.5,
+      "move along path": 2.1,
+      "space transform": 1.3
+    }
+  },
+  "top tokens per 1000 plays": {
+    "2015-2019": {
+      "Write": 196.2,
+      "FadeIn": 178.6,
+      "ShowCreation": 169.4,
+      "FadeOut": 163.0,
+      "Transform": 89.5,
+      "LaggedStartMap": 65.6,
+      "ReplacementTransform": 60.4,
+      "method.change": 54.3,
+      "method.shift": 43.8,
+      "MoveToTarget": 41.4,
+      "method.change_mode": 41.3,
+      "GrowFromCenter": 41.2,
+      "Animation": 36.8,
+      "Blink": 31.3,
+      "variable": 31.3,
+      "method.restore": 29.3,
+      "FadeInFromDown": 26.8,
+      "method.next_to": 26.1,
+      "method.scale": 23.6,
+      "method.move_to": 21.2,
+      "method.look_at": 19.7,
+      "TransformFromCopy": 18.9,
+      "GrowArrow": 18.0,
+      "method.set_color": 16.7,
+      "method.set_value": 14.4,
+      "method.set_fill": 13.3,
+      "ShimmerIn": 11.1,
+      "DrawBorderThenFill": 10.5,
+      "other": 10.2,
+      "method.fade": 9.1,
+      "Rotate": 8.6,
+      "Indicate": 8.4,
+      "method.set_stroke": 7.6,
+      "Restore": 7.6,
+      "method.set_opacity": 7.6,
+      "method.to_edge": 7.0,
+      "ShowCreationThenFadeAround": 7.0,
+      "UpdateFromAlphaFunc": 7.0,
+      "LaggedStart": 6.7,
+      "ApplyMethod": 5.9,
+      "RemovePiCreatureBubble": 5.7,
+      "method.to_corner": 4.9,
+      "MaintainPositionRelativeTo": 4.9,
+      "PiCreatureSays": 4.5,
+      "ApplyFunction": 4.3,
+      "helper.change_students": 4.3,
+      "UpdateFromFunc": 4.0,
+      "ShowCreationThenDestruction": 4.0,
+      "FadeInFromLarge": 4.0,
+      "method.look": 3.9,
+      "GrowFromPoint": 3.6,
+      "FocusOn": 3.5,
+      "ChangeDecimalToValue": 3.5,
+      "method.stretch": 3.4,
+      "VFadeIn": 3.4,
+      "method.rotate": 3.3,
+      "Rotating": 3.2,
+      "method.eyes": 2.9,
+      "method.replace": 2.8,
+      "SwitchOn": 2.5
+    },
+    "2020-2022": {
+      "FadeIn": 351.9,
+      "FadeOut": 263.7,
+      "Write": 145.0,
+      "ShowCreation": 125.6,
+      "LaggedStartMap": 86.7,
+      "MoveToTarget": 70.9,
+      "character.change": 68.2,
+      "LaggedStart": 59.3,
+      "TransformFromCopy": 54.9,
+      "Blink": 42.3,
+      "FadeTransform": 36.9,
+      "method.change": 36.5,
+      "Restore": 32.5,
+      "GrowArrow": 25.6,
+      "Transform": 24.5,
+      "ShowIncreasingSubsets": 24.0,
+      "GrowFromCenter": 23.6,
+      "ReplacementTransform": 22.9,
+      "Rotate": 20.9,
+      "method.move_to": 20.2,
+      "method.set_opacity": 18.9,
+      "helper.change_students": 18.7,
+      "variable": 18.5,
+      "UpdateFromAlphaFunc": 16.0,
+      "animate.set_opacity": 15.4,
+      "TransformMatchingShapes": 15.3,
+      "tracker.set_value": 14.4,
+      "method.next_to": 13.6,
+      "FlashAround": 13.6,
+      "method.shift": 13.4,
+      "ChangeDecimalToValue": 13.4,
+      "animate.scale": 12.5,
+      "animate.shift": 12.2,
+      "ShowCreationThenFadeOut": 11.3,
+      "VFadeIn": 11.1,
+      "method.scale": 10.4,
+      "method.set_color": 10.2,
+      "helper.toggle_bit_anim": 9.5,
+      "FlipCoin": 9.1,
+      "animate.move_to": 8.4,
+      "animate.next_to": 8.4,
+      "DrawBorderThenFill": 8.2,
+      "method.set_value": 8.2,
+      "PiCreatureSays": 8.0,
+      "FadeInFromDown": 7.3,
+      "UpdateFromFunc": 7.3,
+      "character.says": 7.1,
+      "GrowFromPoint": 6.5,
+      "method.set_fill": 6.0,
+      "RemovePiCreatureBubble": 5.6,
+      "animate.set_stroke": 5.5,
+      "method.to_edge": 5.3,
+      "ShowCreationThenFadeAround": 5.1,
+      "animate.to_edge": 5.1,
+      "method.fade": 4.9,
+      "FadeInFromPoint": 4.5,
+      "animate.set_height": 4.5,
+      "CountInFrom": 4.4,
+      "MaintainPositionRelativeTo": 4.4,
+      "VFadeOut": 4.4
+    },
+    "2023-2026": {
+      "FadeIn": 319.8,
+      "FadeOut": 276.9,
+      "Write": 134.8,
+      "ShowCreation": 114.0,
+      "TransformFromCopy": 92.6,
+      "character.change": 89.6,
+      "LaggedStart": 74.9,
+      "camera.reorient": 72.6,
+      "LaggedStartMap": 69.5,
+      "tracker.set_value": 69.0,
+      "animate.set_opacity": 62.1,
+      "AnimationGroup": 57.1,
+      "MoveToTarget": 46.2,
+      "ReplacementTransform": 39.0,
+      "GrowArrow": 38.6,
+      "helper.change_students": 37.3,
+      "FadeTransform": 35.2,
+      "Transform": 30.6,
+      "animate.shift": 29.1,
+      "Blink": 27.0,
+      "animate.set_stroke": 26.8,
+      "Restore": 26.2,
+      "character.says": 26.2,
+      "animate.scale": 24.9,
+      "GrowFromCenter": 22.4,
+      "animate.set_fill": 22.2,
+      "Rotate": 21.0,
+      "TransformMatchingTex": 19.5,
+      "VFadeIn": 18.9,
+      "animate.next_to": 18.1,
+      "camera.reorient (flat)": 17.4,
+      "animate.move_to": 16.8,
+      "animate.set_color": 15.4,
+      "FlashAround": 14.6,
+      "animate.surround": 13.3,
+      "UpdateFromFunc": 11.3,
+      "variable": 10.9,
+      "TransformMatchingShapes": 10.8,
+      "animate.restore": 10.5,
+      "camera.set_height": 10.1,
+      "animate.fade": 9.7,
+      "animate.stretch": 8.2,
+      "FadeTransformPieces": 7.3,
+      "ShowIncreasingSubsets": 7.0,
+      "character.debubble": 7.0,
+      "TransformMatchingStrings": 6.9,
+      "camera.to_default_state": 6.8,
+      "FadeInFromPoint": 6.4,
+      "VShowPassingFlash": 6.0,
+      "VFadeOut": 5.6,
+      "camera.move_to": 4.8,
+      "ChangeDecimalToValue": 4.7,
+      "tracker.increment_value": 4.5,
+      "animate.set_height": 4.4,
+      "animate.to_edge": 4.2,
+      "UpdateFromAlphaFunc": 4.2,
+      "GrowFromEdge": 3.9,
+      "animate.look_at": 3.8,
+      "camera.scale": 3.7,
+      "animate.rotate": 3.7
+    }
+  },
+  "scenes with idiom (%)": {
+    "2015-2019": {
+      "draw on": 69.9,
+      "fade": 54.9,
+      "morph": 43.9,
+      "characters": 30.2,
+      "arrow": 26.2,
+      "grow": 22.1,
+      "staggered": 20.1,
+      "colour-linked terms": 17.5,
+      "brace": 16.2,
+      "rearrange to target": 11.7,
+      "surrounding box": 9.5,
+      "axes or number line": 9.2,
+      "indicate": 8.2,
+      "updaters": 7.9,
+      "function graph": 6.6,
+      "random samples": 6.3,
+      "parameter sweep": 4.5,
+      "derive by copy": 4.3,
+      "dim others": 4.0,
+      "number readout tied to a value": 3.2,
+      "space transform": 3.2,
+      "restore saved state": 3.0,
+      "one value drives several objects": 2.1,
+      "flow field": 0.9,
+      "area under graph": 0.8,
+      "passing flash": 0.6,
+      "move along path": 0.6,
+      "surface": 0.4,
+      "trail": 0.1,
+      "camera 3d": 0.0,
+      "ambient camera motion": 0.0
+    },
+    "2020-2022": {
+      "fade": 65.1,
+      "draw on": 61.5,
+      "morph": 38.5,
+      "staggered": 34.1,
+      "arrow": 31.3,
+      "characters": 26.7,
+      "colour-linked terms": 23.9,
+      "grow": 22.4,
+      "surrounding box": 21.0,
+      "rearrange to target": 20.7,
+      "updaters": 19.2,
+      "axes or number line": 17.6,
+      "derive by copy": 16.3,
+      "random samples": 15.2,
+      "indicate": 14.3,
+      "restore saved state": 12.9,
+      "brace": 10.4,
+      "parameter sweep": 10.2,
+      "function graph": 8.5,
+      "number readout tied to a value": 8.0,
+      "rewrite with matching parts": 7.3,
+      "point cloud": 6.7,
+      "dim others": 5.7,
+      "one value drives several objects": 4.9,
+      "camera 3d": 4.0,
+      "camera 2d": 3.9,
+      "ambient camera motion": 3.5,
+      "labels fixed in frame": 3.3,
+      "surface": 2.9,
+      "passing flash": 1.7,
+      "move along path": 1.6,
+      "area under graph": 1.0,
+      "space transform": 0.9,
+      "trail": 0.5,
+      "flow field": 0.4
+    },
+    "2023-2026": {
+      "fade": 57.8,
+      "draw on": 52.6,
+      "staggered": 34.5,
+      "morph": 31.3,
+      "arrow": 27.4,
+      "characters": 24.3,
+      "grow": 23.1,
+      "updaters": 19.9,
+      "colour-linked terms": 17.5,
+      "derive by copy": 16.9,
+      "surrounding box": 16.9,
+      "camera 2d": 16.1,
+      "axes or number line": 15.8,
+      "parameter sweep": 13.6,
+      "camera 3d": 12.5,
+      "random samples": 12.3,
+      "dim others": 11.9,
+      "rearrange to target": 11.8,
+      "point cloud": 11.3,
+      "indicate": 11.2,
+      "restore saved state": 9.9,
+      "rewrite with matching parts": 9.8,
+      "brace": 9.1,
+      "one value drives several objects": 8.8,
+      "function graph": 6.5,
+      "labels fixed in frame": 5.9,
+      "number readout tied to a value": 5.2,
+      "surface": 4.3,
+      "passing flash": 3.5,
+      "ambient camera motion": 2.3,
+      "trail": 2.0,
+      "move along path": 1.0,
+      "flow field": 0.6,
+      "space transform": 0.6,
+      "area under graph": 0.3
+    }
+  },
+  "run time by category, single-category plays, 2023-2026": {
+    "camera 2d": {
+      "explicit": {
+        "n": 51,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 5.0,
+        "mean": 4.735
+      },
+      "share explicit (%)": 85.0,
+      "with default 1 s": {
+        "n": 60,
+        "q1": 2.0,
+        "median": 2.75,
+        "q3": 5.0,
+        "mean": 4.175
+      }
+    },
+    "camera 3d": {
+      "explicit": {
+        "n": 196,
+        "q1": 4.0,
+        "median": 7.99,
+        "q3": 12.0,
+        "mean": 8.206
+      },
+      "share explicit (%)": 98.0,
+      "with default 1 s": {
+        "n": 200,
+        "q1": 4.0,
+        "median": 7.45,
+        "q3": 12.0,
+        "mean": 8.062
+      }
+    },
+    "derive by copy": {
+      "explicit": {
+        "n": 32,
+        "q1": 2.0,
+        "median": 2.0,
+        "q3": 3.0,
+        "mean": 2.797
+      },
+      "share explicit (%)": 24.4,
+      "with default 1 s": {
+        "n": 131,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.439
+      }
+    },
+    "draw on": {
+      "explicit": {
+        "n": 168,
+        "q1": 1.125,
+        "median": 2.0,
+        "q3": 3.0,
+        "mean": 2.555
+      },
+      "share explicit (%)": 23.6,
+      "with default 1 s": {
+        "n": 712,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.367
+      }
+    },
+    "fade": {
+      "explicit": {
+        "n": 108,
+        "q1": 1.0,
+        "median": 2.0,
+        "q3": 2.0,
+        "mean": 1.909
+      },
+      "share explicit (%)": 10.0,
+      "with default 1 s": {
+        "n": 1077,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.091
+      }
+    },
+    "helper": {
+      "explicit": {
+        "n": 57,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 6.0,
+        "mean": 5.077
+      },
+      "share explicit (%)": 27.0,
+      "with default 1 s": {
+        "n": 211,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 2.101
+      }
+    },
+    "indicate": {
+      "explicit": {
+        "n": 52,
+        "q1": 2.0,
+        "median": 2.0,
+        "q3": 2.0,
+        "mean": 2.144
+      },
+      "share explicit (%)": 44.1,
+      "with default 1 s": {
+        "n": 118,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 2.0,
+        "mean": 1.504
+      }
+    },
+    "morph": {
+      "explicit": {
+        "n": 106,
+        "q1": 2.0,
+        "median": 2.0,
+        "q3": 3.0,
+        "mean": 2.418
+      },
+      "share explicit (%)": 33.8,
+      "with default 1 s": {
+        "n": 314,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 2.0,
+        "mean": 1.479
+      }
+    },
+    "move along path": {
+      "explicit": {
+        "n": 11,
+        "q1": 3.0,
+        "median": 5.0,
+        "q3": 7.0,
+        "mean": 4.909
+      },
+      "share explicit (%)": 91.7,
+      "with default 1 s": {
+        "n": 12,
+        "q1": 3.0,
+        "median": 4.5,
+        "q3": 6.75,
+        "mean": 4.583
+      }
+    },
+    "passing flash": {
+      "explicit": {
+        "n": 11,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 4.0,
+        "mean": 3.136
+      },
+      "share explicit (%)": 100.0,
+      "with default 1 s": {
+        "n": 11,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 4.0,
+        "mean": 3.136
+      }
+    },
+    "property move": {
+      "explicit": {
+        "n": 120,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 5.0,
+        "mean": 4.418
+      },
+      "share explicit (%)": 66.7,
+      "with default 1 s": {
+        "n": 180,
+        "q1": 1.0,
+        "median": 2.0,
+        "q3": 4.0,
+        "mean": 3.278
+      }
+    },
+    "property other": {
+      "explicit": {
+        "n": 13,
+        "q1": 2.0,
+        "median": 2.0,
+        "q3": 2.0,
+        "mean": 4.462
+      },
+      "share explicit (%)": 33.3,
+      "with default 1 s": {
+        "n": 39,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 2.0,
+        "mean": 2.154
+      }
+    },
+    "property reshape": {
+      "explicit": {
+        "n": 12,
+        "q1": 1.5,
+        "median": 3.0,
+        "q3": 5.75,
+        "mean": 3.792
+      },
+      "share explicit (%)": 70.6,
+      "with default 1 s": {
+        "n": 17,
+        "q1": 1.0,
+        "median": 3.0,
+        "q3": 4.5,
+        "mean": 2.971
+      }
+    },
+    "property scale": {
+      "explicit": {
+        "n": 37,
+        "q1": 2.0,
+        "median": 2.5,
+        "q3": 4.0,
+        "mean": 3.332
+      },
+      "share explicit (%)": 43.0,
+      "with default 1 s": {
+        "n": 86,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 2.125,
+        "mean": 2.003
+      }
+    },
+    "property style": {
+      "explicit": {
+        "n": 19,
+        "q1": 0.3,
+        "median": 2.0,
+        "q3": 2.0,
+        "mean": 1.611
+      },
+      "share explicit (%)": 12.8,
+      "with default 1 s": {
+        "n": 149,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.078
+      }
+    },
+    "rewrite": {
+      "explicit": {
+        "n": 54,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.5,
+        "mean": 1.196
+      },
+      "share explicit (%)": 47.4,
+      "with default 1 s": {
+        "n": 114,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.093
+      }
+    },
+    "rotate": {
+      "explicit": {
+        "n": 72,
+        "q1": 2.0,
+        "median": 5.0,
+        "q3": 8.0,
+        "mean": 6.392
+      },
+      "share explicit (%)": 93.5,
+      "with default 1 s": {
+        "n": 77,
+        "q1": 2.0,
+        "median": 5.0,
+        "q3": 8.0,
+        "mean": 6.042
+      }
+    },
+    "tracker sweep": {
+      "explicit": {
+        "n": 244,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 5.0,
+        "mean": 4.723
+      },
+      "share explicit (%)": 85.6,
+      "with default 1 s": {
+        "n": 285,
+        "q1": 2.0,
+        "median": 3.0,
+        "q3": 5.0,
+        "mean": 4.187
+      }
+    },
+    "unresolved": {
+      "explicit": {
+        "n": 39,
+        "q1": 2.0,
+        "median": 5.0,
+        "q3": 5.0,
+        "mean": 5.566
+      },
+      "share explicit (%)": 12.3,
+      "with default 1 s": {
+        "n": 316,
+        "q1": 1.0,
+        "median": 1.0,
+        "q3": 1.0,
+        "mean": 1.564
+      }
+    },
+    "update in play": {
+      "explicit": {
+        "n": 12,
+        "q1": 4.25,
+        "median": 7.0,
+        "q3": 9.5,
+        "mean": 8.042
+      },
+      "share explicit (%)": 66.7,
+      "with default 1 s": {
+        "n": 18,
+        "q1": 1.0,
+        "median": 4.5,
+        "q3": 8.0,
+        "mean": 5.694
+      }
+    }
+  },
+  "lag ratios (all eras)": {
+    "n": 3382,
+    "q1": 0.1,
+    "median": 0.15,
+    "q3": 0.5,
+    "mean": 0.24
+  },
+  "waits, 2023-2026": {
+    "n": 5693,
+    "q1": 1.0,
+    "median": 1.0,
+    "q3": 1.0,
+    "mean": 1.882
+  },
+  "rate functions per 1000 plays": {
+    "2015-2019": {
+      "there_and_back": 12.9,
+      "linear": 9.5,
+      "squish_rate_func(...)": 8.9,
+      "lambda": 5.9,
+      "wiggle": 5.3,
+      "smooth": 2.4,
+      "bezier(...)": 1.6,
+      "running_start": 1.5,
+      "rush_into": 1.3,
+      "there_and_back_with_pause": 1.0,
+      "rush_from": 0.8,
+      "rate_func": 0.3,
+      "indicator_rate_func": 0.3,
+      "rf": 0.3,
+      "double_smooth": 0.3,
+      "Subscript": 0.1,
+      "squished_rate_func": 0.1,
+      "not_quite_there": 0.1,
+      "rate_maker(...)": 0.1,
+      "rate_func_creator(...)": 0.1,
+      "care_movement_rate_func": 0.1,
+      "s_rate_func": 0.1,
+      "v_rate_func": 0.1,
+      "exponential_decay": 0.1
+    },
+    "2020-2022": {
+      "linear": 13.8,
+      "squish_rate_func(...)": 8.9,
+      "there_and_back": 4.7,
+      "bezier(...)": 3.8,
+      "lambda": 2.2,
+      "there_and_back_with_pause": 2.2,
+      "smooth": 1.5,
+      "rush_into": 1.3,
+      "rush_from": 0.7,
+      "reverse_smooth": 0.4,
+      "rf": 0.4,
+      "srf": 0.4,
+      "snap": 0.4,
+      "overshoot": 0.4,
+      "running_start": 0.4,
+      "double_smooth": 0.2,
+      "rate_func": 0.2,
+      "brace_rf": 0.2,
+      "label_rf": 0.2
+    },
+    "2023-2026": {
+      "linear": 14.7,
+      "there_and_back": 7.7,
+      "lambda": 4.0,
+      "there_and_back_with_pause": 3.4,
+      "rush_into": 1.8,
+      "wiggle": 1.8,
+      "rush_from": 1.1,
+      "bezier(...)": 0.9,
+      "running_start": 0.4,
+      "smooth": 0.4,
+      "squish_rate_func(...)": 0.3,
+      "slosh_rate_func": 0.2,
+      "overshoot": 0.1,
+      "func": 0.1,
+      "camera_rate_func": 0.1
+    }
+  },
+  "exemplars (recent first, one per project)": {
+    "morph": [
+      "_2026/cross_entropy/robot.py::RobotEncodingsV2",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/print_gallery/exponential.py::TheExponential",
+      "_2026/hairy_ball/spheres.py::StereographicProjection",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer"
+    ],
+    "grow": [
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/hairy_ball/spheres.py::AskAboutOutside",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2026/spheres_talk/supplements.py::HyperbolaSquare",
+      "_2026/2025_p6/problem_intro.py::Lean",
+      "_2025/laplace/shm.py::SolveDampedSpringEquation"
+    ],
+    "fade": [
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV2",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/hairy_ball/spheres.py::InsideOut",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2026/RL/rollouts.py::RandomWalks"
+    ],
+    "arrow": [
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/cross_entropy/robot.py::RobotEncodingsV2",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2026/hairy_ball/spheres.py::InsideOut",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/2025_P6/p6.py::ErdosSzekeres",
+      "_2026/2025_p6/problem_intro.py::Lean",
+      "_2025/laplace/main_equations.py::IntroduceTransform"
+    ],
+    "draw on": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/print_gallery/exponential.py::CreatingTheSpiral",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2026/hairy_ball/spheres.py::InsideOut",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2026/RL/rollouts.py::RandomWalks"
+    ],
+    "characters": [
+      "_2026/print_gallery/supplements.py::WhereDidThatPictureComeFrom",
+      "_2026/monthly_mindbenders/subsets.py::Subsets",
+      "_2026/hairy_ball/supplements.py::WhyDoWeCare",
+      "_2026/2025_P6/p6.py::PiCreaturesWatchingPreview2",
+      "_2026/cross_entropy/part2_supplements.py::AskAboutKLDivergence",
+      "_2026/spheres_talk/supplements.py::CommentOnGeneralFormula",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2025/laplace/derivatives.py::DerivativeFormula"
+    ],
+    "space transform": [
+      "_2026/hairy_ball/spheres.py::InsideOut",
+      "_2025/cosmic_distance/planets.py::PerspectivesOnEarth",
+      "_2024/puzzles/added_dimension.py::Project3DCube",
+      "_2024/linalg/eigenlecture.py::Transformation",
+      "_2021/holomorphic_dynamics.py::DescribeDerivative",
+      "_2021/holomorphic_dynamics.py::ShowFatouDiskExample",
+      "_2021/quick_eigen.py::VisualizeEigenvector",
+      "_2021/quick_eigen.py::ShowSquishingAndStretching"
+    ],
+    "surface": [
+      "_2026/hairy_ball/spheres.py::FlowingWater",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/print_gallery/exponential.py::TileToDoughnut",
+      "_2026/spheres_talk/volumes.py::ShowSphereVolumeDerivative",
+      "_2026/cross_entropy/language_models.py::AbstractGraphOfLossFunction",
+      "_2026/monthly_mindbenders/peg_jumping.py::Pegs",
+      "_2025/cosmic_distance/planets.py::NearestPlanets",
+      "_2025/grover/state_vectors.py::AmbientStateVector"
+    ],
+    "axes or number line": [
+      "_2026/print_gallery/exponential.py::CreatingTheSpiral",
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/2025_p6/problem_intro.py::Timeline",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2025/grover/polarization.py::BeamSplitter"
+    ],
+    "dim others": [
+      "_2026/cross_entropy/robot.py::RobotEncodingsV2",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2026/2025_p6/problem_intro.py::ProblemIntro",
+      "_2026/hairy_ball/spheres.py::StereographicProjection",
+      "_2025/cosmic_distance/planets.py::KeplersMethod",
+      "_2025/laplace/exponentials.py::DefineSPlane"
+    ],
+    "function graph": [
+      "_2026/cross_entropy/entropy.py::InformationGraph",
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/monthly_mindbenders/peg_jumping.py::Pegs",
+      "_2026/print_gallery/conformal_maps.py::DerivativeMeaning",
+      "_2026/spheres_talk/supplements.py::HyperbolaSquare",
+      "_2025/laplace/integration.py::IntegrateRealExponential",
+      "_2025/cosmic_distance/part2.py::InverseSquareLaw",
+      "_2025/grover/runtime.py::ShowOptionGraphs"
+    ],
+    "random samples": [
+      "_2026/monthly_mindbenders/strings.py::Strings",
+      "_2026/2025_P6/p6.py::OptimalArrangementMotivation",
+      "_2026/cross_entropy/robot.py::RobotEncodingsV2",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2026/hairy_ball/spheres.py::FlowingWater",
+      "_2026/RL/rollouts.py::RandomWalks",
+      "_2026/spheres_talk/random_puzzles.py::DotProductOfUnitVectors",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer"
+    ],
+    "brace": [
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/cross_entropy/arithmetic_coding.py::ProbababilityOfAWord",
+      "_2026/print_gallery/exponential.py::TheExponential",
+      "_2026/hairy_ball/supplements.py::ProofOutline",
+      "_2026/spheres_talk/random_puzzles.py::DotProductOfUnitVectors",
+      "_2025/cosmic_distance/planets.py::DistanceToSun",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer",
+      "_2025/laplace/shm.py::SolveDampedSpringEquation"
+    ],
+    "passing flash": [
+      "_2026/2025_P6/p6.py::PassingFlashes",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/cross_entropy/entropy.py::RandomNoiseIsIncompressible",
+      "_2026/hairy_ball/spheres.py::ProjectedCombedHypersphere",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer",
+      "_2025/colliding_blocks_v2/supplements.py::ShowPastVideos",
+      "_2025/cosmic_distance/part2.py::SolarSpectrum",
+      "_2025/guest_videos/misc_animations.py::PhaseChangeEndScreen"
+    ],
+    "move along path": [
+      "_2026/hairy_ball/spheres.py::DefineOrientation",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/monthly_mindbenders/ladybug.py::Ladybug",
+      "_2026/print_gallery/supplements.py::CircleLoop",
+      "_2025/cosmic_distance/part2.py::LabelIo",
+      "_2025/grover/qc_supplements.py::PythagoreanIntuition",
+      "_2025/laplace/main_supplements.py::ReferenceTheIntegral",
+      "_2023/optics_puzzles/driven_harmonic_oscillator.py::SpiralPaths"
+    ],
+    "colour-linked terms": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV2",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2026/hairy_ball/supplements.py::TwoKeyFeatures",
+      "_2025/laplace/derivatives.py::WalkThroughEquationSolution",
+      "_2025/colliding_blocks_v2/blocks.py::CirclePuzzle",
+      "_2025/cosmic_distance/paralax.py::NearbyStars"
+    ],
+    "rearrange to target": [
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/cross_entropy/robot.py::RobotEncodingsV2",
+      "_2026/print_gallery/conformal_maps.py::DerivativeMeaning",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2026/monthly_mindbenders/strings.py::Strings",
+      "_2026/spheres_talk/supplements.py::HyperbolaSquare",
+      "_2026/hairy_ball/spheres.py::DefineOrientation",
+      "_2025/grover/state_vectors.py::ContrstClassicalAndQuantum"
+    ],
+    "staggered": [
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/print_gallery/exponential.py::TheExponential",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/hairy_ball/model3d.py::RadioBroadcast",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/RL/rollouts.py::RandomWalks"
+    ],
+    "indicate": [
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/cross_entropy/language_models.py::MyNameIsExample",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/monthly_mindbenders/ladybug.py::ProbabilityCalculation",
+      "_2026/2025_p6/problem_intro.py::ProblemIntro",
+      "_2026/2025_P6/p6.py::ErdosSzekeres",
+      "_2026/hairy_ball/supplements.py::StatementOfTheorem",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer"
+    ],
+    "surrounding box": [
+      "_2026/cross_entropy/language_models.py::MyNameIsExample",
+      "_2026/print_gallery/exponential.py::CreatingTheSpiral",
+      "_2026/hairy_ball/supplements.py::TwoKeyFeatures",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/2025_p6/problem_intro.py::ProblemIntro",
+      "_2026/monthly_mindbenders/subsets.py::Subsets",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer"
+    ],
+    "area under graph": [
+      "_2025/laplace/integration.py::IntegrateRealExponential",
+      "_2023/convolutions2/continuous.py::TransitionToContinuousProbability",
+      "_2023/gauss_int/integral.py::BellCurveArea",
+      "_2022/borwein/main.py::ShowIntegrals",
+      "_2022/visual_proofs/lies.py::IntegralExample",
+      "_2019/bayes/part1.py::GlimpseOfNextVideo",
+      "_2018/div_curl.py::PeopleValueGraph",
+      "_2018/lost_lecture.py::KeplersSecondLaw"
+    ],
+    "number readout tied to a value": [
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/cross_entropy/arithmetic_coding.py::ProbababilityOfAWord",
+      "_2026/monthly_mindbenders/strings.py::Strings",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2025/grover/state_vectors.py::Qubit",
+      "_2025/cosmic_distance/part2.py::ShowDuration",
+      "_2025/colliding_blocks_v2/blocks.py::Blocks",
+      "_2025/laplace/exponentials.py::IntroduceEulersFormula"
+    ],
+    "updaters": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV2",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2026/monthly_mindbenders/strings.py::Strings",
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2026/RL/rollouts.py::RandomWalks"
+    ],
+    "parameter sweep": [
+      "_2026/print_gallery/exponential.py::TheExponential",
+      "_2026/cross_entropy/robot.py::RobotEncodings",
+      "_2026/2025_P6/p6.py::AIEvolutionV2",
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/spheres_talk/random_puzzles.py::DotProductOfUnitVectors",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2025/laplace/integration.py::IntegrateComplexExponential"
+    ],
+    "one value drives several objects": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV2",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2026/2025_P6/p6.py::OptimalArrangementMotivation",
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/spheres_talk/volumes.py::ShowSphereVolumeDerivative",
+      "_2026/2025_p6/problem_intro.py::KScaling",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2025/colliding_blocks_v2/blocks.py::Blocks"
+    ],
+    "restore saved state": [
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/cross_entropy/language_models.py::MyNameIsExample",
+      "_2026/hairy_ball/spheres.py::DefineOrientation",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2025/laplace/exponentials.py::DefineSPlane",
+      "_2025/cosmic_distance/paralax.py::ParalaxMeasurmentFromEarth",
+      "_2025/grover/state_vectors.py::DisectAQuantumComputer",
+      "_2025/colliding_blocks_v2/blocks.py::CirclePuzzle"
+    ],
+    "derive by copy": [
+      "_2026/print_gallery/exponential.py::TheNaturalLog",
+      "_2026/cross_entropy/entropy.py::InformationOfLanguage",
+      "_2026/spheres_talk/volumes.py::CrossLineWithCircle",
+      "_2026/2025_P6/p6.py::ErdosSzekeres",
+      "_2026/hairy_ball/spheres.py::StereographicProjection",
+      "_2026/monthly_mindbenders/quadrilateral_stack.py::QuadStack",
+      "_2026/2025_p6/problem_intro.py::Lean",
+      "_2025/colliding_blocks_v2/blocks.py::CirclePuzzle"
+    ],
+    "flow field": [
+      "_2026/hairy_ball/spheres.py::TeddyHeadSwirl",
+      "_2024/holograms/diffraction.py::ExplainWaveVisualization",
+      "_2023/optics_puzzles/e_field.py::IntroduceEField",
+      "_2021/matrix_exp.py::BasicVectorFieldIdea",
+      "_2021/matrix_exp.py::From2DTo1D",
+      "_2021/matrix_exp.py::MoreShakesperianRomeoJuliet",
+      "_2019/diffyq/part1/phase_space.py::TweakMuInVectorField",
+      "_2018/div_curl.py::IntroduceVectorField"
+    ],
+    "camera 3d": [
+      "_2026/hairy_ball/model3d.py::OrientAModel",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/print_gallery/exponential.py::TheExponential",
+      "_2026/monthly_mindbenders/peg_jumping.py::Pegs",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2025/laplace/integration.py::IntegrateComplexExponential",
+      "_2025/cosmic_distance/planets.py::SizeOfEarthRenewed"
+    ],
+    "ambient camera motion": [
+      "_2026/cross_entropy/language_models.py::NextTokenPredictions",
+      "_2026/print_gallery/conformal_maps.py::DerivativeMeaning",
+      "_2026/2025_P6/p6.py::ErdosSzekeres",
+      "_2026/monthly_mindbenders/peg_jumping.py::Pegs",
+      "_2025/cosmic_distance/planets.py::ShowCreationOfAllOrbits",
+      "_2025/grover/qc_supplements.py::PatronScroll",
+      "_2024/holograms/diffraction.py::CreateZonePlate",
+      "_2024/manim_demo/lorenz.py::LorenzAttractor"
+    ],
+    "trail": [
+      "_2026/hairy_ball/spheres.py::DefineOrientation",
+      "_2026/cross_entropy/robot.py::RobotOnMoon3",
+      "_2026/monthly_mindbenders/peg_jumping.py::Pegs",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2025/colliding_blocks_v2/supplements.py::CentralWebConnections",
+      "_2025/cosmic_distance/planets.py::EarthAroundSun",
+      "_2025/grover/state_vectors.py::ThreeDSample",
+      "_2025/laplace/exponentials.py::ForcedOscillatorSolutionForm"
+    ],
+    "camera 2d": [
+      "_2026/cross_entropy/entropy.py::InformationOfLanguage",
+      "_2026/print_gallery/conformal_maps.py::DerivativeMeaning",
+      "_2026/2025_P6/p6.py::OptimalArrangementMotivation",
+      "_2026/2025_p6/problem_intro.py::ProblemIntro",
+      "_2026/spheres_talk/supplements.py::HyperbolaSquare",
+      "_2026/hairy_ball/supplements.py::DimensionGeneralization",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2025/cosmic_distance/planets.py::DistanceToSun"
+    ],
+    "labels fixed in frame": [
+      "_2026/cross_entropy/entropy.py::InformationOfLanguage",
+      "_2026/hairy_ball/spheres.py::DefineOrientation",
+      "_2026/print_gallery/conformal_maps.py::DerivativeMeaning",
+      "_2026/2025_P6/p6.py::WindmillTilings",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2025/grover/polarization.py::BeamSplitter",
+      "_2025/laplace/integration.py::IntegrateComplexExponential"
+    ],
+    "point cloud": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV2",
+      "_2026/print_gallery/conformal_maps.py::Warmup",
+      "_2026/monthly_mindbenders/chords.py::ChordQuestion",
+      "_2026/spheres_talk/random_puzzles.py::SumOfTwoSquares",
+      "_2026/2025_P6/p6.py::ErdosSzekeres",
+      "_2026/hairy_ball/spheres.py::StereographicProjection",
+      "_2026/2025_p6/problem_intro.py::FlightsFromAroundTheGlobe",
+      "_2026/RL/rollouts.py::RandomWalks"
+    ],
+    "rewrite with matching parts": [
+      "_2026/cross_entropy/robot.py::CrossEntropyDefinitionV3",
+      "_2026/spheres_talk/volumes.py::VolumeGrid",
+      "_2026/2025_P6/p6.py::ErdosSzekeresV2",
+      "_2026/print_gallery/supplements.py::SimplifyFormula",
+      "_2026/2025_p6/problem_intro.py::Lean",
+      "_2026/hairy_ball/supplements.py::WriteAntipode",
+      "_2025/laplace/derivatives.py::WalkThroughEquationSolution",
+      "_2025/colliding_blocks_v2/blocks.py::Blocks"
+    ]
+  }
+}

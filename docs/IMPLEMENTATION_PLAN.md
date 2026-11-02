@@ -217,7 +217,8 @@ The work packages of [`PARALLEL_WORKPLAN.md`](PARALLEL_WORKPLAN.md), one line ea
 ## Milestone 10 — from a paper to a clip
 
 The review loop as a sequence of stages with approvals and gates, and the boundary between a model, the package
-and the web interface, planned in [`WORKFLOW_PLAN.md`](WORKFLOW_PLAN.md) (proposed; its decisions are open).
+and the web interface, planned in [`WORKFLOW_PLAN.md`](WORKFLOW_PLAN.md) (accepted 2 November 2026: route A first, then
+B; the storyboard sheet before snapshots; layout and timing changes applied by the agent; threads only).
 
 - [ ] I. Stages, approvals and gates: a derived project status, stage approvals bound to revisions and hashes, a
   final render that requires an approved draft.
@@ -226,8 +227,16 @@ and the web interface, planned in [`WORKFLOW_PLAN.md`](WORKFLOW_PLAN.md) (propos
 - [ ] K. The storyboard sheet: scene cards to comment on before anything renders.
 - [ ] L. The agent interface and the playbook: an operations layer, a local agent server, answer records, a policy
   for what an agent may apply.
-- [ ] M. Agent turns from the web interface, if route A asks for it.
-- [ ] N. The tutorial, run in CI with recorded proposals.
+- [ ] M. Agent turns from the web interface, on the tools of L.
+- [ ] N. The tutorial, run in CI with recorded proposals (the paper is still to be chosen).
+- [x] O. The pattern library, first version (ADR-040, [`ANIMATION_PATTERNS.md`](ANIMATION_PATTERNS.md)): a survey of
+  the 3Blue1Brown videos repository and of studies on learning from animation; 19 patterns with beats, timing,
+  status and recipe scenes; `Scene.patterns` checked by validation; the library in the context bundle;
+  `scianim patterns list|show|check`. Tests: `tests/unit/test_patterns.py`; the recipe examples render in
+  `tests/integration/test_snapshots.py`.
+- [ ] O2. The registry gaps the library names, in the order of ANIMATION_PATTERNS.md section 5: an `emphasize`
+  action, fading to an ink level, derive by copy, staggered and stroke-drawing reveals, trails, a flat camera,
+  shaded areas with a traced integral, illustrative samples, ghosts, morphs and maps.
 
 ## Core automated test matrix
 

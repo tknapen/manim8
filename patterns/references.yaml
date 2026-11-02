@@ -1,0 +1,111 @@
+# Works the pattern library cites (ADR-040). `checked` says how far each citation and finding were checked:
+# `bibliographic` (the record), `abstract` (the published abstract) or `full_text`. Findings are stated in the
+# library's words; where only an abstract was read, nothing beyond it is claimed.
+schema_version: "1.0"
+references:
+  - key: sanderson_videos
+    citation: >-
+      Sanderson, G. 3Blue1Brown videos: scene code for the channel's videos, 2015-2026.
+      https://github.com/3b1b/videos, commit 306a1346a356c7a7b097875ceb51c5cd67d0a56c (29 September 2026).
+      Licensed CC BY-NC-SA 4.0.
+    finding: >-
+      The corpus of the survey in docs/ANIMATION_PATTERNS.md: 4,814 scenes with 30,103 plays, read as data by
+      tools/survey_corpus.py. No code from it is copied into this project.
+    checked: full_text
+  - key: tversky2002
+    citation: >-
+      Tversky, B., Morrison, J. B., & Bétrancourt, M. (2002). Animation: can it facilitate? International
+      Journal of Human-Computer Studies, 57, 247-262.
+    finding: >-
+      A graphic works when its structure corresponds to the concepts it conveys (congruence) and when it can be
+      perceived and understood accurately (apprehension). Animations suit change over time by the first
+      principle but often fail the second, being too fast or too complex to perceive; many reported advantages
+      of animation came from comparisons in which the animated and static displays did not carry the same
+      information.
+    checked: abstract
+  - key: heer2007
+    citation: >-
+      Heer, J., & Robertson, G. G. (2007). Animated transitions in statistical data graphics. IEEE Transactions
+      on Visualization and Computer Graphics, 13(6).
+    doi: 10.1109/TVCG.2007.70539
+    finding: >-
+      In two controlled experiments, animated transitions between statistical graphics improved graphical
+      perception over static transitions; staged transitions, which change one aspect at a time (the axes
+      before the values), were preferred by participants. The full text, which states the authors' design
+      principles, could not be read for this library.
+    checked: abstract
+  - key: chevalier2014
+    citation: >-
+      Chevalier, F., Dragicevic, P., & Franconeri, S. (2014). The not-so-staggering effect of staggered animated
+      transitions on visual tracking. IEEE Transactions on Visualization and Computer Graphics, 20(12),
+      2241-2250.
+    doi: 10.1109/TVCG.2014.2346424
+    finding: >-
+      Staggering the start times of moving objects had a negligible or negative effect on tracking several of
+      them. The authors attribute the cost to the loss of the grouping that common motion provides and to the
+      reduced predictability of when a given object starts to move.
+    checked: abstract
+  - key: lowe2003
+    citation: >-
+      Lowe, R. K. (2003). Animation and learning: selective processing of information in dynamic graphics.
+      Learning and Instruction, 13(2), 157-176.
+    finding: >-
+      Learners studying a complex animation attended to what was perceptually salient rather than to what was
+      thematically relevant, and their gains over learners given static graphics were limited to the salient
+      features.
+    checked: abstract
+  - key: hoffler2007
+    citation: >-
+      Höffler, T. N., & Leutner, D. (2007). Instructional animation versus static pictures: A meta-analysis.
+      Learning and Instruction, 17(6), 722-738.
+    finding: >-
+      Across 26 studies (76 comparisons), animations beat static pictures by d = 0.37. The advantage was larger
+      for representational animations, which depict the change to be learned (d = 0.40), than for decorational
+      ones, and largest when procedural-motor knowledge was the goal (d = 1.06).
+    checked: abstract
+  - key: berney2016
+    citation: >-
+      Berney, S., & Bétrancourt, M. (2016). Does animation enhance learning? A meta-analysis. Computers &
+      Education, 101, 150-167.
+    doi: 10.1016/j.compedu.2016.06.005
+    finding: >-
+      Overall advantage of animation over static graphics g = 0.226, larger when the animation was paced by the
+      system rather than the learner (g = 0.309), accompanied by spoken commentary (g = 0.336), or shown without
+      accompanying text (g = 0.883).
+    checked: abstract
+  - key: ploetzner2020
+    citation: >-
+      Ploetzner, R., Berney, S., & Bétrancourt, M. (2020). A review of learning demands in instructional
+      animations: The educational effectiveness of animations unfolds if the features of change need to be
+      learned. Journal of Computer Assisted Learning, 36, 838-860.
+    finding: >-
+      A re-analysis of the Berney and Bétrancourt (2016) comparisons by what learners had to learn: animations
+      beat static pictures when simple (g = 0.340) or complex (g = 0.647) features of the depicted change had to
+      be learned, and made no difference when neither did (g = 0.043).
+    checked: abstract
+  - key: ploetzner2021
+    citation: >-
+      Ploetzner, R., Berney, S., & Bétrancourt, M. (2021). When learning from animations is more successful
+      than learning from static pictures: learning the specifics of change. Instructional Science, 49, 497-514.
+    doi: 10.1007/s11251-021-09541-w
+    finding: >-
+      In an experiment with 88 students learning a gear mechanism, those who watched an animation identified
+      the motions best, while those shown one or four static pictures identified the spatial arrangement best.
+    checked: abstract
+  - key: alpizar2020
+    citation: >-
+      Alpizar, D., Adesope, O. O., & Wong, R. M. (2020). A meta-analysis of signaling principle in multimedia
+      learning environments. Educational Technology Research and Development, 68(5), 2095-2119.
+    doi: 10.1007/s11423-020-09748-7
+    finding: >-
+      Across 29 experiments (44 effect sizes, 2,726 participants), cues that signal the relevant information
+      improved learning, d = 0.38, with larger effects in studies of higher quality.
+    checked: abstract
+  - key: lasseter1987
+    citation: >-
+      Lasseter, J. (1987). Principles of traditional animation applied to 3D computer animation. Computer
+      Graphics (SIGGRAPH '87), 21(4), 35-44.
+    finding: >-
+      Restates the principles of hand-drawn animation for computer animation, among them slow in and slow out
+      (spacing the in-between frames so that motion eases into and out of each pose), arcs, staging and timing.
+    checked: bibliographic

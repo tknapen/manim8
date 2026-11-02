@@ -10,6 +10,7 @@ from typing import Any
 
 from scianim.config.loader import SpecError
 from scianim.families.resolve import FamilyContext, GroupContext, locate_family, resolve_asset
+from scianim.patterns import load_library, scene_pattern_findings
 from scianim.project import Project, scene_class_name
 from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
@@ -232,6 +233,8 @@ def check_storyboard(
         if style is not None:
             check_actions(scene, style, animation.output.fps, report)
             check_equation_transforms(scene, equations, style.tokens.typography.equation.engine, report)
+    if any(scene.patterns for scene in storyboard.scenes):
+        check_patterns(storyboard, report)
     for constraint in animation.scientific_constraints:
         if constraint.equation and not any(
             o.equation and o.equation.id == constraint.equation for o in storyboard.objects()
@@ -239,6 +242,20 @@ def check_storyboard(
             report.warn(
                 f"constraint '{constraint.id}' concerns equation '{constraint.equation}' but no storyboard object shows it"
             )
+
+
+def check_patterns(storyboard: Storyboard, report: Report) -> None:
+    """The library patterns scenes name exist, and each scene uses something its patterns are realized with."""
+    try:
+        library = load_library()
+    except SpecError as exc:
+        report.error(f"the patterns scenes name cannot be checked: {exc}")
+        return
+    errors, warnings = scene_pattern_findings(storyboard, library)
+    for message in errors:
+        report.error(message)
+    for message in warnings:
+        report.warn(message)
 
 
 def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report) -> None:

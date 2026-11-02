@@ -22,6 +22,7 @@ jobs:
       - run: uv run scianim validate examples/families/computational_neuroscience/gabor_filter
       - run: uv run scianim validate examples/families/computational_neuroscience/drop_impact
       - run: uv run scianim schemas export schemas --check
+      - run: uv run scianim patterns check
 
   ui:
     runs-on: ubuntu-latest

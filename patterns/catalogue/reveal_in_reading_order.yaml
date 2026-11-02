@@ -1,0 +1,47 @@
+schema_version: "1.0"
+id: reveal_in_reading_order
+name: Build the picture in reading order
+group: attention
+summary: >-
+  The picture is assembled where the eye should go next: the frame, then the object of the clip, then its
+  annotations, each appearing on its own, so the viewer is never asked to read several new things at once.
+use_when:
+  - A scene opens on more than two objects.
+  - A picture has a natural reading order (axes before data, circuit before population, symbol before definition).
+avoid_when:
+  - The objects are only meaningful together; then show them together and point at the parts (signal_before_change).
+beats:
+  - Show the scaffolding (axes, box, frame) alone.
+  - Reveal the main object.
+  - Reveal annotations one at a time, each near what it annotates.
+timing:
+  change: {min: 0.5, max: 1.0}
+  hold: {min: 0.3, max: 1.0}
+  note: >-
+    Appearances take about 1 s in the survey (fades and drawing-on alike, at the median). Staggered groups use a
+    lag ratio of 0.15 at the median (quartiles 0.1 and 0.5): each member starts when the one before is 15% of
+    the way through its own appearance.
+status: partial
+components: [text_caption, caption_with_citation, equation_label, equation_block, schematic_population, network_graph]
+actions: [reveal]
+needs:
+  - A stagger across the members of one object (the units of a population, the nodes of a network), with a lag ratio.
+  - A reveal that draws strokes along their length (curves, arrows, contour rings) instead of fading their ink in.
+recipes:
+  - project: computational_neuroscience/orientation_tuning
+    scene: circuit
+    note: The circuit appears first and the population after it.
+corpus:
+  idioms: [staggered, fade, draw on]
+  exemplars:
+    - _2024/transformers/attention.py::AttentionPatterns
+    - _2023/clt/main.py::DiceSumDistributions
+    - _2017/nn/part3.py::WalkThroughTwoExample
+  note: >-
+    Fading and drawing on are the commonest operations of the corpus (in 58% and 53% of recent scenes);
+    staggering is in 35%, up from 20% in 2015-2019.
+research: [chevalier2014, lowe2003]
+pitfalls:
+  - Staggering is for appearance order. Staggering the start of many objects that then move together did not help viewers track them, and may hurt.
+  - Revealing an annotation far from its object makes the eye search; anchor it next to the object.
+related: [signal_before_change, release_the_scaffolding]
