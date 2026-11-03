@@ -68,7 +68,9 @@ adapter calls a model API with the same tools; the turn has a log, a cost estima
 which is the proposals and answers it wrote. Keys come from the environment or the operating system's keychain,
 never from project files.
 
-Decided: A first, and B on top of it. A needs no keys, no cost control and no new trust boundary, and
+Decided: A first, and B on top of it. Revised on 3 November (ADR-042): A is the only route. The agent works
+through the manim8 skill (`.claude/skills/manim8/SKILL.md`) and the CLI, and B is dropped, since the
+conversation drives the loop. A needs no keys, no cost control and no new trust boundary, and
 it exercises exactly the tools B will use; B is then a loop around the same operations plus a provider adapter.
 Under both routes the web interface is the scientist's surface and the files are the record.
 
@@ -98,8 +100,9 @@ environment's render worker.
 A project-level policy file (`agent.yaml`, versioned with the project) sets what `apply` may do without the
 scientist. The default, decided on 2 November: the agent applies visual and timing changes (layout, durations,
 easing) and renders previews on its own, while anything that touches equations, data, sources, claims or custom
-code waits for acceptance in the web interface. A project can narrow this to nothing. Science always waits for
-sign-off, whatever the policy says.
+code waits for the scientist's acceptance. Science always waits for sign-off, whatever the policy says. On 3
+November the author chose not to enforce this in code (ADR-042): the skill asks at each gate and records the
+answer with the person's words; no web page has to be visited to approve.
 
 ### 2.5 What the web interface becomes
 
@@ -183,7 +186,8 @@ through the agent server.
 result listing the records it wrote; buttons in the review views to start a turn on the open comments of a
 revision or on a stage. Keys from the environment or the keychain, never from project files.
 
-**Starts after** package L, on the same tools.
+**Dropped** on 3 November (ADR-042): with the agent working through the skill, the conversation drives the
+loop, and a button that starts agent turns from the web page adds a second driver for no gain.
 
 ## 8. Package N: the tutorial
 
@@ -191,7 +195,10 @@ revision or on a stage. Keys from the environment or the keychain, never from pr
 real commands and run in CI as an acceptance test with recorded proposals standing in for the model, so CI needs
 no model access. A second, shorter page for agents: the playbook as prose.
 
-**Needs** a paper chosen by the author (section 9).
+**State.** Tutorials 1 (ten minutes to a picture) and 2 (change one thing) exist in `docs/tutorials/` and run
+in CI as written: their commands, their edits and the output they quote (`tests/integration/test_tutorials.py`).
+Tutorial 3, a clip from a brief through the skill, comes next; the end-to-end tutorial from a PDF becomes
+tutorial 4 and still needs a paper chosen by the author (section 9) and package J.
 
 ## 8a. Package O: the pattern library
 
@@ -217,6 +224,10 @@ be read; nothing from it is copied).
 
 Order: I first, since the status and the gates are what the playbook and the interface rest on; J and K in
 parallel with it; L once I has landed, with O feeding its storyboard stage; M after L; N last.
+
+Decided by the author on 3 November 2026 (ADR-042): manim8 is used through an agent skill and the package
+stays the engine; mostly locally, and cloud sessions must work too; gates are asked for and recorded, not
+enforced; package M is dropped and package L is the skill, whose first version exists.
 
 Decided by the author on 2 November 2026:
 

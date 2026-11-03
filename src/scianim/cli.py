@@ -43,6 +43,7 @@ from scianim.render.manifests import manifest_for_ref
 from scianim.render.parallel import resolve_workers, run_parallel_video
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import create_revision, latest_revision, list_revisions, load_revision
+from scianim.skill import install_skill
 from scianim.sources.adapters import load_extracts, probe_all
 from scianim.styles.resolve import list_styles
 from scianim.workspace import (
@@ -74,6 +75,7 @@ sources_app = typer.Typer(no_args_is_help=True, help="Source adapters: what supp
 propose_app = typer.Typer(no_args_is_help=True, help="Agent proposals: validate and apply spec or storyboard changes.")
 bundle_app = typer.Typer(no_args_is_help=True, help="Portable bundles: export, inspect and import.")
 patterns_app = typer.Typer(no_args_is_help=True, help="The pattern library: staging idioms to choose from (ADR-040).")
+skill_app = typer.Typer(no_args_is_help=True, help="The manim8 agent skill: a playbook for an agent (ADR-042).")
 app.add_typer(style_app, name="style")
 app.add_typer(schemas_app, name="schemas")
 app.add_typer(workspace_app, name="workspace")
@@ -87,6 +89,7 @@ app.add_typer(sources_app, name="sources")
 app.add_typer(propose_app, name="propose")
 app.add_typer(bundle_app, name="bundle")
 app.add_typer(patterns_app, name="patterns")
+app.add_typer(skill_app, name="skill")
 
 out = Console()
 err = Console(stderr=True)
@@ -1285,6 +1288,25 @@ def patterns_check() -> None:
     if problems:
         raise typer.Exit(1)
     out.print("[green]ok[/green]")
+
+
+@skill_app.command("install")
+def skill_install(
+    to: Annotated[
+        Path | None, typer.Option(help="The skills directory to install into (default: ~/.claude/skills).")
+    ] = None,
+    force: Annotated[bool, typer.Option(help="Replace a copy installed there before.")] = False,
+) -> None:
+    """Copy the manim8 skill where an agent finds it, with the checkout it should run the commands from."""
+    try:
+        target = install_skill(to if to is not None else Path.home() / ".claude" / "skills", force=force)
+    except SpecError as exc:
+        fail(str(exc))
+    out.print(f"installed the manim8 skill at {target}", highlight=False)
+    if (target / "checkout.txt").exists():
+        out.print(
+            f"it runs `uv run --project {(target / 'checkout.txt').read_text().strip()} scianim`", highlight=False
+        )
 
 
 # --- bundles ----------------------------------------------------------------------------------------

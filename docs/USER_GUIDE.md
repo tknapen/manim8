@@ -4,14 +4,15 @@ A scientist describes a brief animation, a clip of a few seconds to half a minut
 the system keeps the description as validated YAML, enforces a personal
 style, renders named checkpoints and videos with Manim inside an isolated family environment, and offers a local
 browser for review. You never edit Manim code. Every command below is `uv run scianim ...` from a checkout, or
-`scianim ...` once installed.
+`scianim ...` once installed. New here: the [tutorials](tutorials/) take you through the first steps, and the
+manim8 agent skill (`.claude/skills/manim8/`, ADR-042) lets an agent run these commands on your behalf.
 
 ## Setting up
 
 ```bash
 uv sync --group dev
 scianim doctor                                            # uv, Python, fonts
-scianim workspace init ~/animations --with-example        # styles, the example family and its three projects
+scianim workspace init ~/animations --with-example        # styles, the example family and its five projects
 scianim family env sync ~/animations/families/computational_neuroscience   # Manim + bridge, once per family
 ```
 

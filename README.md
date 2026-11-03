@@ -4,7 +4,15 @@ manim8, developed as SciAnim Studio, is a local-first system for producing repro
 
 The repository started as a documentation-first handoff and is being implemented incrementally. Check `docs/IMPLEMENTATION_PLAN.md` for what exists and what does not; do not assume a feature works because it is specified.
 
-## Start here
+## Using it
+
+To make a clip, start with the tutorials in [`docs/tutorials/`](docs/tutorials/): render the checkpoints of an
+example in ten minutes, then change one thing and watch what the tools do with it. With Claude Code, the manim8
+skill takes those steps for you: work in this checkout, where `.claude/skills/manim8/` is picked up, or run
+`uv run scianim skill install` once to use it from any directory on your machine (ADR-042). You describe the clip,
+look at the pictures and answer its questions. The [user guide](docs/USER_GUIDE.md) is the reference.
+
+## Start here (developing manim8)
 
 1. **[`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md)** (0.2) — architecture, feature requirements, YAML contracts, style system, component registry, in-flow checkpoints, isolated family environments, web review workflow, revision design, security, tests and phase plan.
 2. **[`AGENTS.md`](AGENTS.md)** — instructions and guardrails for a coding agent working in this repository.
@@ -27,6 +35,8 @@ The repository started as a documentation-first handoff and is being implemented
 - Shareable bundles contain manifests, sources (when permitted), specs, code and lockfiles rather than machine-specific environments.
 
 ## Installing a release
+
+manim8 is not on PyPI yet; until the first release, work from a checkout as the tutorials do. Once released:
 
 ```bash
 uv tool install manim8                                 # or: pip install manim8

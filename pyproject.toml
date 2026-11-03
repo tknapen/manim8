@@ -43,8 +43,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 # An installed control plane carries the style sheets, the example templates (ADR-037) and the pattern library
-# (ADR-040); the specimens and anything rendered stay in the repository.
-only-include = ["src/scianim", "styles", "examples", "patterns"]
+# (ADR-040) and the agent skill (ADR-042); the specimens and anything rendered stay in the repository.
+only-include = ["src/scianim", "styles", "examples", "patterns", ".claude/skills/manim8"]
 exclude = ["*.png", "*.pdf", "**/.venv", "**/renders", "**/.scianim", "**/__pycache__"]
 # An editable install (a checkout) puts `src/` on the path and reads styles, examples and patterns from the repository.
 dev-mode-dirs = ["src"]
@@ -54,6 +54,7 @@ dev-mode-dirs = ["src"]
 "styles" = "scianim/_data/styles"
 "examples" = "scianim/_data/examples"
 "patterns" = "scianim/_data/patterns"
+".claude/skills/manim8" = "scianim/_data/skill/manim8"
 
 [tool.ruff]
 line-length = 120

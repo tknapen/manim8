@@ -32,6 +32,10 @@ First version under the name manim8 (ADR-037).
 - An `emphasize` action (ADR-041): a box in the emphasis ink around an object or symbols of its equation,
   optionally travelling from a symbol to the object it names, or a pulse of the symbols. `fade_object` takes
   `ink`, a fraction of full ink, to dim the context and restore it.
+- Tutorials (`docs/tutorials/`): ten minutes to a picture, and change one thing. Each page runs in CI as written.
+- The manim8 agent skill (ADR-042): `.claude/skills/manim8/SKILL.md`, a playbook for an agent that drives the
+  package from a brief to a final clip, asking at each stage; `scianim skill install [--to DIR]` puts it where an
+  agent finds it outside the checkout. The wheel carries it.
 - `tomas_scientific@0.5.1` asks for a rest of one second between two motions of one object
   (`motion.hold_seconds`), after the survey's median pause; the examples pin it. The halves of a ballistic arc
   (`ease_out_quad` then `ease_in_quad`) need no rest between them.

@@ -225,10 +225,13 @@ B; the storyboard sheet before snapshots; layout and timing changes applied by t
 - [ ] J. Figures and equations from PDFs: page images, figures with captions and anchors; transcribed equations
   always wait for sign-off.
 - [ ] K. The storyboard sheet: scene cards to comment on before anything renders.
-- [ ] L. The agent interface and the playbook: an operations layer, a local agent server, answer records, a policy
-  for what an agent may apply.
-- [ ] M. Agent turns from the web interface, on the tools of L.
-- [ ] N. The tutorial, run in CI with recorded proposals (the paper is still to be chosen).
+- [ ] L. The agent interface and the playbook. First version (ADR-042): the manim8 skill,
+  `.claude/skills/manim8/SKILL.md`, and `scianim skill install`; tests `tests/unit/test_skill.py`. Open: answer
+  records, the operations layer, a recorded session through the skill as tutorial 3.
+- [-] M. Agent turns from the web interface: dropped (ADR-042).
+- [ ] N. Tutorials. Done: 1 (ten minutes to a picture) and 2 (change one thing) in `docs/tutorials/`, run as
+  written by `tests/integration/test_tutorials.py`. Open: 3 (a clip from a brief through the skill) and 4 (from a
+  paper, which is still to be chosen).
 - [x] O. The pattern library, first version (ADR-040, [`ANIMATION_PATTERNS.md`](ANIMATION_PATTERNS.md)): a survey of
   the 3Blue1Brown videos repository and of studies on learning from animation; 19 patterns with beats, timing,
   status and recipe scenes; `Scene.patterns` checked by validation; the library in the context bundle;

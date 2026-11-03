@@ -1239,3 +1239,51 @@ cheaper and more honest than re-dimming every part a sweep rebuilds. The box's d
 tokens, so no new token was needed. The purity test covers a dim, a travelling box around a curve being swept,
 and a pulse in one play, drawn and fast-forwarded; `tests/unit/test_cues_and_dims.py` and the bridge's
 `test_cues.py` cover the contracts, the rules and the drawing.
+
+## ADR-042: manim8 is used through an agent skill; the package stays the engine
+
+**Status:** accepted, 3 November 2026
+
+**Context.** The package has about forty commands, a dozen concepts to learn before the first picture, YAML
+with cross-file rules and timing rules that produce warnings. Most of that is vocabulary an agent can carry, and
+most of the design is already shaped for one: proposals are files with a rationale and cited claims, the context
+bundle and the pattern library are written for an agent, and route A of the workflow plan has an external agent
+drive the package. The author asked whether manim8 works best as an agent skill with an environment behind it
+rather than as a standalone tool, will use it mostly locally and sometimes in cloud sessions, and does not want
+approvals locked behind a web page.
+
+**Decision.**
+
+1. *Skill first, not skill only.* The front door is an agent skill: `.claude/skills/manim8/SKILL.md`, a playbook
+   of about a hundred lines (how to run the command, first-time setup, the loop from brief to final in seven
+   stages, what to ask rather than decide, the rules that keep a clip honest, what to do when something fails).
+   The package remains the engine and works without a model, as AGENTS.md requires.
+2. *The vocabulary comes from the package at run time.* The playbook names no component kinds, parameters or
+   actions; it sends the agent to `scianim context`, whose bundle (registry, patterns, rules) the package
+   generates for the project at hand, and to `scianim patterns` and `scianim registry`. A unit test checks that
+   every command the playbook and the tutorials name exists, so the skill cannot drift from the CLI.
+3. *Where the skill lives.* Committed in the repository, it is found by an agent working in a checkout, locally
+   and in cloud sessions, which load a repository's committed skills. `scianim skill install [--to DIR]` copies it
+   into `~/.claude/skills/` for use anywhere on a machine, or into another repository's `.claude/skills/` to
+   commit there, and writes `checkout.txt` beside it so the agent runs `uv run --project <checkout> scianim`. The
+   wheel carries a copy, which an installed manim8 installs without `checkout.txt` (`scianim` is then on PATH).
+4. *Gates are asked for, not enforced.* The playbook stops at every stage for the person's answer, asks before
+   approving anything, before a final render and before an unseen change to the science, and records approvals
+   and comments with the person's own words and name (`feedback status --author --text`, `feedback add`).
+   Nothing blocks an agent in code; permission rules and hooks exist in Claude Code, but they match command text
+   and are not a security boundary, and the author did not want a gate.
+5. *Consequences for the plan.* Package L becomes the skill; the local agent server (MCP) is deferred until a
+   need for typed tools appears. Package M, agent turns started from the web page, is dropped: the conversation
+   drives. The review page stays the place to look and comment. Tutorials 1 and 2 walk through the commands by
+   hand, which is what a person needs to follow the agent and to take over when it is stuck, and they run in CI
+   as written.
+
+**Why.** An agent absorbs the learning curve where a person would pay it, and the project's guarantees did not
+depend on who types the commands: validation, write-once revisions, records of comments and approvals, and the
+rule that the tool never approves science are in the package. What a skill cannot do is enforce, which is why it
+asks and records instead, and why its reference material is generated rather than written. Limits: the
+skill's home is Claude Code (local, or a cloud session whose environment installs Cairo and Pango); whether the
+Claude apps or the API could run Manim in their own sandboxes is not documented, and it is not attempted.
+Anthropic describes the skill format as an open standard, but no other agent has been tried. Each review round
+costs a model call where a re-render alone is nearly free, and the agent's eye for layout is uneven, so the
+person's review stays necessary.
