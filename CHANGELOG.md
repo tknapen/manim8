@@ -10,8 +10,11 @@ The distributions `manim8`, `manim8-core` and `manim8-bridge` share one version.
   one movie and the fields change no picture, no generated code and no scene fingerprint. Validation refuses a
   stop with anything revealing, moving or fading in the 0.3 s before it (an action may start at it), on a
   scene's first frame or the clip's last, within 0.5 s of another stop, where its checkpoint would be
-  approximate, or while an orbit turns across it (unless `stop_through` names the orbit, which warns
-  `stop_freezes_camera`). After a video job the manifest's `result.stops` lists each stop's frame, time, label,
+  approximate (a `dt` updater in a custom builder or a project module it imports, or a Manim helper such as
+  `always_rotate` that installs one), or while an orbit turns across it (unless `stop_through` names the orbit,
+  which warns `stop_freezes_camera`). It warns `stop_on_motion_start` for an action that starts on the stop's
+  own frame, whose first frame the hold shows (a deck that checks the pixels, such as lecturekit, refuses that
+  stop), and for a custom builder that installs other updaters. After a video job the manifest's `result.stops` lists each stop's frame, time, label,
   notes, rests in frames and frozen orbits; a final render fails when a player could not hold a stop exactly,
   any other profile warns. `CheckpointRecord.frame_index` gives the movie frame of every still. `scianim timing`
   lists the parts between stops, and the review sheet marks them. Storyboards with stops need this version of

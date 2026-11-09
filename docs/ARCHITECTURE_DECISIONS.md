@@ -1420,8 +1420,10 @@ stop frame then holds exactly that frame.
    `orbit_camera` actions of the scene, default empty). `label` and `stop_through` belong to a stop. A stop
    changes no picture and no generated code.
 2. *Validation* (`planning/checks.py`, `check_stops`), each an error:
-   - a stop whose checkpoint would be approximate: its scene draws a custom object whose builder module has a
-     function or lambda with a `dt` parameter, Manim's mark of a time-based updater;
+   - a stop whose checkpoint would be approximate: its scene draws a custom object whose builder module, or a
+     local module it imports, has a function or lambda with a `dt` parameter, Manim's mark of a time-based
+     updater, or calls a Manim helper that installs one (`always_rotate`, `always_shift`,
+     `turn_animation_into_updater`, `cycle_animation`);
    - any reveal, action (its lead-in included) or scene fade that runs in the 0.3 s before the stop
      (`STOP_REST_SECONDS`); an action may start at the stop. A stop inside a closing fade gets this message
      before codegen, instead of the later "snapshot without a checkpoint() marker";
@@ -1430,6 +1432,12 @@ stop frame then holds exactly that frame.
    - two stops less than 0.5 s apart (`STOP_SPACING_SECONDS`) or on one frame;
    - an `orbit_camera` that turns across a stop or in its rest, unless the stop names it in `stop_through`;
      then it is the warning `stop_freezes_camera`, and the stop records the orbit as `frozen`.
+
+   And two warnings: `stop_on_motion_start` for an action (other than an orbit) that starts on the stop's own
+   frame, whose first frame the hold then shows (see Limits), naming the frame after the stop as the action's
+   remedy; and a custom builder of the stop's scene that installs an updater without `dt` (`add_updater`,
+   `always_redraw`), whose plays the render counts as moving, so a final render refuses the stop if one runs in
+   its rest.
 3. *Fingerprints.* `stop`, `label` and `stop_through` are left out of the scene fingerprints (ADR-033), as
    `patterns` is, and a change to them alone does not make a scene stale. The storyboard's hash, and with it the
    revision and the job cache key, does change; the segment store serves every play unchanged.
@@ -1463,14 +1471,16 @@ manim8 marks candidates and nothing more.
 frame, and a sweep draws its readout there. In divisive_normalization with a stop at `excitation_visible`, frames
 86 to 119 are identical and frame 120, the stop, differs from 119 by up to 219/255 in luma over about 9,000
 pixels: the readout "gain g = 1.0" appears as the player holds. The render lists such stops as a warning, and
-`rest_after_frames` is 0 for them. A consumer that measures rests on pixels should compare the frames before
-the stop with one another, not with the stop's frame. Making a track's first frame equal the frame before it
-would remove the jump, and changes pictures, so it is left for a later decision. Inside a static rest the
+`rest_after_frames` is 0 for them. Since the same day, validation warns about them too (`stop_on_motion_start`):
+lecturekit measures a stop's rest on the pixels, including the stop's frame, finds none, and refuses the stop,
+so an action that should start at a stop starts a frame after it. Refusing such stops outright would contradict
+the rule that an action may start at a stop, and making a track's first frame equal the frame before it would
+remove the jump but change pictures; both are left for a later decision. Inside a static rest the
 encoded movie is not bit-still: H.264 noise reached 24/255 in luma on a few dozen pixels between frames of one
 static wait, and 40/255 across the keyframe at a stop. The check for time-based updaters reads the builder's
-source for a `dt` parameter; an updater
-attached by other means (a library helper) is not seen until a render, where its plays are not static and the
-final render fails. A frozen stop is accepted at validation and in a final render, but the hold freezes the
+source, and the local modules it imports, for a `dt` parameter and for the Manim helpers that install one; an
+updater attached by other means (a helper of another library, a name bound at run time) is not seen until a
+render, where its plays are not static and the final render fails. A frozen stop is accepted at validation and in a final render, but the hold freezes the
 camera mid-turn and the player's early pause shows a small jump. Splitting an orbit at the stops is left to
 the person: a proposal rule (`split_orbit_at_stops`) needs the camera's angles at each stop, which the
 storyboard does not state, and is future work. Older cores reject storyboards that carry stops, because the

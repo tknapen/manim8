@@ -152,8 +152,13 @@ A clip that a lecturer presents in parts marks stops: snapshots where a player m
 
 A player pauses up to 0.3 s early and then seeks to the stop's frame, so `scianim validate` asks the picture to
 rest there: nothing may be revealed, move or fade in the 0.3 s before a stop, though an action may start at the
-stop itself. A stop may not sit on a scene's first frame or the clip's last (a player holds the start and the
-end by itself), within 0.5 s of another, or in a scene whose custom builder uses time-based updaters. A camera
+stop itself. Such an action draws its first frame on the stop's frame (a sweep's readout appears there), so the
+hold shows it; validation warns (`stop_on_motion_start`), and a deck that measures the rest on the pixels, as
+lecturekit does, refuses the stop: start the action a frame after the stop instead. A stop may not sit on a
+scene's first frame or the clip's last (a player holds the start and the end by itself), within 0.5 s of
+another, or in a scene whose custom builder uses time-based updaters (a function with a `dt` parameter, or a
+Manim helper such as `always_rotate` that installs one, in the builder or a module of the project it imports);
+a builder that installs other updaters is a warning, since the render counts their plays as moving. A camera
 orbit that turns across a stop is refused, because the hold would freeze it mid-turn; split the orbit so that a
 piece ends 0.3 s before the stop, or name it in `stop_through` to accept the freeze, which validation reports
 as `stop_freezes_camera`. `scianim timing <project>` lists the parts between the stops, the render report and
@@ -438,11 +443,12 @@ on stdout; the reason is on stderr. Every path in the manifest is relative to th
 | The outcome | `result.status` (`succeeded`), `result.warnings`, `cache_hit` |
 | The contract | `schema_version`: refuse a manifest whose version you do not know |
 
-A deck that holds a clip at its stops reads `result.stops` and nothing else: each stop's frame is the first
+A deck that holds a clip at its stops reads `result.stops` for where to hold: each stop's frame is the first
 frame of a play and, in a final render, a keyframe with at least 0.3 s of still picture before it, so a player
 that pauses a little early and then seeks to the middle of `frame_index` shows exactly the frame the scene
 reached. When an action starts at the stop, that frame is already the action's first, and a sweep's readout
-appears on it; the render warns about such stops and their `rest_after_frames` is 0. The deck chooses which
+appears on it; validation and the render warn about such stops and their `rest_after_frames` is 0. A deck may
+also check the pixels: lecturekit measures the rest on the movie's frames and refuses such a stop. The deck chooses which
 stops to use; a final render that could not keep these promises fails instead of writing a manifest a deck would
 trust.
 

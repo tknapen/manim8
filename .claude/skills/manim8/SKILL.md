@@ -61,8 +61,9 @@ Each stage ends in something the person can look at. Stop after each one and wai
    If the brief says the clip is presented in parts (a lecturer holds it so the room can predict), ask where the
    holds go and what each should show. Mark those snapshots `stop: true`, with a short `label`, only on the
    person's word: a stop is their decision, like any reveal. A stop needs a still picture in the 0.3 s before
-   it and no camera orbit turning across it; `scianim validate` says what is in the way, and
-   `scianim timing <project>` lists the parts between stops (ADR-045).
+   it and no camera orbit turning across it; an action that should follow the stop starts a frame after it
+   (`stop_on_motion_start` warns otherwise, and lecturekit refuses that stop). `scianim validate` says what is
+   in the way, and `scianim timing <project>` lists the parts between stops (ADR-045).
 4. **Keyframes.** `scianim validate <project>` until it reports no errors; read its warnings, which are usually
    right (a rest that is too short, a checkpoint inside a fade). Then `scianim codegen <project>` and
    `scianim snapshot <project> --all`. Look before you show: read every checkpoint image, its entry in the job's

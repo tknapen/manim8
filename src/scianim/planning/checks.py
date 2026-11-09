@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import csv
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import pairwise
 from pathlib import Path
@@ -115,18 +116,79 @@ def builder_module_exists(module_name: str, project: Project, family: FamilyCont
     return builder_module_path(module_name, project, family) is not None
 
 
+TIME_BASED_HELPERS = frozenset({"always_rotate", "always_shift", "turn_animation_into_updater", "cycle_animation"})
+"""Manim helpers that install a time-based updater (`lambda m, dt: ...`) inside Manim, out of the builder's sight."""
+UPDATER_CALLS = frozenset({"add_updater", "always_redraw", "always", "f_always"})
+"""Calls that install an updater; one without `dt` is exact, but the bridge counts every play it runs in as moving."""
+
+
+def _called(node: ast.Call) -> str | None:
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return None
+
+
+def builder_updaters(path: Path, resolve: Callable[[str], Path | None] | None = None) -> tuple[list[str], list[str]]:
+    """The updaters of a builder module and of the local modules it imports (found through `resolve`, a module
+    name to its file, or beside the builder for a relative import): (time-based, others).
+
+    Time-based: functions and lambdas with a `dt` parameter, and calls of Manim's helpers that install one
+    (`TIME_BASED_HELPERS`). Manim advances such an updater in one step when it fast-forwards a play, so a
+    checkpoint reached while one runs is approximate (the bridge records `fidelity: approximate`). Others: calls
+    that install an updater without `dt` (`UPDATER_CALLS`); exact, but a play in which one runs is not static."""
+    time_based: list[str] = []
+    others: list[str] = []
+    seen: set[Path] = set()
+
+    def scan(file: Path) -> None:
+        file = file.resolve()
+        if file in seen:
+            return
+        seen.add(file)
+        where = "" if file == path.resolve() else f"{file.name}: "
+        imported: list[Path] = []
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+                arguments = node.args
+                names = [a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)]
+                if "dt" in names:
+                    time_based.append(f"{where}{getattr(node, 'name', 'a lambda')} (line {node.lineno})")
+            elif isinstance(node, ast.Call):
+                name = _called(node)
+                if name in TIME_BASED_HELPERS:
+                    time_based.append(f"{where}{name} (line {node.lineno})")
+                elif name in UPDATER_CALLS:
+                    others.append(f"{where}{name} (line {node.lineno})")
+            elif isinstance(node, ast.Import | ast.ImportFrom):
+                modules: list[str] = []
+                if isinstance(node, ast.Import):
+                    modules = [alias.name for alias in node.names]
+                elif node.level:  # a relative import: the module beside this one, or its names as modules
+                    base = file.parent
+                    for _ in range(node.level - 1):
+                        base = base.parent
+                    stem = (node.module or "").replace(".", "/")
+                    candidates = [base / f"{stem}.py"] if stem else [base / f"{a.name}.py" for a in node.names]
+                    imported.extend(c for c in candidates if c.exists())
+                elif node.module:
+                    modules = [node.module, *(f"{node.module}.{alias.name}" for alias in node.names)]
+                for module in modules:
+                    found = resolve(module) if resolve is not None else None
+                    if found is not None:
+                        imported.append(found)
+        for module_file in imported:
+            scan(module_file)
+
+    scan(path)
+    return time_based, others
+
+
 def time_based_functions(path: Path) -> list[str]:
-    """The functions and lambdas of a builder module that take a `dt` parameter. Manim treats an updater with one
-    as time-based and advances it in one step when it fast-forwards a play, so a checkpoint reached while one runs
-    is approximate (the bridge records `fidelity: approximate`)."""
-    found: list[str] = []
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
-            arguments = node.args
-            names = [a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)]
-            if "dt" in names:
-                found.append(f"{getattr(node, 'name', 'a lambda')} (line {node.lineno})")
-    return found
+    """The time-based updaters of a builder module alone (see `builder_updaters`)."""
+    return builder_updaters(path)[0]
 
 
 def check_storyboard(
@@ -373,7 +435,10 @@ def check_stops(
     It may not sit on a scene's first frame or on the clip's last (the player's start and end holds show those),
     within 0.5 s of another stop, or where its checkpoint would be approximate. A camera orbit that turns across
     a stop, or in its rest, is refused unless the stop names it in `stop_through`, which accepts that a hold there
-    freezes the camera mid-turn (the warning `stop_freezes_camera`)."""
+    freezes the camera mid-turn (the warning `stop_freezes_camera`). An action that starts on the stop's own
+    frame is allowed and warned about (`stop_on_motion_start`): the hold shows its first frame, which a deck that
+    checks the pixels refuses; so is a custom builder that installs updaters without `dt`, whose plays the render
+    counts as moving."""
     stops = storyboard.stops()
     if not stops:
         return
@@ -384,7 +449,7 @@ def check_stops(
         (scene.id, max(scene.end_seconds - motion.transition_seconds, scene.start_seconds), scene.end_seconds)
         for scene in storyboard.scenes[:-1]
     ]
-    time_based: dict[str, list[str]] = {}
+    updaters: dict[str, tuple[list[str], list[str]]] = {}
     for scene, snap in stops:
         t = snap.at_seconds
         where = f"stop '{snap.id}' at {t:g}s"
@@ -452,22 +517,45 @@ def check_stops(
                 f"so nothing may move in the {STOP_REST_SECONDS:g}s before a stop (an action may start at it); "
                 f"{remedy}"
             )
+        frame_starts = [
+            a.id for a in scene.actions if not isinstance(a, OrbitCamera) and frames_for(a.at_seconds, fps) == frame
+        ]
+        if frame_starts and not first:
+            report.warn(
+                f"stop_on_motion_start: {where}: {', '.join(repr(i) for i in frame_starts)} starts on the stop's "
+                f"frame {frame}, so the hold shows its first frame, which can differ from the rest before it (a "
+                "sweep's readout appears there): a deck that measures the rest on the pixels refuses the stop "
+                f"(lecturekit does). Start the action a frame later, at {(frame + 1) / fps:.4g}s, or put the stop "
+                "a frame earlier"
+            )
         customs = [o for o in scene.objects if o.kind == "custom"]
         for obj in customs:
             module_name = obj.params["builder"].split(":")[0]
-            if module_name not in time_based:
+            if module_name not in updaters:
                 path = builder_module_path(module_name, project, report.family)
                 try:
-                    time_based[module_name] = time_based_functions(path) if path is not None else []
+                    updaters[module_name] = (
+                        builder_updaters(path, lambda m: builder_module_path(m, project, report.family))
+                        if path is not None
+                        else ([], [])
+                    )
                 except (OSError, SyntaxError, UnicodeDecodeError) as exc:
-                    time_based[module_name] = []
+                    updaters[module_name] = ([], [])
                     report.warn(f"{where}: builder module '{module_name}' could not be read for updaters: {exc}")
-            if time_based[module_name]:
+            time_based, others = updaters[module_name]
+            if time_based:
                 report.error(
                     f"{where}: scene '{scene.id}' draws custom object '{obj.id}', whose builder module "
-                    f"'{module_name}' has functions with a `dt` parameter ({', '.join(time_based[module_name])}), "
-                    "Manim's time-based updaters; their checkpoint is approximate, so a hold could show a frame the "
-                    "room did not see. Drive the motion with storyboard actions, or move the stop to another scene"
+                    f"'{module_name}' has time-based updaters ({', '.join(time_based)}): functions with a `dt` "
+                    "parameter or Manim helpers that install one; their checkpoint is approximate, so a hold could "
+                    "show a frame the room did not see. Drive the motion with storyboard actions, or move the stop "
+                    "to another scene"
+                )
+            elif others:
+                report.warn(
+                    f"{where}: scene '{scene.id}' draws custom object '{obj.id}', whose builder module "
+                    f"'{module_name}' installs updaters ({', '.join(others)}); the render counts every play in "
+                    "which one runs as moving, so a final render refuses the stop if one runs in its rest"
                 )
     for (_, earlier), (_, later) in pairwise(stops):
         if frames_for(earlier.at_seconds, fps) == frames_for(later.at_seconds, fps):

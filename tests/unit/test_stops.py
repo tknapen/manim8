@@ -88,8 +88,18 @@ def test_the_two_example_stops_in_rests_validate(project_copy: Project) -> None:
     for snapshot_id in ("excitation_visible", "pool_raised"):
         _snapshot(data, snapshot_id)["stop"] = True
     report = _check(project_copy, data)
-    assert _stop_errors(report) == [] and not [w for w in report.warnings if "stop" in w]
+    assert _stop_errors(report) == []
+    # `gain` starts at 4 s, on excitation_visible's frame: valid, with the warning that the hold shows its first frame
+    assert [w for w in report.warnings if "stop" in w] == [
+        "stop_on_motion_start: stop 'excitation_visible' at 4s: 'gain' starts on the stop's frame 120, so the hold "
+        "shows its first frame, which can differ from the rest before it (a sweep's readout appears there): a deck "
+        "that measures the rest on the pixels refuses the stop (lecturekit does). Start the action a frame later, "
+        "at 4.033s, or put the stop a frame earlier"
+    ]
     assert [snap.id for _, snap in report.storyboard.stops()] == ["excitation_visible", "pool_raised"]
+    _scene(data, "excitation")["actions"][0]["at_seconds"] = 4 + 1 / 30  # a frame later: no warning
+    report = _check(project_copy, data)
+    assert _stop_errors(report) == [] and not [w for w in report.warnings if "stop" in w]
 
 
 # --- the rest before a stop -------------------------------------------------------------------------------------
@@ -201,7 +211,8 @@ def test_an_orbit_that_ends_in_the_rest_counts_and_an_idle_waiver_is_reported(pr
 # --- approximate checkpoints ------------------------------------------------------------------------------------
 
 
-BUILDER = """from manim import Dot
+BUILDER = """import helpers
+from manim import Dot, always_rotate
 
 
 def build(scene, object_id, tokens, arguments, **kwargs):
@@ -211,29 +222,45 @@ def build(scene, object_id, tokens, arguments, **kwargs):
 """
 
 
+HELPER = """from manim import always_rotate
+
+
+def spin(mobject):
+    always_rotate(mobject, rate=1.0)
+"""
+
+
 @pytest.mark.parametrize(
-    ("updater", "refused"),
+    ("updater", "found"),
     [
-        ("dot.add_updater(lambda m, dt: m.shift(dt * [1, 0, 0]))", True),
-        ("dot.add_updater(lambda m: m)", False),
+        ("dot.add_updater(lambda m, dt: m.shift(dt * [1, 0, 0]))", "a lambda (line 7)"),
+        ("always_rotate(dot, rate=1.0)", "always_rotate (line 7)"),  # Manim installs `lambda m, dt` itself
+        ("helpers.spin(dot)", "helpers.py: always_rotate (line 5)"),  # in a module the builder imports
+        ("dot.add_updater(lambda m: m)", None),
     ],
 )
 def test_a_stop_where_the_checkpoint_would_be_approximate_is_refused(
-    project_copy: Project, updater: str, refused: bool
+    project_copy: Project, updater: str, found: str | None
 ) -> None:
     project_copy.code_dir.mkdir(parents=True, exist_ok=True)
+    helper = HELPER if "helpers." in updater else HELPER.replace("always_rotate(mobject, rate=1.0)", "pass")
+    (project_copy.code_dir / "helpers.py").write_text(helper, encoding="utf-8")
     (project_copy.code_dir / "ticker.py").write_text(BUILDER.format(updater=updater), encoding="utf-8")
     data = _board(project_copy)
     _scene(data, "excitation")["objects"].append(
         {"id": "ticker", "kind": "custom", "params": {"builder": "ticker:build", "arguments": {}}}
     )
     _snapshot(data, "excitation_visible")["stop"] = True
-    errors = _stop_errors(_check(project_copy, data))
-    if refused:
-        assert len(errors) == 1 and "custom object 'ticker'" in errors[0] and "a lambda (line 6)" in errors[0]
+    report = _check(project_copy, data)
+    errors = _stop_errors(report)
+    if found:
+        assert len(errors) == 1 and "custom object 'ticker'" in errors[0] and found in errors[0], errors
         assert "approximate" in errors[0]
     else:
         assert errors == []
+        assert any(
+            "installs updaters (add_updater (line 7))" in w and "a final render refuses" in w for w in report.warnings
+        )
     _snapshot(data, "excitation_visible")["stop"] = False  # without a stop, a time-based builder is no error
     assert _stop_errors(_check(project_copy, data)) == []
 
