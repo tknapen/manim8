@@ -103,7 +103,10 @@ Each stage ends in something the person can look at. Stop after each one and wai
 
 - Every render prints the path of its worker log; read it first.
 - Environment trouble: `scianim doctor --project <project>`, and `scianim family env sync` after updating
-  manim8.
+  manim8. In a workspace that was moved or cloned, the sync rewrites the family's bridge sources and says so;
+  tell the person, and commit the family's `pyproject.toml` and `uv.lock` only when they ask.
+- Another tool (a deck builder) reads a render with `scianim render <project> --json`: the manifest alone on
+  stdout. Do not parse the printed paths.
 - Layout warnings: move or resize the object (its anchor, `below`, `right_of`), not the checkpoint.
 - Timing warnings: change the times in the storyboard, not the style. The rest between two motions of one
   object comes from the style's `motion.hold_seconds`.

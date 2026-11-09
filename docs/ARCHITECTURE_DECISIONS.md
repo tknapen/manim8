@@ -1287,3 +1287,81 @@ Claude apps or the API could run Manim in their own sandboxes is not documented,
 Anthropic describes the skill format as an open standard, but no other agent has been tried. Each review round
 costs a model call where a re-render alone is nearly free, and the agent's eye for layout is uneven, so the
 person's review stays necessary.
+
+## ADR-043: What a consumer reads from a render
+
+**Status:** accepted, 9 November 2026
+
+**Context.** lecturekit, a kit for lecture decks built with Quarto, is the first tool to use manim8 from outside:
+`lk clips` renders a project and copies the clip and its stills into a deck. An audit of that join found that
+manim8 offered a consumer files and nothing else. The consumer guessed: it took the newest MP4 under `renders/`,
+which is the last scene's section and not the movie, and read keys such as `width` and `revision` that the
+manifest does not have. A deck's dark preset could not be rendered without editing `animation.yaml`. Only an
+editable checkout could build a family environment: a control plane installed from git wrote index pins for a
+`manim8-bridge` that is not published, and a checkout wrote relative path sources that break as soon as the
+workspace is committed and cloned elsewhere. Nothing ignored `renders/`, `.scianim/` or a family `.venv` in a
+workspace, so a deck that holds one would commit them. Validation messages lost the `[a-z]` of a slug pattern to
+rich's markup parser.
+
+**Decision.**
+
+1. *`--json` on `render` and `snapshot`.* With it, stdout carries exactly one JSON document: the
+   `ArtifactManifest` of the job just run, or of the cached job that answered the request, with `cache_hit` set
+   true in the printed copy (the stored manifest is not rewritten). Everything a person reads goes to stderr. A
+   job that fails exits non-zero and leaves stdout empty. Every path in the manifest is relative to the project
+   directory. A consumer reads: `result.videos[0]` for the full movie (`path`, `width_px`, `height_px`, `fps`,
+   `duration_seconds`, `frame_count`, `sha256`; the per-scene files are in `result.sections` and are not the
+   movie); `result.checkpoints[]` for the stills (`snapshot_id`, `png`, `expected_time_seconds`,
+   `renderer_time_seconds`, `kind`); `job.revision_id`, `job.cache_key`, `job.quality_profile` and
+   `job.registry_version`; `job.resolved_style.theme`, `theme_version` and `hash` for the style; and
+   `schema_version`, which a consumer should refuse when it does not know it. The manifest's schema is
+   unchanged; `schemas/artifact_manifest.schema.json` describes the document.
+2. *`--style name@version` on `render` and `snapshot`.* It replaces the project's style selection for that job
+   only, of the working copy or of a revision. The project's own overrides still apply, and so do the family's
+   and the groups'. The working copy is validated as if `animation.yaml` selected the style. A revision keeps
+   its frozen specs and code, and its frozen resolved style is replaced, for that job, by a fresh resolution of
+   the new selection; the revision directory is not touched. The resolved style enters the cache key as before,
+   so each style has its own cache entry, and `job.resolved_style` records the style used. A job's style may
+   change colours, fonts and sizes but not timing: when the scene module that codegen would write under the
+   new style differs from the one written under the project's style (the motion tokens codegen reads differ),
+   the job is refused. This answers the lecturer's decision on dark clips (render a revision under another
+   published style) without a second revision per preset.
+3. *Family environments take the bridge from where the control plane came from.* In order of precedence:
+   `SCIANIM_BRIDGE_SOURCE` (`index`, `git:<url>@<ref>` or `path:<packages dir>`); a source checkout's own
+   `packages/` by editable relative path, as before; for a control plane installed from git, whose
+   distribution carries a PEP 610 `direct_url.json` with `vcs_info`, uv git sources at that `commit_id` with
+   `subdirectory = "packages/scianim_bridge"` and `"packages/scianim_core"`; otherwise the package index at the
+   control plane's version, as ADR-037 decided. `scianim family env sync` rewrites a family's bridge sources
+   for the current control plane when its path sources point at no package from the family directory (a
+   workspace moved or cloned elsewhere, including a relative path that climbs above the filesystem root, which
+   uv refuses), and prints a note; `--rewrite-sources` rewrites them on request, and `--locked` refuses either
+   rewrite. Other dependencies and sources in the family pyproject are kept. `scianim doctor` reports
+   unresolved bridge sources.
+4. *uv comes with manim8.* The control plane depends on the `uv` distribution and uses its binary
+   (`uv.find_uv_bin()`) when no `uv` is on PATH, so an install made with pip alone can sync a family.
+5. *Releases by git tag first.* The first release is the tag `v0.1.0a0`. uv installs it directly
+   (`uv pip install "manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0"`), resolving `manim8-core` from
+   the same commit through the repository's workspace source. pip ignores uv's sources, so with pip the
+   contracts are named beside it:
+   `manim8-core @ git+https://github.com/tknapen/manim8@v0.1.0a0#subdirectory=packages/scianim_core`. Publishing
+   the three wheels to PyPI stays possible and optional (`docs/RELEASING.md`).
+6. *`scianim workspace init` writes a `.gitignore`* covering `renders/`, `.scianim/`, `.venv/`, Manim's own
+   `media/` folder outside `assets/`, and Python caches. An existing `.gitignore` gains only the lines it lacks.
+7. *Messages print as text.* Messages from validation, reports, workers and uv are escaped before rich prints
+   them.
+
+**Why.** The manifest already held everything a consumer needs; what was missing was a way to get the right one
+without guessing, and `--json` gives it with no new contract to keep. A style per job, rather than a second
+revision per preset, keeps one approved revision behind every rendering of a clip, and refusing a style that
+changes timing keeps the approval meaningful. Pinning a family to the control plane's own commit removes the
+question of which bridge goes with which control plane for every install that is not a checkout or a wheel,
+which is the situation of anyone who installs manim8 from git; the package index remains the route for wheels.
+Rewriting broken path sources at sync time, rather than at every command, keeps the change visible (a note, a
+diff to commit) and in the one command that touches the environment.
+
+**Limits.** A git source needs git and access to the repository's URL when the family syncs. A control plane
+installed from a local `git+file://` URL pins its families to that local repository, which suits a test but not
+a workspace to share; installed from GitHub, the families point at GitHub. `--json` covers `render` and
+`snapshot` only. Two styles that differ only in tokens that do not reach a picture (`tomas_scientific@0.5.1`
+and `default@0.5.0` differ in `motion.hold_seconds`, a validation rule) give byte-identical movies under
+different cache keys. Human output on stderr is still wrapped at the terminal's width.

@@ -17,8 +17,18 @@ scianim family env sync ~/animations/families/computational_neuroscience   # Man
 ```
 
 A workspace holds `styles/` (versioned themes), `families/` (one render environment each, with projects
-nested inside) and `assets/`. Examples in the repository are read-only templates; everything that changes lives
-in your workspace. The nearest `family.yaml` above a project decides its environment and default style.
+nested inside) and `assets/`, and a `.gitignore` that keeps `renders/`, `.scianim/`, `.venv/` and Manim's
+`media/` out of version control. Examples in the repository are read-only templates; everything that changes
+lives in your workspace. The nearest `family.yaml` above a project decides its environment and default style.
+
+Where a family's environment takes `manim8-bridge` and `manim8-core` from depends on how manim8 itself was
+installed (ADR-043): a checkout uses its own `packages/` by relative path; a control plane installed from git
+(the README's install section) pins the family, through uv git sources, to the commit it came from; one
+installed from a wheel takes them from the package index at its own version. `SCIANIM_BRIDGE_SOURCE` overrides
+this when a family is created (`index`, `git:<url>@<ref>` or `path:<packages dir>`), and
+`scianim family env sync --rewrite-sources <family>` applies it to an existing family. When a workspace is moved
+or cloned to another machine and its path sources point at nothing, the next `family env sync` rewrites them for
+the control plane at hand and says so; commit the changed `pyproject.toml` and `uv.lock`.
 
 ## Ways to start
 
@@ -373,6 +383,47 @@ manifest, shared components and the lockfile, and never `.venv`, caches, secrets
 PDFs and third-party images are omitted by default and listed with relink instructions in `bundle.yaml` and
 the README; `--include-source-assets` includes them when rights permit, `--include-renders` adds renders.
 Rebuilding the environment after import is an explicit step.
+
+## Using manim8 from another tool
+
+A tool that builds something around a clip, such as lecturekit, which puts clips into lecture decks, drives
+the same commands and reads the result from the manifest, never from file names or modification times
+(ADR-043). The steps, for a project directory `P` inside a workspace:
+
+```bash
+scianim family env sync <family>                     # once, and again after the workspace moved
+scianim codegen P                                    # when code/scene_<id>.py is missing or the storyboard changed
+scianim render P --profile final --json > job.json   # the manifest of this job, or of the cached one
+scianim render P --profile final --revision rev_0003 --style lecturekit_dark@0.1.0 --json
+scianim snapshot P --all --json                      # checkpoint stills only, no video
+```
+
+With `--json`, stdout holds exactly one JSON document, the job's `ArtifactManifest` (the schema is
+`schemas/artifact_manifest.schema.json`), and everything else goes to stderr. A repeated request answers from the
+cache: the same manifest, with `cache_hit` true. A job that fails exits with a non-zero status and prints nothing
+on stdout; the reason is on stderr. Every path in the manifest is relative to the project directory. What to read:
+
+| What | Where |
+|---|---|
+| The movie | `result.videos[0]`: `path`, `width_px`, `height_px`, `fps`, `duration_seconds`, `frame_count`, `sha256`. The files in `result.sections` are single scenes, not the movie. |
+| The stills | `result.checkpoints[]`: `snapshot_id`, `png`, `expected_time_seconds`, `renderer_time_seconds`, `width_px`, `height_px`. A video job extracts one frame per storyboard snapshot (`kind: sampled_video_frame`); a snapshot job captures them in the flow (`manim_checkpoint`). |
+| What was rendered | `job.revision_id` (`working` or `rev_NNNN`), `job.quality_profile`, `job.cache_key`, `job.registry_version`, `inputs` (hashes of every input) |
+| The style | `job.resolved_style.theme`, `theme_version` and `hash` |
+| The outcome | `result.status` (`succeeded`), `result.warnings`, `cache_hit` |
+| The contract | `schema_version`: refuse a manifest whose version you do not know |
+
+`--style name@version` renders one job under another published style without touching the project: the working
+copy, or a revision whose frozen specs and code stay as they are. The project's own style overrides still apply.
+The style changes the cache key, so each style has its own cached render, and the manifest names it. A style
+may change colours, fonts and sizes, not timing: if its motion tokens would make `codegen` write a different
+scene, the job is refused. A deck with a paper and a dark preset therefore approves one revision and renders it
+twice. `--json` and `--style` work the same on `snapshot`.
+
+A consumer that keeps a workspace inside its own repository commits the specs, the styles, `code/`,
+`revisions/`, `feedback/` and the family's `pyproject.toml` and `uv.lock`; the workspace's `.gitignore` leaves out
+the rest. To pin manim8 for such a tool, depend on the release tag: lecturekit's `manim8` extra names
+`manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0` and the matching `manim8-core` subdirectory, which is
+what pip needs (`README.md`, Installing a release).
 
 ## Where things are
 

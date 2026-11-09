@@ -36,18 +36,44 @@ look at the pictures and answer its questions. The [user guide](docs/USER_GUIDE.
 
 ## Installing a release
 
-manim8 is not on PyPI yet; until the first release, work from a checkout as the tutorials do. Once released:
+The first release is the git tag `v0.1.0a0`; manim8 is not on PyPI yet. It needs Python 3.12 or later and, for
+rendering, the Cairo and Pango libraries (see the developer setup below). With uv, one requirement is enough,
+because uv takes `manim8-core` from the same commit:
 
 ```bash
-uv tool install manim8                                 # or: pip install manim8
+uv tool install "manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0"   # or, in an environment: uv pip install ...
+```
+
+pip does not read uv's sources, so name the contracts beside the control plane:
+
+```bash
+pip install "manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0" \
+  "manim8-core @ git+https://github.com/tknapen/manim8@v0.1.0a0#subdirectory=packages/scianim_core"
+```
+
+Then, the same for both:
+
+```bash
 manim8 workspace init animations --with-example        # styles and example templates come with the package
-manim8 family env sync animations/families/computational_neuroscience   # Manim and manim8-bridge, same version
+manim8 family env sync animations/families/computational_neuroscience   # Manim and manim8-bridge, same commit
+manim8 codegen animations/families/computational_neuroscience/divisive_normalization
 manim8 snapshot animations/families/computational_neuroscience/divisive_normalization --all
 ```
 
-An installed control plane creates family environments that take `manim8-bridge` from the package index at its own
-version. A workspace created before the rename to manim8 needs `manim8 migrate <workspace>` once. Releases are
-described in [`docs/RELEASING.md`](docs/RELEASING.md) and listed in [`CHANGELOG.md`](CHANGELOG.md).
+A control plane installed from git creates family environments that take `manim8-bridge` and `manim8-core` from
+the commit it was installed from, through uv git sources; one installed from a wheel takes them from the
+package index at its own version; a checkout uses its own `packages/`. `SCIANIM_BRIDGE_SOURCE` overrides the
+choice (`index`, `git:<url>@<ref>` or `path:<packages dir>`). manim8 brings uv along as a dependency, so a pip
+install can sync families without uv on PATH. A workspace moved or cloned elsewhere is repaired by the next
+`family env sync` (ADR-043). A workspace created before the rename to manim8 needs `manim8 migrate <workspace>`
+once.
+
+Another tool can render a project and read the result without guessing at files: `manim8 render <project>
+--profile final --json` prints the job's manifest, or the cached one's, as the only output on stdout, and
+`--style name@version` renders one job under another published style. The
+[user guide](docs/USER_GUIDE.md#using-manim8-from-another-tool) describes what to read; lecturekit, a kit for
+lecture decks, is one such consumer. PyPI wheels may follow; releases are described in
+[`docs/RELEASING.md`](docs/RELEASING.md) and listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Developer setup and reproduction
 

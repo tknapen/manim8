@@ -14,7 +14,8 @@ brew install cairo pango pkg-config                                  # macOS
 sudo apt-get install -y libcairo2-dev libpango1.0-dev pkg-config     # Debian or Ubuntu
 ```
 
-manim8 is not on PyPI yet, so you work from a checkout and every command goes through `uv run`:
+manim8 is not on PyPI yet. Here you work from a checkout, and every command goes through `uv run` (to install
+the release from git instead, see the README's install section, and drop `uv run` below):
 
 ```bash setup
 git clone https://github.com/tknapen/manim8
@@ -41,8 +42,9 @@ uv run scianim workspace init ~/animations --with-example
 ```
 
 A workspace holds `styles/` (versioned themes), `families/` (one render environment each, with its projects
-inside) and `assets/`. `--with-example` copies the example family and its five projects; the examples in the
-checkout are templates and stay untouched.
+inside) and `assets/`, and a `.gitignore` that leaves renders and environments out of version control.
+`--with-example` copies the example family and its five projects; the examples in the checkout are templates and
+stay untouched.
 
 ## Build the render environment
 

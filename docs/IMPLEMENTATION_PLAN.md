@@ -242,6 +242,12 @@ B; the storyboard sheet before snapshots; layout and timing changes applied by t
   theme's one-second rest; tests `tests/unit/test_cues_and_dims.py`, `packages/scianim_bridge/tests/test_cues.py`
   and the purity case `cues_and_dims`. Open: derive by copy, staggered and stroke-drawing reveals, trails, a flat
   camera, shaded areas with a traced integral, illustrative samples, ghosts, morphs and maps.
+- [x] P. Another tool as a consumer (ADR-043): `render --json` and `snapshot --json` print the manifest of the job
+  run or of the cached one; `--style` renders one job under another published style; family environments take
+  the bridge from where the control plane came from (git commit, checkout, index, or `SCIANIM_BRIDGE_SOURCE`),
+  and `family env sync` repairs path sources that no longer resolve; `uv` ships with manim8; `workspace init`
+  writes a `.gitignore`. Tests: `tests/unit/test_consumer_output.py`, `tests/unit/test_distribution.py`,
+  `tests/integration/test_consumer_render.py` and `.github/scripts/git_install_check.sh` in CI.
 
 ## Core automated test matrix
 

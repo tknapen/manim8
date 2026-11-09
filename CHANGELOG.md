@@ -5,13 +5,15 @@ The distributions `manim8`, `manim8-core` and `manim8-bridge` share one version.
 
 ## Unreleased (0.1.0a0)
 
-First version under the name manim8 (ADR-037).
+First version under the name manim8 (ADR-037). It is released as the git tag `v0.1.0a0`; the README's install
+section gives the uv and pip commands. PyPI wheels may follow.
 
 - The distributions are `manim8`, `manim8-core` and `manim8-bridge`; the command `manim8` joins `scianim`.
   Import names are unchanged. A family environment created before the rename must be migrated:
   `scianim migrate <workspace>`, then `scianim family env sync <family>`.
-- An installed control plane creates family environments that take the bridge from the package index at its
-  own version, and carries the style sheets and example templates.
+- An installed control plane carries the style sheets and example templates. Installed from a wheel, it creates
+  family environments that take the bridge from the package index at its own version; installed from git, from
+  its own commit (below).
 - Parallel video renders (`--workers`), with windows of frames rather than whole plays (ADR-029, ADR-031).
 - A segment store shared by every render; a re-render draws only the plays a change touched; caches are keyed
   by the drawing code (ADR-033).
@@ -36,11 +38,32 @@ First version under the name manim8 (ADR-037).
 - The manim8 agent skill (ADR-042): `.claude/skills/manim8/SKILL.md`, a playbook for an agent that drives the
   package from a brief to a final clip, asking at each stage; `scianim skill install [--to DIR]` puts it where an
   agent finds it outside the checkout. The wheel carries it.
+- For another tool that renders a project (ADR-043; lecturekit is the first): `scianim render --json` and
+  `scianim snapshot --json` print the job's `ArtifactManifest` as the only output on stdout, the cached job's with
+  `cache_hit` true, and nothing on a failure; human output goes to stderr. `--style name@version` renders one job,
+  of the working copy or of a revision, under another published style; it enters the cache key and
+  `job.resolved_style`, and a style that would change the generated timing is refused.
+- Family environments take `manim8-bridge` and `manim8-core` from where the control plane came from: a
+  control plane installed from git pins them by uv git sources to its own commit (read from its PEP 610
+  `direct_url.json`), a checkout uses its `packages/`, any other install the package index. `SCIANIM_BRIDGE_SOURCE`
+  (`index`, `git:<url>@<ref>`, `path:<packages dir>`) overrides it. `scianim family env sync` rewrites path
+  sources that point at no package (a workspace moved or cloned), and `--rewrite-sources` rewrites them on request;
+  `scianim doctor` reports them.
+- manim8 depends on the `uv` package and uses its binary when `uv` is not on PATH, so a pip install can sync
+  family environments.
+- `scianim workspace init` writes a `.gitignore` for `renders/`, `.scianim/`, `.venv/` and Manim's `media/`.
+- `.github/scripts/git_install_check.sh`, run in CI: a non-editable git install, a family synced from the same
+  commit, and `render --json` fresh, cached and under `--style`.
 - `tomas_scientific@0.5.1` asks for a rest of one second between two motions of one object
   (`motion.hold_seconds`), after the survey's median pause; the examples pin it. The halves of a ballistic arc
   (`ease_out_quad` then `ease_in_quad`) need no rest between them.
 
 Fixed:
+
+- Validation and other messages lost text in square brackets, so a slug pattern printed as `^{0,63}$`; messages
+  are now escaped before rich prints them.
+- `family env sync` run through `uv run` warned that the control plane's active virtual environment did not
+  match the family's; the family's uv commands no longer see `VIRTUAL_ENV`.
 
 - `scianim context` failed on a storyboard with moves, fades or transforms (it read every action other than an
   orbit or an axes fade as a sweep); the bundle and the review server now share one action summary.
