@@ -218,20 +218,73 @@ def run_command(argv: list[str], cwd: Path, timeout: float = 1800, env: dict[str
 
 
 def uv_executable() -> str | None:
-    return shutil.which("uv")
+    """uv on PATH, else the binary of the `uv` package installed beside the control plane (manim8 depends on it,
+    so a pip-only install can sync family environments, ADR-043)."""
+    found = shutil.which("uv")
+    if found:
+        return found
+    try:
+        import uv  # the PyPI distribution that ships the uv binary; it imports nothing else
+
+        return uv.find_uv_bin()
+    except (ImportError, FileNotFoundError):
+        return None
 
 
-def sync_environment(ctx: FamilyContext, locked: bool = False, timeout: float = 1800) -> CommandResult:
+def repair_bridge_sources(ctx: FamilyContext, locked: bool = False, rewrite: bool = False) -> str | None:
+    """Rewrite the family pyproject's bridge sources for this control plane when its path sources point at no
+    package (a workspace moved, or cloned onto another machine), or always with `rewrite`. Returns a note saying
+    what changed, or None when nothing did (ADR-043)."""
+    from scianim.workspace import BRIDGE_SOURCE_ENV, bridge_source, rewrite_bridge_sources, unresolved_path_sources
+
+    pyproject = ctx.env_root / "pyproject.toml"
+    text = pyproject.read_text(encoding="utf-8")
+    broken = unresolved_path_sources(ctx.env_root, text)
+    if not broken and not rewrite:
+        return None
+    if locked:
+        why = (
+            f"its path sources ({', '.join(broken)}) point at no package from {ctx.env_root}"
+            if broken
+            else "--rewrite-sources was requested"
+        )
+        raise SpecError(
+            pyproject,
+            f"the bridge sources must be rewritten ({why}), which changes the lockfile; sync without --locked",
+        )
+    source = bridge_source(ctx.env_root)
+    updated = rewrite_bridge_sources(text, source)
+    if updated == text:
+        return None
+    pyproject.write_text(updated, encoding="utf-8")
+    why = (
+        f"its path sources ({', '.join(broken)}) point at no package from here"
+        if broken
+        else "as requested" + (f" ({BRIDGE_SOURCE_ENV} is set)" if source.origin == BRIDGE_SOURCE_ENV else "")
+    )
+    return (
+        f"rewrote the bridge sources in {pyproject}, {why}: the environment now takes manim8-bridge and "
+        f"manim8-core from {source.describe()}; commit the change with the lockfile"
+    )
+
+
+def sync_environment(
+    ctx: FamilyContext, locked: bool = False, timeout: float = 1800, rewrite_sources: bool = False
+) -> CommandResult:
     """Create or update the family `.venv` from its lockfile with uv.
 
-    Without a lockfile, `uv lock` runs first and the result's note says so. With `locked=True`
-    a missing or stale lockfile is an error instead.
+    Path sources for the bridge that point at no package are rewritten for this control plane first
+    (`repair_bridge_sources`), and so are all bridge sources with `rewrite_sources`. Without a lockfile,
+    `uv lock` runs first. The result's note says what was done. With `locked=True` a missing or stale lockfile,
+    or sources that need rewriting, are an error instead.
     """
     if ctx.manifest.environment.manager != "uv":
         raise SpecError(ctx.path, f"environment manager '{ctx.manifest.environment.manager}' is not implemented yet")
     uv = uv_executable()
     if uv is None:
-        raise SpecError(ctx.path, "`uv` is not installed or not on PATH (https://docs.astral.sh/uv/)")
+        raise SpecError(
+            ctx.path, "`uv` is not on PATH and the `uv` package is not installed (https://docs.astral.sh/uv/)"
+        )
     if not (ctx.env_root / "pyproject.toml").exists():
         raise SpecError(ctx.path, f"family environment root {ctx.env_root} has no pyproject.toml")
     from scianim.migrate import stale_family_pyproject
@@ -242,18 +295,21 @@ def sync_environment(ctx: FamilyContext, locked: bool = False, timeout: float = 
             "this environment names the render bridge `scianim-bridge`, which is now distributed as `manim8-bridge`; "
             f"run `scianim migrate {ctx.root}` and sync again",
         )
-    note = None
+    notes: list[str] = []
+    repaired = repair_bridge_sources(ctx, locked=locked, rewrite=rewrite_sources)
+    if repaired:
+        notes.append(repaired)
     if not ctx.lockfile.exists():
         if locked:
             raise SpecError(ctx.path, f"lockfile {ctx.lockfile} is missing and --locked was requested")
         lock = run_command([uv, "lock"], cwd=ctx.env_root, timeout=timeout)
         if not lock.ok:
-            lock.note = "uv lock failed"
+            lock.note = "\n".join([*notes, "uv lock failed"])
             return lock
-        note = f"created lockfile {ctx.lockfile.name}; commit it"
+        notes.append(f"created lockfile {ctx.lockfile.name}; commit it")
     argv = [uv, "sync", "--no-dev"] + (["--locked"] if locked else [])
     result = run_command(argv, cwd=ctx.env_root, timeout=timeout)
-    result.note = note
+    result.note = "\n".join(notes) or None
     return result
 
 
@@ -335,5 +391,5 @@ def host_summary() -> dict[str, str]:
     return {
         "platform": platform.platform(),
         "python": sys.version.split()[0],
-        "uv": (shutil.which("uv") or "missing"),
+        "uv": (uv_executable() or "missing"),
     }

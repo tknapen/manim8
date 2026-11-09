@@ -47,7 +47,9 @@ from scianim.skill import install_skill
 from scianim.sources.adapters import load_extracts, probe_all
 from scianim.styles.resolve import list_styles
 from scianim.workspace import (
+    BRIDGE_SOURCE_ENV,
     DEFAULT_STYLE_REF,
+    InitReport,
     find_workspace,
     init_family,
     init_project,
@@ -489,32 +491,52 @@ def family_init(
 ) -> None:
     """Create a family directory with family.yaml and a render-environment pyproject."""
     root = workspace_or_fail(workspace)
+    report = InitReport()
     try:
-        dest = init_family(root, family_id, style, from_example, title)
+        dest = init_family(root, family_id, style, from_example, title, report=report)
     except SpecError as exc:
         fail(str(exc))
-    out.print(f"[green]family created[/green] at {dest}\nnext: scianim family env sync {dest}")
+    for note in report.notes:
+        out.print(f"[yellow]note:[/yellow] {escape(note)}")
+    out.print(
+        f"[green]family created[/green] at {escape(str(dest))}\nnext: scianim family env sync {escape(str(dest))}"
+    )
 
 
 @env_app.command("sync")
 def family_env_sync(
     family: Annotated[Path, typer.Argument(help="Family directory or family.yaml.")],
     locked: Annotated[bool, typer.Option(help="Require an up-to-date lockfile instead of creating one.")] = False,
+    rewrite_sources: Annotated[
+        bool,
+        typer.Option(
+            help="Rewrite where the environment takes manim8-bridge and manim8-core from, for this control plane "
+            f"(or for {BRIDGE_SOURCE_ENV}), before syncing. Path sources that point at no package are rewritten "
+            "without being asked."
+        ),
+    ] = False,
 ) -> None:
     """Create or update the family's isolated render environment with uv."""
     try:
         ctx = load_family_context(family)
-        result = sync_environment(ctx, locked=locked)
+        result = sync_environment(ctx, locked=locked, rewrite_sources=rewrite_sources)
     except SpecError as exc:
         fail(str(exc))
-    if result.note:
-        out.print(f"[yellow]note:[/yellow] {result.note}")
+    for note in (result.note or "").splitlines():
+        out.print(f"[yellow]note:[/yellow] {escape(note)}")
     stream = result.stderr.strip() or result.stdout.strip()
     if stream:
-        out.print(stream[-3000:])
+        out.print(escape(stream[-3000:]))
     if not result.ok:
+        if "manim8-bridge" in stream and "registry" in stream:
+            err.print(
+                "[yellow]hint:[/yellow] manim8-bridge is not on the package index this environment uses. Install "
+                "manim8 from git (its families then take the bridge from the same commit), or set "
+                f"{BRIDGE_SOURCE_ENV}=git:<url>@<ref> or path:<packages dir>, and run "
+                f"`scianim family env sync --rewrite-sources {escape(str(ctx.root))}`"
+            )
         fail(f"`{' '.join(result.argv)}` exited {result.returncode} after {result.elapsed_seconds:.0f}s")
-    out.print(f"[green]environment ready[/green] at {ctx.venv_dir} ({result.elapsed_seconds:.0f}s)")
+    out.print(f"[green]environment ready[/green] at {escape(str(ctx.venv_dir))} ({result.elapsed_seconds:.0f}s)")
 
 
 @app.command()

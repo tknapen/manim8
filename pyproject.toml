@@ -16,6 +16,8 @@ dependencies = [
   "uvicorn>=0.30",
   "pillow>=10",
   "pypdf>=5",
+  # Family environments are built with uv; this ships its binary, so a pip-only install can sync them (ADR-043).
+  "uv>=0.5",
 ]
 
 [project.scripts]

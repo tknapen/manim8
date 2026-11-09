@@ -14,6 +14,7 @@ from scianim.families.resolve import (
     check_system_requirements,
     probe_environment,
     run_command,
+    uv_executable,
 )
 
 
@@ -39,12 +40,14 @@ def control_plane_checks(workspace: Path) -> list[Check]:
             f"{version.major}.{version.minor}.{version.micro} at {sys.executable}",
         )
     )
-    uv = shutil.which("uv")
+    uv = uv_executable()
     if uv:
         result = run_command([uv, "--version"], cwd=Path.cwd(), timeout=30)
-        checks.append(Check("uv", result.ok, result.stdout.strip() or result.stderr.strip()))
+        checks.append(Check("uv", result.ok, f"{result.stdout.strip() or result.stderr.strip()} at {uv}"))
     else:
-        checks.append(Check("uv", False, "not on PATH; install from https://docs.astral.sh/uv/"))
+        checks.append(
+            Check("uv", False, "not on PATH and the `uv` package is missing; install from https://docs.astral.sh/uv/")
+        )
     writable = os.access(workspace, os.W_OK)
     checks.append(Check("workspace writable", writable, str(workspace)))
     fc_list = shutil.which("fc-list")
@@ -80,6 +83,21 @@ def family_checks(ctx: FamilyContext) -> list[Check]:
         )
     )
     checks.append(Check(f"family '{manifest.id}' lockfile", ctx.lockfile.exists(), str(ctx.lockfile)))
+    pyproject = ctx.env_root / "pyproject.toml"
+    if pyproject.exists():
+        from scianim.workspace import unresolved_path_sources
+
+        broken = unresolved_path_sources(ctx.env_root, pyproject.read_text(encoding="utf-8"))
+        checks.append(
+            Check(
+                f"family '{manifest.id}' bridge sources",
+                not broken,
+                f"path sources point at no package: {', '.join(broken)}; `scianim family env sync {ctx.root}` "
+                "rewrites them for this control plane"
+                if broken
+                else "resolve from here",
+            )
+        )
     probe = probe_environment(ctx)
     if not probe.get("available"):
         checks.append(Check(f"family '{manifest.id}' environment", False, str(probe.get("reason"))))

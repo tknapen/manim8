@@ -6,11 +6,15 @@ them into a workspace, where environments, revisions and renders live.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
+import tomllib
 from dataclasses import dataclass, field
+from importlib import metadata
 from pathlib import Path
+from typing import Literal
 
 from scianim.config.loader import SpecError, load_animation, load_family, load_workspace_manifest
 from scianim.families.resolve import FAMILY_FILE, GROUP_FILE, locate_family, nearest_family
@@ -97,6 +101,112 @@ def packages_relative_to(directory: Path) -> str | None:
     return os.path.relpath(root, directory).replace(os.sep, "/") if root is not None else None
 
 
+BRIDGE_SOURCE_ENV = "SCIANIM_BRIDGE_SOURCE"
+"""Overrides where family environments take the bridge and the contracts from: `index`, `git:<url>@<ref>` or
+`path:<packages dir>` (ADR-043)."""
+
+BRIDGE_PACKAGES = {"manim8-bridge": "scianim_bridge", "manim8-core": "scianim_core"}
+"""The two distributions a family environment installs, and their directories under the repository's `packages/`."""
+
+
+@dataclass(frozen=True)
+class BridgeSource:
+    """Where a family environment takes `manim8-bridge` and `manim8-core` from (ADR-043).
+
+    `path`: a `packages/` directory, written as given (relative to the family directory, or absolute).
+    `git`: the repository `url` at `ref` (a commit for a git-installed control plane), from `packages/<name>`.
+    `index`: the package index at the control plane's version."""
+
+    kind: Literal["path", "git", "index"]
+    origin: str
+    """Why this source: `checkout`, `git install`, `release` or the environment variable."""
+    path: str | None = None
+    url: str | None = None
+    ref: str | None = None
+
+    def describe(self) -> str:
+        if self.kind == "path":
+            return f"the packages at {self.path} ({self.origin})"
+        if self.kind == "git":
+            return f"{self.url} at {self.ref or 'its default branch'} ({self.origin})"
+        from scianim import __version__
+
+        return f"the package index at {__version__} ({self.origin})"
+
+
+def control_plane_direct_url() -> dict[str, object] | None:
+    """The installed `manim8` distribution's PEP 610 record (`direct_url.json`), or None for an install from an
+    index or a wheel file found there, or when no distribution is installed."""
+    try:
+        text = metadata.distribution("manim8").read_text("direct_url.json")
+    except metadata.PackageNotFoundError:
+        return None
+    if not text:
+        return None
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _split_git_ref(value: str) -> tuple[str, str | None]:
+    """`<url>@<ref>` -> (url, ref); the `@` of a user name (`git@host:...`, `ssh://git@host/...`) is no ref."""
+    head, at, tail = value.rpartition("@")
+    if not at or not head or not tail or ":" in tail:  # a git ref never contains a colon
+        return value, None
+    if "://" in head and "/" not in head.split("://", 1)[1]:
+        return value, None  # `scheme://user@host/path`: the `@` sits before the path
+    if "/" not in head and ":" not in head:
+        return value, None  # `user@host:path`
+    return head, tail
+
+
+def parse_bridge_source(value: str, base: Path | None = None) -> BridgeSource:
+    """Read a `SCIANIM_BRIDGE_SOURCE` value: `index`, `git:<url>[@<ref>]` or `path:<packages dir>`. A relative
+    packages directory is taken from `base` (default: the working directory) and written as an absolute path."""
+    origin = BRIDGE_SOURCE_ENV
+    value = value.strip()
+    if value == "index":
+        return BridgeSource("index", origin)
+    kind, sep, rest = value.partition(":")
+    if sep and kind == "git" and rest:
+        url, ref = _split_git_ref(rest)
+        return BridgeSource("git", origin, url=url.removeprefix("git+"), ref=ref)
+    if sep and kind == "path" and rest:
+        packages = Path(rest).expanduser()
+        if not packages.is_absolute():
+            packages = (base or Path.cwd()) / packages
+        packages = packages.resolve()
+        missing = [name for name in BRIDGE_PACKAGES.values() if not (packages / name / "pyproject.toml").exists()]
+        if missing:
+            raise SpecError(None, f"{BRIDGE_SOURCE_ENV}: {packages} holds no {', '.join(missing)} package")
+        return BridgeSource("path", origin, path=packages.as_posix())
+    raise SpecError(
+        None, f"{BRIDGE_SOURCE_ENV} must be `index`, `git:<url>@<ref>` or `path:<packages dir>`, not {value!r}"
+    )
+
+
+def bridge_source(family_dir: Path) -> BridgeSource:
+    """Where a family environment created at `family_dir` takes the bridge and the contracts from: the
+    environment variable when set; a source checkout's own `packages/`; the commit a git-installed control plane
+    came from; otherwise the package index at the control plane's version (ADR-043)."""
+    override = os.environ.get(BRIDGE_SOURCE_ENV, "").strip()
+    if override:
+        return parse_bridge_source(override)
+    relative = packages_relative_to(family_dir)
+    if relative is not None:
+        return BridgeSource("path", "checkout", path=relative)
+    record = control_plane_direct_url()
+    vcs = record.get("vcs_info") if record else None
+    if record and isinstance(vcs, dict) and vcs.get("vcs") == "git" and vcs.get("commit_id"):
+        url = str(record.get("url", "")).removeprefix("git+")
+        subdirectory = str(record.get("subdirectory") or "").strip("/")
+        if url and not subdirectory:
+            return BridgeSource("git", "git install", url=url, ref=str(vcs["commit_id"]))
+    return BridgeSource("index", "release")
+
+
 def find_workspace(start: Path) -> Path | None:
     start = start.resolve()
     for candidate in (start, *start.parents):
@@ -179,12 +289,64 @@ def copy_styles(source: Path, destination: Path) -> list[Path]:
     return copied
 
 
-def family_pyproject_text(family_id: str, packages_relative: str | None) -> str:
-    """The family's environment definition. From a source checkout the bridge and the contracts are editable path
-    dependencies on it; from an installed control plane they come from the package index at the control plane's
-    own version, so the two sides speak the same contracts (ADR-037)."""
+def _toml_string(value: str) -> str:
+    return json.dumps(value)  # a JSON string is a valid TOML basic string
+
+
+def _as_source(source: BridgeSource | str | None) -> BridgeSource:
+    if isinstance(source, BridgeSource):
+        return source
+    if source is None:
+        return BridgeSource("index", "release")
+    return BridgeSource("path", "checkout", path=source.replace(os.sep, "/"))
+
+
+def bridge_dependencies(source: BridgeSource | str | None) -> list[str]:
+    """The family's requirements on the bridge and the contracts. Both are listed, so that uv applies a source
+    to `manim8-core` too (it is also a dependency of the bridge, ADR-008); from the index both are pinned at the
+    control plane's version, so the two sides speak the same contracts (ADR-037)."""
     from scianim import __version__
 
+    if _as_source(source).kind == "index":
+        return [f"{name}=={__version__}" for name in BRIDGE_PACKAGES]
+    return list(BRIDGE_PACKAGES)
+
+
+def bridge_sources_block(source: BridgeSource | str | None) -> str:
+    """The `[tool.uv.sources]` table for a path or git source; empty for the index."""
+    source = _as_source(source)
+    if source.kind == "index":
+        return ""
+    lines = ["[tool.uv.sources]"]
+    if source.kind == "path":
+        assert source.path is not None
+        root = source.path.rstrip("/")
+        lines.append(
+            "# Development: editable path dependencies on a manim8 checkout. `family env sync` rewrites them when"
+            "\n# they do not resolve (the workspace was moved or cloned elsewhere); bundle export removes them."
+        )
+        for name, directory in BRIDGE_PACKAGES.items():
+            lines.append(f"{name} = {{ path = {_toml_string(f'{root}/{directory}')}, editable = true }}")
+    else:
+        assert source.url is not None
+        what = "the commit the control plane was installed from" if source.origin == "git install" else source.origin
+        lines.append(f"# The bridge and the contracts from git: {what} (ADR-043).")
+        rev = f", rev = {_toml_string(source.ref)}" if source.ref else ""
+        for name, directory in BRIDGE_PACKAGES.items():
+            lines.append(
+                f"{name} = {{ git = {_toml_string(source.url)}{rev}, "
+                f"subdirectory = {_toml_string(f'packages/{directory}')} }}"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def family_pyproject_text(family_id: str, source: BridgeSource | str | None) -> str:
+    """The family's environment definition. `source` says where the bridge and the contracts come from
+    (`bridge_source`): from a source checkout, editable path dependencies on it; from a git-installed control
+    plane, the same commit; otherwise the package index at the control plane's own version (ADR-037, ADR-043).
+    A string is a path to the checkout's `packages/`; None is the index."""
+    source = _as_source(source)
+    deps = ", ".join(_toml_string(d) for d in bridge_dependencies(source))
     head = f"""# Render environment for the {family_id} family: `uv sync` here creates .venv with Manim and the
 # manim8 render bridge. The control plane (`manim8`) is deliberately absent. uv.lock is shareable; .venv is not.
 [project]
@@ -200,26 +362,78 @@ dev = ["pytest>=8"]
 [tool.uv]
 package = false
 """
-    if packages_relative is None:
+    if source.kind == "index":
         return (
             head
             + "# Release: the bridge and the contracts at the control plane's version, from the package index.\n"
-            + f'dependencies = ["manim8-bridge=={__version__}", "manim8-core=={__version__}"]\n'
+            + f"dependencies = [{deps}]\n"
             + tail
         )
-    rel = packages_relative.replace(os.sep, "/")
     return (
         head
-        + "# manim8-core is listed explicitly so that uv applies its path source (ADR-008).\n"
-        + 'dependencies = ["manim8-bridge", "manim8-core"]\n'
+        + "# manim8-core is listed explicitly so that uv applies its source (ADR-008).\n"
+        + f"dependencies = [{deps}]\n"
         + tail
-        + f'''
-[tool.uv.sources]
-# Development: editable path dependencies on the source checkout. Bundle export replaces these.
-manim8-bridge = {{ path = "{rel}/scianim_bridge", editable = true }}
-manim8-core = {{ path = "{rel}/scianim_core", editable = true }}
-'''
+        + "\n"
+        + bridge_sources_block(source)
     )
+
+
+def declared_bridge_sources(pyproject_text: str) -> dict[str, dict[str, object]]:
+    """The `[tool.uv.sources]` entries a family environment declares for the bridge and the contracts."""
+    try:
+        data = tomllib.loads(pyproject_text)
+    except tomllib.TOMLDecodeError:
+        return {}
+    sources = data.get("tool", {}).get("uv", {}).get("sources", {})
+    return {name: dict(sources[name]) for name in BRIDGE_PACKAGES if isinstance(sources.get(name), dict)}
+
+
+def unresolved_path_sources(env_root: Path, pyproject_text: str) -> list[str]:
+    """Path sources for the bridge or the contracts that point at no package from `env_root` (a workspace that
+    was moved, or cloned onto another machine)."""
+    broken: list[str] = []
+    for entry in declared_bridge_sources(pyproject_text).values():
+        path = entry.get("path")
+        if isinstance(path, str) and not (env_root / path / "pyproject.toml").exists():
+            broken.append(path)
+    return broken
+
+
+_BRIDGE_KEY = re.compile(r"^\s*\"?(manim8-bridge|manim8-core)\"?\s*=")
+_BRIDGE_SUBTABLE = re.compile(r"^\s*\[tool\.uv\.sources\.\"?(manim8-bridge|manim8-core)\"?\]\s*$")
+_BRIDGE_REQUIREMENT = re.compile(r"([\"'])(manim8-bridge|manim8-core)(?![\w.-])[^\"']*\1")
+
+
+def rewrite_bridge_sources(text: str, source: BridgeSource | str | None) -> str:
+    """The family pyproject with its requirements on, and sources for, the bridge and the contracts set for
+    `source`. Everything else (other dependencies, other sources, comments outside the sources table) is kept."""
+    source = _as_source(source)
+    wanted = dict(zip(BRIDGE_PACKAGES, bridge_dependencies(source), strict=True))
+    text = _BRIDGE_REQUIREMENT.sub(lambda m: f"{m.group(1)}{wanted[m.group(2)]}{m.group(1)}", text)
+    kept: list[tuple[str | None, str]] = []
+    table: str | None = None
+    skipping = False
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith("[") and not stripped.startswith("[["):
+            skipping = bool(_BRIDGE_SUBTABLE.match(line))
+            table = None if skipping else stripped
+            if skipping or stripped == "[tool.uv.sources]":
+                continue  # the header is written again below when entries remain
+        if skipping:
+            continue
+        if table == "[tool.uv.sources]" and (stripped.startswith("#") or _BRIDGE_KEY.match(line)):
+            continue  # the comments in this table are the templates' own
+        kept.append((table, line))
+    others = [line for t, line in kept if t == "[tool.uv.sources]" and line.strip()]
+    body = "".join(line for t, line in kept if t != "[tool.uv.sources]").rstrip("\n") + "\n"
+    block = bridge_sources_block(source)
+    if not block and not others:
+        return body
+    if not block:
+        block = "[tool.uv.sources]\n"
+    return body + "\n" + block + "".join(others)
 
 
 def family_yaml_text(family_id: str, title: str, style_ref: str) -> str:
@@ -267,21 +481,21 @@ def init_family(
     dest = workspace / "families" / family_id
     if dest.exists():
         raise SpecError(dest, "family directory already exists")
+    source = bridge_source(dest)
     dest.mkdir(parents=True)
-    packages_relative = packages_relative_to(dest)
     if from_example:
-        source = examples_root() / "families" / from_example
-        if not (source / FAMILY_FILE).exists():
-            raise SpecError(source, f"example family '{from_example}' not found")
-        shutil.copy2(source / FAMILY_FILE, dest / FAMILY_FILE)
+        example = examples_root() / "families" / from_example
+        if not (example / FAMILY_FILE).exists():
+            raise SpecError(example, f"example family '{from_example}' not found")
+        shutil.copy2(example / FAMILY_FILE, dest / FAMILY_FILE)
         rewrite_top_level_keys(dest / FAMILY_FILE, {"id": family_id, **({"title": yaml_quote(title)} if title else {})})
         for extra in ("README.md", ".python-version"):
-            if (source / extra).exists():
-                shutil.copy2(source / extra, dest / extra)
-        example_relative = packages_relative_to(source)
-        if (source / "uv.lock").exists() and packages_relative is not None and example_relative == packages_relative:
-            shutil.copy2(source / "uv.lock", dest / "uv.lock")
-        elif (source / "uv.lock").exists():
+            if (example / extra).exists():
+                shutil.copy2(example / extra, dest / extra)
+        example_relative = packages_relative_to(example)
+        if (example / "uv.lock").exists() and source.origin == "checkout" and example_relative == source.path:
+            shutil.copy2(example / "uv.lock", dest / "uv.lock")
+        elif (example / "uv.lock").exists():
             report.notes.append(
                 f"{dest}: the example's lockfile pins development paths and was not copied; "
                 "`family env sync` will create one"
@@ -291,10 +505,12 @@ def init_family(
             family_yaml_text(family_id, title or family_id.replace("_", " ").title(), style_ref), encoding="utf-8"
         )
         (dest / ".python-version").write_text("3.12\n", encoding="utf-8")
-    (dest / "pyproject.toml").write_text(family_pyproject_text(family_id, packages_relative), encoding="utf-8")
+    (dest / "pyproject.toml").write_text(family_pyproject_text(family_id, source), encoding="utf-8")
     for name in ("components", "assets"):
         (dest / name).mkdir(exist_ok=True)
     report.created.append(dest / FAMILY_FILE)
+    if source.origin != "checkout":
+        report.notes.append(f"{dest}: the render environment takes the bridge from {source.describe()}")
     return dest
 
 

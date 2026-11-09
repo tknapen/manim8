@@ -9,7 +9,7 @@ from pathlib import Path
 
 from scianim.bundles.archive import BundleError, inspect_bundle, safe_member_name
 from scianim.config.loader import SpecError
-from scianim.workspace import WORKSPACE_FILE, family_pyproject_text, packages_relative_to
+from scianim.workspace import WORKSPACE_FILE, bridge_source, family_pyproject_text, packages_relative_to
 from scianim_core.bundle import BUNDLE_ROOT, CHECKSUM_FILE, BundleManifest
 
 
@@ -54,9 +54,8 @@ def import_bundle(archive: Path, workspace: Path, family_id: str | None = None) 
                 text = text.replace(f"\nid: {manifest.family.id}\n", f"\nid: {family_id}\n", 1)
             (family_dir / "family.yaml").write_text(text, encoding="utf-8")
             packages_relative = packages_relative_to(family_dir)
-            (family_dir / "pyproject.toml").write_text(
-                family_pyproject_text(target_family, packages_relative), encoding="utf-8"
-            )
+            source = bridge_source(family_dir)
+            (family_dir / "pyproject.toml").write_text(family_pyproject_text(target_family, source), encoding="utf-8")
             for name in ("components", "assets"):
                 (family_dir / name).mkdir(exist_ok=True)
             if "environments/.python-version" in entries:
@@ -67,8 +66,8 @@ def import_bundle(archive: Path, workspace: Path, family_id: str | None = None) 
                 report.lockfile_reused = True
             elif lock_entry:
                 report.warnings.append(
-                    "lockfile not reused: this control plane is installed, so the family takes the bridge from the "
-                    "package index; `family env sync` will resolve afresh"
+                    f"lockfile not reused: this control plane is installed, so the family takes the bridge from "
+                    f"{source.describe()}; `family env sync` will resolve afresh"
                     if packages_relative is None
                     else f"lockfile not reused: packages/ was at {manifest.environment.packages_relative} at export and is at {packages_relative} here; `family env sync` will resolve afresh"
                 )
