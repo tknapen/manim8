@@ -912,10 +912,36 @@
           "title": "Expected Time Seconds",
           "type": "number"
         },
+        "frozen": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Frozen",
+          "type": "array"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
         "scene_id": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Scene Id",
           "type": "string"
+        },
+        "stop": {
+          "default": false,
+          "title": "Stop",
+          "type": "boolean"
         }
       },
       "required": [

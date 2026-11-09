@@ -145,6 +145,19 @@
           "default": null,
           "title": "Fidelity Note"
         },
+        "frame_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Index"
+        },
         "height_px": {
           "exclusiveMinimum": 0,
           "title": "Height Px",
@@ -1556,10 +1569,36 @@
           "title": "Expected Time Seconds",
           "type": "number"
         },
+        "frozen": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Frozen",
+          "type": "array"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
         "scene_id": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Scene Id",
           "type": "string"
+        },
+        "stop": {
+          "default": false,
+          "title": "Stop",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1568,6 +1607,66 @@
         "description"
       ],
       "title": "SnapshotTarget",
+      "type": "object"
+    },
+    "StopRecord": {
+      "additionalProperties": false,
+      "description": "A stop of the rendered movie: a frame where a player may hold it until the presenter's next key (ADR-045).\n\nThe control plane derives it after a video job from the job's snapshots, the checkpoints the scene reached,\nthe plays and the sampled frames; the bridge does not write it.",
+      "properties": {
+        "frame_index": {
+          "minimum": 0,
+          "title": "Frame Index",
+          "type": "integer"
+        },
+        "frozen": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Frozen",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "notes": {
+          "title": "Notes",
+          "type": "string"
+        },
+        "rest_after_frames": {
+          "minimum": 0,
+          "title": "Rest After Frames",
+          "type": "integer"
+        },
+        "rest_before_frames": {
+          "minimum": 0,
+          "title": "Rest Before Frames",
+          "type": "integer"
+        },
+        "snapshot_id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "time_seconds": {
+          "minimum": 0,
+          "title": "Time Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "label",
+        "notes",
+        "frame_index",
+        "time_seconds",
+        "rest_before_frames",
+        "rest_after_frames"
+      ],
+      "title": "StopRecord",
       "type": "object"
     },
     "StyleTokens": {
@@ -2101,6 +2200,14 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "stops": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StopRecord"
+          },
+          "title": "Stops",
+          "type": "array"
         },
         "subtitles": {
           "anyOf": [

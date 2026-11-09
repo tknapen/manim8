@@ -49,6 +49,12 @@ class SnapshotTarget(StrictModel):
     scene_id: Slug
     expected_time_seconds: float = Field(ge=0)
     description: str
+    stop: bool = False
+    """The storyboard marks this snapshot as a stop, a place where a player may hold the clip (ADR-045)."""
+    label: str | None = None
+    """A stop's label as a player shows it (the storyboard's `label`, else the id with spaces); None otherwise."""
+    frozen: list[Slug] = []
+    """A stop's `stop_through` orbits that turn in its rest or across it: a hold there freezes the camera."""
 
 
 class SceneTarget(StrictModel):
@@ -235,6 +241,10 @@ class CheckpointRecord(StrictModel):
     renderer_time_seconds: float | None = None
     fidelity: Fidelity = "exact"
     fidelity_note: str | None = None
+    frame_index: int | None = Field(default=None, ge=0)
+    """The 0-based index of the movie frame this still shows: for a sampled video frame, the decoded frame that was
+    saved; for a checkpoint captured in the flow, the frame the scene's clock had reached. None in records written
+    before the field existed (ADR-045)."""
     layout: list[LayoutItem] = []
     warnings: list[LayoutWarning] = []
 
@@ -255,6 +265,28 @@ class VideoRecord(StrictModel):
     frame_count: int | None = None
     codec: str | None = None
     sha256: Sha256
+
+
+class StopRecord(StrictModel):
+    """A stop of the rendered movie: a frame where a player may hold it until the presenter's next key (ADR-045).
+
+    The control plane derives it after a video job from the job's snapshots, the checkpoints the scene reached,
+    the plays and the sampled frames; the bridge does not write it."""
+
+    snapshot_id: Slug
+    label: str = Field(min_length=1)
+    notes: str
+    """The snapshot's description: what the still shows, for a presenter's notes."""
+    frame_index: int = Field(ge=0)
+    """The 0-based frame of the movie the hold shows: `round(time_seconds * fps)`, the first frame of a play."""
+    time_seconds: float = Field(ge=0)
+    """When the scene reached the stop: `frame_index / fps`."""
+    rest_before_frames: int = Field(ge=0)
+    """Frames of static plays (nothing moves) just before the stop's frame."""
+    rest_after_frames: int = Field(ge=0)
+    """Frames of static plays from the stop's frame on, the stop's frame included."""
+    frozen: list[Slug] = []
+    """`orbit_camera` ids that keep turning through the stop (named in its `stop_through`)."""
 
 
 class PartReport(StrictModel):
@@ -294,6 +326,9 @@ class WorkerResult(StrictModel):
     repeats the plan)."""
     reached: list[ReachedCheckpoint] = []
     """Checkpoints reached, with their clock (`plan_video`)."""
+    stops: list[StopRecord] = []
+    """The movie's stops in time order (ADR-045), written by the control plane after a video job; empty for
+    other jobs and for a storyboard without stops."""
     segments: list[SegmentRecord] = []
     """Encoded segments, one per play drawn (`render_video_part`; a merge lists what it joined)."""
     parts: list[PartReport] = []

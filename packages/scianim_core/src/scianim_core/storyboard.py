@@ -7,7 +7,7 @@ import re
 from itertools import combinations
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, StringConstraints, model_validator
 
 from scianim_core.common import SchemaVersion, Slug, StrictModel, ensure_unique
 from scianim_core.components import (
@@ -146,11 +146,53 @@ class SceneObject(StrictModel):
         return validate_params(self.kind, self.params)
 
 
+STOP_REST_SECONDS = 0.3
+"""The rest a stop needs before it (ADR-045): no reveal, action or scene fade may run in the 0.3 s before a stop.
+A player pauses up to this much early when it cannot watch frames, then seeks to the stop's exact frame; the rest
+hides the jump. An action may start at the stop itself."""
+STOP_SPACING_SECONDS = 0.5
+"""The least time between two stops (ADR-045)."""
+STOP_LABEL_MAX = 40
+
+StopLabel = Annotated[str, StringConstraints(min_length=1, max_length=STOP_LABEL_MAX, pattern=r"^[^\x00-\x1f\x7f<>]*$")]
+"""A stop's label: plain text on one line, 1 to 40 characters, no markup."""
+
+
 class Snapshot(StrictModel):
     id: Slug
     at_seconds: float = Field(ge=0)
     description: str = Field(min_length=1)
     kind: SnapshotKind = "manim_checkpoint"
+    stop: bool = False
+    """A place where a player may hold the clip until the presenter's next key (ADR-045). The clip stays one movie;
+    a stop changes no picture, since a snapshot is already a breakpoint of the generated scene. Validation asks a
+    rest of 0.3 s before it (`STOP_REST_SECONDS`) and refuses it at a scene start, on the last frame, within 0.5 s
+    of another stop, while an orbit turns the camera across it, and where its checkpoint would be approximate."""
+    label: StopLabel | None = None
+    """A short name for the hold, shown under its still (a stop only); omitted means the id with spaces."""
+    stop_through: list[Slug] = []
+    """Ids of `orbit_camera` actions of this scene allowed to keep turning through the stop (a stop only): a
+    player holding there freezes the camera mid-turn, which validation then reports as a warning
+    (`stop_freezes_camera`) instead of refusing the stop."""
+
+    @model_validator(mode="after")
+    def _stop_fields(self) -> Snapshot:
+        if not self.stop and (self.label is not None or self.stop_through):
+            raise ValueError(
+                f"snapshot '{self.id}': label and stop_through describe a stop; set stop: true or remove them"
+            )
+        ensure_unique(self.stop_through, f"stop_through (snapshot '{self.id}')")
+        if self.stop and self.label is None and len(self.id) > STOP_LABEL_MAX:
+            raise ValueError(
+                f"snapshot '{self.id}': a stop's label defaults to its id with spaces, which is longer than "
+                f"{STOP_LABEL_MAX} characters; give it a label"
+            )
+        return self
+
+    @property
+    def stop_label(self) -> str:
+        """The label a player shows for this stop: `label`, or the id with spaces."""
+        return self.label if self.label is not None else self.id.replace("_", " ")
 
 
 class VaryParameter(StrictModel):
@@ -714,6 +756,17 @@ class Scene(StrictModel):
     def duration_seconds(self) -> float:
         return self.end_seconds - self.start_seconds
 
+    def orbits_moving_at(self, seconds: float, rest_seconds: float = STOP_REST_SECONDS) -> list[OrbitCamera]:
+        """The camera orbits that turn in the `rest_seconds` before `seconds` or across it: the ones a player
+        holding the clip at `seconds` would freeze (ADR-045). An orbit that starts at `seconds` is not one."""
+        return [
+            action
+            for action in self.actions
+            if isinstance(action, OrbitCamera)
+            and action.at_seconds < seconds - 1e-9
+            and action.end_seconds > seconds - rest_seconds + 1e-9
+        ]
+
 
 class Storyboard(StrictModel):
     schema_version: SchemaVersion
@@ -748,6 +801,11 @@ class Storyboard(StrictModel):
 
     def snapshot_ids(self) -> list[str]:
         return [snap.id for s in self.scenes for snap in s.snapshots]
+
+    def stops(self) -> list[tuple[Scene, Snapshot]]:
+        """The snapshots marked `stop`, with their scenes, in time order (ADR-045)."""
+        found = [(scene, snap) for scene in self.scenes for snap in scene.snapshots if snap.stop]
+        return sorted(found, key=lambda item: item[1].at_seconds)
 
     def objects(self) -> list[SceneObject]:
         return [o for s in self.scenes for o in s.objects]

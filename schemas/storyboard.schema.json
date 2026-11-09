@@ -1009,6 +1009,35 @@
           ],
           "title": "Kind",
           "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f\\x7f<>]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "stop": {
+          "default": false,
+          "title": "Stop",
+          "type": "boolean"
+        },
+        "stop_through": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "title": "Stop Through",
+          "type": "array"
         }
       },
       "required": [

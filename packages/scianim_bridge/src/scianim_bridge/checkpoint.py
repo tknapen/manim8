@@ -66,6 +66,7 @@ def checkpoint(scene: SnapshotScene, snapshot_id: str, expected_time: float | No
             if time_based
             else None
         ),
+        frame_index=scene.frames(scene.clock),
         layout=items,
         warnings=warnings,
     )

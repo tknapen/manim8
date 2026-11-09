@@ -386,6 +386,7 @@ def _save_sample(
         renderer_time_seconds=time,
         fidelity="exact",
         fidelity_note=f"frame {index} of the rendered video",
+        frame_index=index,
         layout=[],
         warnings=[],
     )
