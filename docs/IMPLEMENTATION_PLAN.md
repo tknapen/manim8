@@ -248,6 +248,12 @@ B; the storyboard sheet before snapshots; layout and timing changes applied by t
   and `family env sync` repairs path sources that no longer resolve; `uv` ships with manim8; `workspace init`
   writes a `.gitignore`. Tests: `tests/unit/test_consumer_output.py`, `tests/unit/test_distribution.py`,
   `tests/integration/test_consumer_render.py` and `.github/scripts/git_install_check.sh` in CI.
+- [x] Q. Stops (ADR-045): `stop`, `label` and `stop_through` on snapshots, validated beside the actions and left
+  out of scene fingerprints; `CheckpointRecord.frame_index`; `result.stops` written by the control plane after a
+  video job, with a final render that fails when a stop could not be held; parts in `scianim timing`; stops on
+  the review sheet. Tests: `tests/unit/test_stops.py` (with a recorded manifest in `tests/fixtures/stops/`) and
+  `tests/integration/test_stops.py`, a final render with a keyframe at each stop. Open: a proposal rule that
+  splits an orbit at the stops (`split_orbit_at_stops`).
 
 ## Core automated test matrix
 

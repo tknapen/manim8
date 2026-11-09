@@ -1396,3 +1396,84 @@ needs nothing outside the family environment, and keeps the control plane free o
 under the same name is not seen. Installing or removing any font changes the fingerprint and so every key on
 that machine, which costs one render per job and never gives a wrong picture. Keys computed before this
 decision differ from the new ones, so the first render after the upgrade is not a cache hit.
+
+## ADR-045: Stops: checkpoints where a player may hold one clip
+
+**Status:** accepted, 9 November 2026
+
+**Context.** lecturekit presents clips in live lecture decks. A lecturer often wants the room to predict before
+the motion continues: the pool is raised, then "what will sigma do?". The clip should stay one movie, which
+keeps one mechanism in one file, one review and one approval, rather than become a sequence of clips. The deck
+then needs to know where it may hold the movie, on exactly which frame, and what the still there shows. A
+storyboard snapshot is almost that already: its time is a breakpoint of the generated scene, its state is the
+first frame of the next play, and every play starts on a keyframe of the movie. What was missing was a way to
+say which snapshots a player may hold, rules that make the hold invisible, and a record a consumer can read
+without parsing text (the frame index of a sampled frame existed only in `fidelity_note`). A prototype in
+lecturekit (`docs/plans/segmentation-prototype/`) measured the player's side: a pause lands up to two frames
+early when the browser reports frames and up to 0.3 s early when it does not, and a seek to the middle of the
+stop frame then holds exactly that frame.
+
+**Decision.**
+
+1. *Storyboard fields.* A `Snapshot` gains three fields, all defaulted: `stop` (false), `label` (plain text on
+   one line, 1 to 40 characters, no markup; omitted, the id with spaces) and `stop_through` (ids of
+   `orbit_camera` actions of the scene, default empty). `label` and `stop_through` belong to a stop. A stop
+   changes no picture and no generated code.
+2. *Validation* (`planning/checks.py`, `check_stops`), each an error:
+   - a stop whose checkpoint would be approximate: its scene draws a custom object whose builder module has a
+     function or lambda with a `dt` parameter, Manim's mark of a time-based updater;
+   - any reveal, action (its lead-in included) or scene fade that runs in the 0.3 s before the stop
+     (`STOP_REST_SECONDS`); an action may start at the stop. A stop inside a closing fade gets this message
+     before codegen, instead of the later "snapshot without a checkpoint() marker";
+   - a stop on a scene's first frame or on the clip's last frame (a player holds the start and the end by
+     itself);
+   - two stops less than 0.5 s apart (`STOP_SPACING_SECONDS`) or on one frame;
+   - an `orbit_camera` that turns across a stop or in its rest, unless the stop names it in `stop_through`;
+     then it is the warning `stop_freezes_camera`, and the stop records the orbit as `frozen`.
+3. *Fingerprints.* `stop`, `label` and `stop_through` are left out of the scene fingerprints (ADR-033), as
+   `patterns` is, and a change to them alone does not make a scene stale. The storyboard's hash, and with it the
+   revision and the job cache key, does change; the segment store serves every play unchanged.
+4. *Job and result records.* `SnapshotTarget` carries `stop`, `label` and `frozen`. `CheckpointRecord` gains
+   `frame_index`, the 0-based movie frame a still shows; the bridge fills it for sampled video frames and for
+   checkpoints captured in the flow. After a video job the control plane writes `result.stops`: per stop, in
+   time order, `snapshot_id`, `label`, `notes` (the snapshot's description), `frame_index`, `time_seconds`,
+   `rest_before_frames`, `rest_after_frames` (frames of static plays before the stop's frame and from it on)
+   and `frozen`. It derives them from `job.snapshots`, `result.reached`, `result.plays` and
+   `result.checkpoints`; the bridge does not write them. A cached job answers with the stops its manifest holds.
+5. *Render policy.* A final render fails when a stop's frame is not the first frame of a play, when the still
+   sampled for it comes from another frame, or when the plays over its rest (`floor(0.3 * fps)` frames) are not
+   static, unless the stop is frozen, which warns. Any other profile only warns, as for timing.
+6. *Tooling.* `scianim timing` lists the parts between stops, the render report and the review sheet mark the
+   stops, and the agent skill asks about stops when a brief says the clip is presented in parts. Adding a stop
+   is the person's decision.
+7. *Versioning.* The fields are additive with defaults (ADR-037): storyboards, jobs, results and manifests stay
+   at schema 1.0, and the published schemas are regenerated.
+8. *Scope.* The product definition (PROJECT_SPEC, section 18) gains one clause: a clip may mark stops where a
+   player holds it; it remains one movie.
+
+**Why.** A snapshot already sits on a breakpoint, so a stop costs one line and gives a frame-exact hold reached by
+the real animation flow, a reviewed still and a keyframe. The rules come from the player's measured behaviour:
+the rest before a stop hides an early pause, the spacing keeps each part a motion, and a camera that turns
+through a hold would jump when the player seeks. The control plane derives the record from facts the worker
+already reports, so the bridge's contract barely changes and a consumer reads one list instead of joining
+snapshots, clocks and plays itself. The deck, not manim8, chooses which stops to use and what to print, so
+manim8 marks candidates and nothing more.
+
+**Limits.** An action that starts at a stop starts on the stop's frame, so the hold shows that action's first
+frame, and a sweep draws its readout there. In divisive_normalization with a stop at `excitation_visible`, frames
+86 to 119 are identical and frame 120, the stop, differs from 119 by up to 219/255 in luma over about 9,000
+pixels: the readout "gain g = 1.0" appears as the player holds. The render lists such stops as a warning, and
+`rest_after_frames` is 0 for them. A consumer that measures rests on pixels should compare the frames before
+the stop with one another, not with the stop's frame. Making a track's first frame equal the frame before it
+would remove the jump, and changes pictures, so it is left for a later decision. Inside a static rest the
+encoded movie is not bit-still: H.264 noise reached 24/255 in luma on a few dozen pixels between frames of one
+static wait, and 40/255 across the keyframe at a stop. The check for time-based updaters reads the builder's
+source for a `dt` parameter; an updater
+attached by other means (a library helper) is not seen until a render, where its plays are not static and the
+final render fails. A frozen stop is accepted at validation and in a final render, but the hold freezes the
+camera mid-turn and the player's early pause shows a small jump. Splitting an orbit at the stops is left to
+the person: a proposal rule (`split_orbit_at_stops`) needs the camera's angles at each stop, which the
+storyboard does not state, and is future work. Older cores reject storyboards that carry stops, because the
+models are strict; a consumer pins manim8 by commit. Of the 29 snapshots in the examples, 5 are valid stops as
+they stand (two in divisive_normalization, three in orientation_tuning); every snapshot of gabor_filter,
+prf_tuning and drop_impact fails the orbit rule, since each has one orbit over the whole clip.

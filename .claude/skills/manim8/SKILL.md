@@ -58,6 +58,11 @@ Each stage ends in something the person can look at. Stop after each one and wai
    uncertainties the sources do not settle. Choose one pattern per scene, two at most, and name it in the
    scene's `patterns`. Check with `scianim propose validate <project> <file>`, write with
    `scianim propose apply <project> <file>`.
+   If the brief says the clip is presented in parts (a lecturer holds it so the room can predict), ask where the
+   holds go and what each should show. Mark those snapshots `stop: true`, with a short `label`, only on the
+   person's word: a stop is their decision, like any reveal. A stop needs a still picture in the 0.3 s before
+   it and no camera orbit turning across it; `scianim validate` says what is in the way, and
+   `scianim timing <project>` lists the parts between stops (ADR-045).
 4. **Keyframes.** `scianim validate <project>` until it reports no errors; read its warnings, which are usually
    right (a rest that is too short, a checkpoint inside a fade). Then `scianim codegen <project>` and
    `scianim snapshot <project> --all`. Look before you show: read every checkpoint image, its entry in the job's
@@ -81,8 +86,8 @@ Each stage ends in something the person can look at. Stop after each one and wai
 ## Ask, do not decide
 
 - Ask before approving anything, before a final render, before any change to equations, data, sources or
-  claims that the person has not seen (a proposal marks it `touches_science`), and before deleting or
-  overwriting a file you did not write.
+  claims that the person has not seen (a proposal marks it `touches_science`), before adding, moving or removing
+  a stop, and before deleting or overwriting a file you did not write.
 - Put what you cannot settle under the proposal's `uncertainties` and ask. Never invent numbers, citations or
   mechanisms. Illustrative data are labelled as such, in the source's `citation` and the object's
   `data_label`.
@@ -106,7 +111,7 @@ Each stage ends in something the person can look at. Stop after each one and wai
   manim8. In a workspace that was moved or cloned, the sync rewrites the family's bridge sources and says so;
   tell the person, and commit the family's `pyproject.toml` and `uv.lock` only when they ask.
 - Another tool (a deck builder) reads a render with `scianim render <project> --json`: the manifest alone on
-  stdout. Do not parse the printed paths.
+  stdout, the stops in `result.stops`. Do not parse the printed paths.
 - Layout warnings: move or resize the object (its anchor, `below`, `right_of`), not the checkpoint.
 - Timing warnings: change the times in the storyboard, not the style. The rest between two motions of one
   object comes from the style's `motion.hold_seconds`.

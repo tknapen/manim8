@@ -137,6 +137,29 @@ by the old code, and, like the job cache, by the font families the family enviro
 fontconfig the render runs with (`FONTCONFIG_FILE`), so a render made where a style's faces were missing is not
 reused where they are present (ADR-044); `scianim clean` removes both.
 
+A clip that a lecturer presents in parts marks stops: snapshots where a player may hold it until the next key
+(ADR-045). The clip stays one movie; the deck decides which stops it uses.
+
+```yaml
+    snapshots:
+      - id: pool_raised
+        at_seconds: 13
+        description: "After the first sweep the curve is compressed to a fifth of its slope."
+        stop: true
+        label: "pool raised to 4"      # under the still; omitted, the id with spaces
+        stop_through: []               # orbit_camera ids allowed to keep turning through the stop
+```
+
+A player pauses up to 0.3 s early and then seeks to the stop's frame, so `scianim validate` asks the picture to
+rest there: nothing may be revealed, move or fade in the 0.3 s before a stop, though an action may start at the
+stop itself. A stop may not sit on a scene's first frame or the clip's last (a player holds the start and the
+end by itself), within 0.5 s of another, or in a scene whose custom builder uses time-based updaters. A camera
+orbit that turns across a stop is refused, because the hold would freeze it mid-turn; split the orbit so that a
+piece ends 0.3 s before the stop, or name it in `stop_through` to accept the freeze, which validation reports
+as `stop_freezes_camera`. `scianim timing <project>` lists the parts between the stops, the render report and
+the review sheet mark each stop with its frame, and the manifest's `result.stops` gives a deck what it needs
+(below). A final render fails when a stop could not be held exactly; a draft warns.
+
 ```bash
 scianim propose from-feedback <project>            # open feedback and inspection findings -> proposals by rules
 scianim propose from-feedback <project> --apply    # and apply the ones that validate
@@ -408,11 +431,20 @@ on stdout; the reason is on stderr. Every path in the manifest is relative to th
 | What | Where |
 |---|---|
 | The movie | `result.videos[0]`: `path`, `width_px`, `height_px`, `fps`, `duration_seconds`, `frame_count`, `sha256`. The files in `result.sections` are single scenes, not the movie. |
-| The stills | `result.checkpoints[]`: `snapshot_id`, `png`, `expected_time_seconds`, `renderer_time_seconds`, `width_px`, `height_px`. A video job extracts one frame per storyboard snapshot (`kind: sampled_video_frame`); a snapshot job captures them in the flow (`manim_checkpoint`). |
+| The stills | `result.checkpoints[]`: `snapshot_id`, `png`, `expected_time_seconds`, `renderer_time_seconds`, `frame_index`, `width_px`, `height_px`. A video job extracts one frame per storyboard snapshot (`kind: sampled_video_frame`); a snapshot job captures them in the flow (`manim_checkpoint`). `frame_index` is the 0-based movie frame the still shows. |
+| The stops | `result.stops[]`, in time order (ADR-045): `snapshot_id`, `label`, `notes` (the snapshot's description), `frame_index` (0-based, authoritative), `time_seconds` (`frame_index / fps`), `rest_before_frames` and `rest_after_frames` (static frames before the stop's frame, and from it on) and `frozen` (orbits that turn through it). Empty when the storyboard marks no stops. |
 | What was rendered | `job.revision_id` (`working` or `rev_NNNN`), `job.quality_profile`, `job.cache_key`, `job.registry_version`, `inputs` (hashes of every input) |
 | The style | `job.resolved_style.theme`, `theme_version` and `hash` |
 | The outcome | `result.status` (`succeeded`), `result.warnings`, `cache_hit` |
 | The contract | `schema_version`: refuse a manifest whose version you do not know |
+
+A deck that holds a clip at its stops reads `result.stops` and nothing else: each stop's frame is the first
+frame of a play and, in a final render, a keyframe with at least 0.3 s of still picture before it, so a player
+that pauses a little early and then seeks to the middle of `frame_index` shows exactly the frame the scene
+reached. When an action starts at the stop, that frame is already the action's first, and a sweep's readout
+appears on it; the render warns about such stops and their `rest_after_frames` is 0. The deck chooses which
+stops to use; a final render that could not keep these promises fails instead of writing a manifest a deck would
+trust.
 
 `--style name@version` renders one job under another published style without touching the project: the working
 copy, or a revision whose frozen specs and code stay as they are. The project's own style overrides still apply.

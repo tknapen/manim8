@@ -3,6 +3,20 @@
 The distributions `manim8`, `manim8-core` and `manim8-bridge` share one version. Decisions are recorded in
 `docs/ARCHITECTURE_DECISIONS.md`; this file lists what changed for someone upgrading.
 
+## Unreleased
+
+- Stops (ADR-045): a storyboard snapshot may be marked `stop: true`, with an optional `label` and
+  `stop_through`, to say that a player may hold the clip there until the presenter's next key. The clip stays
+  one movie and the fields change no picture, no generated code and no scene fingerprint. Validation refuses a
+  stop with anything revealing, moving or fading in the 0.3 s before it (an action may start at it), on a
+  scene's first frame or the clip's last, within 0.5 s of another stop, where its checkpoint would be
+  approximate, or while an orbit turns across it (unless `stop_through` names the orbit, which warns
+  `stop_freezes_camera`). After a video job the manifest's `result.stops` lists each stop's frame, time, label,
+  notes, rests in frames and frozen orbits; a final render fails when a player could not hold a stop exactly,
+  any other profile warns. `CheckpointRecord.frame_index` gives the movie frame of every still. `scianim timing`
+  lists the parts between stops, and the review sheet marks them. Storyboards with stops need this version of
+  `manim8-core`; schemas stay at 1.0.
+
 ## 0.1.0a0 (9 November 2026, commit d37489e)
 
 First version under the name manim8 (ADR-037). It is released as commit `d37489e`, to be tagged `v0.1.0a0`; the README's install

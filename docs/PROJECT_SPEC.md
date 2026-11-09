@@ -1083,7 +1083,7 @@ The implementing agent should put considered decisions in an ADR or issue, not s
 
 ## 18. Definition of success
 
-The product is brief animations: clips of a few seconds to half a minute, one or two scenes, in which one mechanism moves while the equation term, its value and the picture change together; not slide decks or narrated lectures. SciAnim Studio succeeds when the user can supply a paper, dataset, illustration, existing scene, or simple prompt; see a scientifically faithful animation plan for such a clip under a recognizable personalized style; point at a still and request a change; inspect differences across versions; and export a precise final Manim animation **without ever needing to write or read Manim code**.
+The product is brief animations: clips of a few seconds to half a minute, one or two scenes, in which one mechanism moves while the equation term, its value and the picture change together; not slide decks or narrated lectures. A clip may mark stops where a player holds it (ADR-045); it remains one movie. SciAnim Studio succeeds when the user can supply a paper, dataset, illustration, existing scene, or simple prompt; see a scientifically faithful animation plan for such a clip under a recognizable personalized style; point at a still and request a change; inspect differences across versions; and export a precise final Manim animation **without ever needing to write or read Manim code**.
 
 At the engineering level, success means another coding agent can understand the package contracts, reproduce the render from versioned inputs, extend an animation family with additional scientific packages without contaminating the core installation, and share a project as a self-contained and auditable bundle.
 
