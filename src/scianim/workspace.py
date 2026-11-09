@@ -207,6 +207,34 @@ def bridge_source(family_dir: Path) -> BridgeSource:
     return BridgeSource("index", "release")
 
 
+WORKSPACE_GITIGNORE = """# Written by `scianim workspace init` (ADR-043). Renders, job records, caches and environments are rebuilt from
+# the files that stay versioned: specs, styles, code/, data/, revisions/, feedback/ and each family's uv.lock.
+renders/
+.scianim/
+.venv/
+# Manim's own media folder, when Manim runs outside a job (a job keeps its media under .scianim/).
+media/
+!assets/**/media/
+!families/**/assets/**/media/
+__pycache__/
+*.pyc
+"""
+
+
+def write_workspace_gitignore(root: Path) -> Path:
+    """Write the workspace's `.gitignore`, or add the lines an existing one lacks."""
+    target = root / ".gitignore"
+    if not target.exists():
+        target.write_text(WORKSPACE_GITIGNORE, encoding="utf-8")
+        return target
+    text = target.read_text(encoding="utf-8")
+    present = {line.strip() for line in text.splitlines()}
+    missing = [line for line in WORKSPACE_GITIGNORE.splitlines() if line.strip() and line.strip() not in present]
+    if any(not line.startswith("#") for line in missing):
+        target.write_text(text.rstrip("\n") + "\n\n" + "\n".join(missing) + "\n", encoding="utf-8")
+    return target
+
+
 def find_workspace(start: Path) -> Path | None:
     start = start.resolve()
     for candidate in (start, *start.parents):
@@ -251,6 +279,7 @@ def init_workspace(
         f'schema_version: "1.0"\nid: {manifest.id}\ndescription: null\n', encoding="utf-8"
     )
     report.created.append(target / WORKSPACE_FILE)
+    report.created.append(write_workspace_gitignore(target))
     for name in ("styles", "families", "assets"):
         (target / name).mkdir(exist_ok=True)
     source = styles_source or bundled_styles_root()
@@ -684,20 +713,27 @@ def scan_workspace(root: Path) -> WorkspaceScan:
 
 
 __all__ = [
+    "BRIDGE_SOURCE_ENV",
     "DEFAULT_STYLE_REF",
     "EXAMPLE_FAMILY",
     "EXAMPLE_PROJECT",
+    "WORKSPACE_GITIGNORE",
+    "BridgeSource",
     "FamilyNode",
     "InitReport",
     "ProjectNode",
     "WorkspaceScan",
+    "bridge_source",
     "example_projects",
     "examples_root",
+    "family_pyproject_text",
     "find_workspace",
     "init_family",
     "init_project",
     "init_workspace",
     "load_workspace",
     "repo_root",
+    "rewrite_bridge_sources",
     "scan_workspace",
+    "write_workspace_gitignore",
 ]
