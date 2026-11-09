@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -32,7 +32,9 @@ from scianim_core import (
     SceneTarget,
     SnapshotTarget,
     Storyboard,
+    StyleSelection,
     WorkerResult,
+    split_style_ref,
 )
 from scianim_core.hashing import sha256_file, sha256_json
 from scianim_core.jobs import QualityProfile, SurfaceRenderer
@@ -112,6 +114,54 @@ def sources_from_revision(project: Project, revision: RevisionSources, report: R
         code_dir=scene_module.parent,
         data_paths=data_paths,
     )
+
+
+def style_selection(ref: str, overrides: dict[str, object] | None = None) -> StyleSelection:
+    """`name@version` as the style selection of one job (`--style`), keeping the project's own overrides."""
+    try:
+        name, version = split_style_ref(ref)
+        return StyleSelection(name=name, version=version, overrides=dict(overrides or {}))
+    except ValueError as exc:  # pydantic's ValidationError is a ValueError
+        detail = format_validation_error(exc) if isinstance(exc, ValidationError) else str(exc)
+        raise SpecError(None, f"--style {ref!r} is not a style reference name@version:\n{detail}") from None
+
+
+def check_style_keeps_code(sources: JobSources, base: ResolvedStyle | None) -> None:
+    """A job's style may change colours, fonts and sizes, but not the timing that `codegen` wrote into the scene
+    module (ADR-043): the module generated under the job's style must equal the one generated under the style it
+    was generated for (`base`), or, when that is unknown, the module on disk."""
+    from scianim.codegen.generate import generate_scene_module
+
+    wanted = generate_scene_module(sources.animation, sources.storyboard, sources.style)
+    if base is not None:
+        written = generate_scene_module(sources.animation, sources.storyboard, base)
+        what = f"{base.theme}@{base.theme_version}"
+    else:
+        written = sources.scene_module.read_text(encoding="utf-8")
+        what = f"the module at {sources.scene_module}"
+    if wanted != written:
+        raise SpecError(
+            sources.scene_module,
+            f"style {sources.style.theme}@{sources.style.theme_version} changes the generated scene code against "
+            f"{what} (its motion tokens set other times); a job's style may change colours, fonts and sizes, not "
+            "timing. Select the style in animation.yaml and run `scianim codegen` instead",
+        )
+
+
+def restyle_revision(project: Project, sources: JobSources, report: Report, selection: StyleSelection) -> JobSources:
+    """A revision's sources rendered under another published style: the style is resolved afresh for the
+    selection, with the family's and groups' current overrides, and the revision itself is not touched."""
+    from scianim.styles.resolve import resolve_style
+
+    style = resolve_style(
+        selection,
+        project.style_search_dirs(),
+        report.family.manifest if report.family else None,
+        [g.manifest for g in report.groups],
+    )
+    restyled = replace(sources, animation=sources.animation.model_copy(update={"style": selection}), style=style)
+    check_style_keeps_code(restyled, sources.style)
+    return restyled
 
 
 def _csv_paths(report: Report) -> dict[str, Path]:
@@ -563,6 +613,7 @@ __all__ = [
     "build_video_job",
     "cache_key",
     "cached_manifest",
+    "check_style_keeps_code",
     "complete_job",
     "complete_stage",
     "finish_manifest",
@@ -574,10 +625,12 @@ __all__ = [
     "media_directory",
     "new_job_id",
     "read_worker_result",
+    "restyle_revision",
     "run_job",
     "segment_store_directory",
     "sources_from_report",
     "sources_from_revision",
+    "style_selection",
     "tool_versions_for",
     "write_worker_log",
 ]

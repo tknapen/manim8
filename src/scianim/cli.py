@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 import typer
 from rich.console import Console
@@ -31,12 +31,16 @@ from scianim.planning.dependencies import compare_with_revision
 from scianim.planning.timing import propose_timing, write_proposed_storyboard
 from scianim.project import Project, find_project
 from scianim.render.jobs import (
+    JobSources,
     build_snapshot_job,
     build_video_job,
     cached_manifest,
+    check_style_keeps_code,
+    restyle_revision,
     run_job,
     sources_from_report,
     sources_from_revision,
+    style_selection,
     tool_versions_for,
 )
 from scianim.render.manifests import manifest_for_ref
@@ -97,20 +101,21 @@ out = Console()
 err = Console(stderr=True)
 
 
-def fail(message: str, code: int = 1) -> None:
-    err.print(f"[red]error:[/red] {message}")
+def fail(message: str, code: int = 1) -> NoReturn:
+    err.print(f"[red]error:[/red] {escape(message)}")
     raise typer.Exit(code)
 
 
-def print_report(report: Report, label: str) -> None:
+def print_report(report: Report, label: str, console: Console | None = None) -> None:
+    console = console or out
     for message in report.errors:
-        out.print(f"  [red]error[/red]   {message}")
+        console.print(f"  [red]error[/red]   {escape(message)}")
     for message in report.warnings:
-        out.print(f"  [yellow]warning[/yellow] {message}")
+        console.print(f"  [yellow]warning[/yellow] {escape(message)}")
     for message in report.notices:
-        out.print(f"  [dim]note    {message}[/dim]")
+        console.print(f"  [dim]note    {escape(message)}[/dim]")
     status = "[green]valid[/green]" if report.ok else "[red]invalid[/red]"
-    out.print(f"{label}: {status} ({len(report.errors)} errors, {len(report.warnings)} warnings)")
+    console.print(f"{escape(label)}: {status} ({len(report.errors)} errors, {len(report.warnings)} warnings)")
 
 
 def workspace_or_fail(workspace: Path | None) -> Path:
@@ -138,7 +143,7 @@ def validate(
                 project = find_project(path)
             except SpecError as exc:
                 failures += 1
-                out.print(f"[red]error[/red] {exc}")
+                out.print(f"[red]error[/red] {escape(str(exc))}")
                 continue
             report = validate_project(project, require_family=require_family)
             print_report(report, str(path))
@@ -148,10 +153,10 @@ def validate(
                 kind, model = load_spec(path)
             except SpecError as exc:
                 failures += 1
-                out.print(f"{path}: [red]invalid[/red]\n{exc.message}")
+                out.print(f"{escape(str(path))}: [red]invalid[/red]\n{escape(exc.message)}")
                 continue
             ident = getattr(model, "id", None) or getattr(model, "project_id", None) or getattr(model, "name", "")
-            out.print(f"{path}: [green]valid[/green] {kind} '{ident}'")
+            out.print(f"{escape(str(path))}: [green]valid[/green] {kind} '{escape(str(ident))}'")
     raise typer.Exit(1 if failures else 0)
 
 
@@ -167,7 +172,7 @@ def _print_checks(checks: list[Check]) -> bool:
             status = "[red]missing[/red]"
         else:
             status = "[yellow]absent[/yellow]"
-        table.add_row(check.name, status, check.detail)
+        table.add_row(escape(check.name), status, escape(check.detail))
     out.print(table)
     return not any(c.blocking for c in checks)
 
@@ -454,7 +459,7 @@ def workspace_init(
     for created in report.created:
         out.print(f"  created {created}")
     for note in report.notes:
-        out.print(f"[yellow]note:[/yellow] {note}")
+        out.print(f"[yellow]note:[/yellow] {escape(note)}")
     out.print(f"[green]workspace ready[/green] at {directory.resolve()}")
 
 
@@ -475,7 +480,7 @@ def workspace_list(
             branch.add(f"project [bold]{project.id}[/bold]  ({project.path.relative_to(root)}, {storyboard}{groups})")
     out.print(tree)
     for problem in scan.problems:
-        out.print(f"  [red]problem[/red] {problem}")
+        out.print(f"  [red]problem[/red] {escape(problem)}")
     raise typer.Exit(1 if scan.problems else 0)
 
 
@@ -617,7 +622,8 @@ def codegen(project: Annotated[Path, typer.Argument(help="Project directory.")])
     raise typer.Exit(0 if after.ok else 1)
 
 
-def _print_checkpoints(manifest: ArtifactManifest) -> None:
+def _print_checkpoints(manifest: ArtifactManifest, console: Console | None = None) -> None:
+    console = console or out
     table = Table(show_header=True, header_style="bold")
     for column in ("snapshot", "scene", "t (s)", "anim #", "fidelity", "png", "layout warnings"):
         table.add_column(column)
@@ -629,16 +635,71 @@ def _print_checkpoints(manifest: ArtifactManifest) -> None:
             f"{rec.expected_time_seconds:g}",
             str(rec.animation_index),
             rec.fidelity,
-            rec.png,
-            warnings,
+            escape(rec.png),
+            escape(warnings),
         )
-    out.print(table)
+    console.print(table)
     status = manifest.result.status
     color = "green" if status == "succeeded" else "red"
-    out.print(
+    console.print(
         f"status: [{color}]{status}[/{color}] in {manifest.result.elapsed_seconds:.1f}s; "
         f"{len(manifest.result.checkpoints)} checkpoint(s)"
     )
+
+
+JSON_HELP = (
+    "Print the job's manifest (ArtifactManifest, `cache_hit` true for a cached result) as the only output on "
+    "stdout, for another tool to read; everything else goes to stderr, and a failed job prints nothing there."
+)
+STYLE_HELP = (
+    "Render under this published style (name@version) instead of the project's selection, for this job only; the "
+    "project's own overrides still apply, and the style enters the cache key and the manifest."
+)
+
+
+def _emit_manifest(manifest: ArtifactManifest, cache_hit: bool = False) -> None:
+    """The one JSON document `--json` writes to stdout (ADR-043)."""
+    if cache_hit:
+        manifest = manifest.model_copy(update={"cache_hit": True})
+    sys.stdout.write(json.dumps(manifest.model_dump(mode="json"), indent=2) + "\n")
+    sys.stdout.flush()
+
+
+def _render_inputs(
+    project: Path, revision: str | None, style: str | None, console: Console
+) -> tuple[Project, Report, JobSources]:
+    """The project, its report and the job's sources (working copy or revision), under `--style` when given."""
+    proj, report = _prepare(project, require_family=True)
+    if report.family is None:
+        print_report(report, str(project), console)
+        fail("the project's family could not be resolved; see above")
+    base_style = report.style
+    try:
+        selection = (
+            style_selection(style, report.animation.style.overrides if report.animation else {}) if style else None
+        )
+        if selection is not None and revision is None and report.animation is not None:
+            # The working copy under another style: validate it as if animation.yaml selected that style.
+            report = validate_project(
+                proj, require_family=True, animation=report.animation.model_copy(update={"style": selection})
+            )
+    except SpecError as exc:
+        fail(str(exc))
+    if revision is None and not report.ok:
+        print_report(report, str(project), console)
+        fail("project does not validate" + (f" under --style {style}" if style else "") + "; see above")
+    try:
+        if revision:
+            sources = sources_from_revision(proj, load_revision(proj, revision), report)
+            if selection is not None:
+                sources = restyle_revision(proj, sources, report, selection)
+        else:
+            sources = sources_from_report(proj, report)
+            if selection is not None:
+                check_style_keeps_code(sources, base_style)
+    except SpecError as exc:
+        fail(str(exc))
+    return proj, report, sources
 
 
 @app.command()
@@ -650,6 +711,7 @@ def snapshot(
     revision: Annotated[
         str | None, typer.Option(help="Render an immutable revision (e.g. rev_0002) instead of the working copy.")
     ] = None,
+    style: Annotated[str | None, typer.Option(help=STYLE_HELP)] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 1800,
     surface_renderer: Annotated[
@@ -659,29 +721,21 @@ def snapshot(
             "faster, the floor frame hidden where the surface covers it). Enters the cache key."
         ),
     ] = "cairo",
+    as_json: Annotated[bool, typer.Option("--json", help=JSON_HELP)] = False,
 ) -> None:
     """Render named checkpoints from the real animation flow in the family environment."""
+    say = err if as_json else out
     if profile not in QUALITY_PROFILES:
         fail(f"profile must be one of {list(QUALITY_PROFILES)}")
     if surface_renderer not in SURFACE_RENDERERS:
         fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
-    proj, report = _prepare(project, require_family=True)
-    if report.family is None:
-        print_report(report, str(project))
-        fail("the project's family could not be resolved; see above")
-    if revision is None and not report.ok:
-        print_report(report, str(project))
-        fail("project does not validate; see above")
+    proj, report, sources = _render_inputs(project, revision, style, say)
     family = report.family
+    assert family is not None
     tool_versions = tool_versions_for(family)
     if not tool_versions:
         fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
     try:
-        sources = (
-            sources_from_revision(proj, load_revision(proj, revision), report)
-            if revision
-            else sources_from_report(proj, report)
-        )
         job, paths, hashes = build_snapshot_job(
             proj,
             sources,
@@ -696,11 +750,14 @@ def snapshot(
     if not no_cache:
         hit = cached_manifest(proj, job.cache_key)
         if hit is not None:
-            out.print(f"[green]cache hit[/green] {job.cache_key[:23]}... -> {hit.job.output_dir}/manifest.json")
-            _print_checkpoints(hit)
+            say.print(f"[green]cache hit[/green] {job.cache_key[:23]}... -> {escape(hit.job.output_dir)}/manifest.json")
+            _print_checkpoints(hit, say)
+            if as_json:
+                _emit_manifest(hit, cache_hit=True)
             return
-    out.print(
+    say.print(
         f"rendering {len(job.snapshot_ids)} checkpoint(s) of {sources.revision_id} in family '{family.manifest.id}' "
+        f"under {sources.style.theme}@{sources.style.theme_version} "
         f"({job.manim.pixel_width}x{job.manim.pixel_height}, cache {job.cache_key[:23]}...)"
     )
     try:
@@ -708,34 +765,39 @@ def snapshot(
     except SpecError as exc:
         fail(str(exc))
     sheet = write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")
-    _print_checkpoints(manifest)
-    out.print(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}")
+    _print_checkpoints(manifest, say)
+    say.print(escape(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}"))
     if manifest.result.status != "succeeded":
         for line in manifest.result.errors:
-            err.print(f"[red]{line}[/red]")
+            err.print(f"[red]{escape(line)}[/red]")
         raise typer.Exit(1)
+    if as_json:
+        _emit_manifest(manifest)
 
 
-def _print_video(manifest: ArtifactManifest) -> None:
+def _print_video(manifest: ArtifactManifest, console: Console | None = None) -> None:
+    console = console or out
     for video in manifest.result.videos:
-        out.print(
-            f"video: {video.path} | {video.width_px}x{video.height_px} | {video.fps:g} fps | "
-            f"{video.frame_count} frames | {video.duration_seconds:.3f}s | {video.codec}"
+        console.print(
+            escape(
+                f"video: {video.path} | {video.width_px}x{video.height_px} | {video.fps:g} fps | "
+                f"{video.frame_count} frames | {video.duration_seconds:.3f}s | {video.codec}"
+            )
         )
     if manifest.result.subtitles:
-        out.print(f"subtitles: {manifest.result.subtitles}")
+        console.print(escape(f"subtitles: {manifest.result.subtitles}"))
     if manifest.result.sections:
         table = Table(show_header=True, header_style="bold")
         for column in ("section", "frames", "seconds", "video"):
             table.add_column(column)
         for section in manifest.result.sections:
             table.add_row(
-                section.name,
+                escape(section.name),
                 str(section.metadata.get("frames", "?")),
                 f"{section.metadata.get('duration_seconds', 0):.3f}",
-                section.video or "-",
+                escape(section.video or "-"),
             )
-        out.print(table)
+        console.print(table)
     timing = manifest.result.timing
     if timing is not None:
         verdict = (
@@ -743,27 +805,29 @@ def _print_video(manifest: ArtifactManifest) -> None:
             if timing.within_tolerance
             else "[red]differs from the storyboard[/red]"
         )
-        out.print(
+        console.print(
             f"timing: {verdict}; {timing.actual_total_frames} of {timing.expected_total_frames} frames at {timing.fps:g} fps"
         )
         for problem in timing.problems():
-            out.print(f"  [red]{problem}[/red]")
+            console.print(f"  [red]{escape(problem)}[/red]")
         for note in timing.notes:
-            out.print(f"  [dim]{note}[/dim]")
+            console.print(f"  [dim]{escape(note)}[/dim]")
     samples = [c for c in manifest.result.checkpoints if c.kind == "sampled_video_frame"]
     if samples:
-        out.print(f"sampled frames: {', '.join(f'{c.snapshot_id}@{c.renderer_time_seconds:.3f}s' for c in samples)}")
+        console.print(
+            escape(f"sampled frames: {', '.join(f'{c.snapshot_id}@{c.renderer_time_seconds:.3f}s' for c in samples)}")
+        )
     plays = manifest.result.plays
     if plays and manifest.job.operation == "render_video":
         drawn = [p for p in plays if p.drawn]
         reused = len(plays) - len(drawn)
-        out.print(
+        console.print(
             f"drew {len(drawn)} of {len(plays)} plays ({sum(p.frames for p in drawn)} of "
             f"{sum(p.frames for p in plays)} frames)"
             + (f"; {reused} came unchanged from the segment store or Manim's cache" if reused else "")
         )
     if manifest.result.parts:
-        out.print(
+        console.print(
             f"{len(manifest.result.parts)} workers: "
             + "; ".join(
                 f"part {r.part.index} plays {r.part.first_play}-{r.part.last_play} ({r.part.frames} frames) "
@@ -782,6 +846,7 @@ def render(
     revision: Annotated[
         str | None, typer.Option(help="Render an immutable revision (e.g. rev_0002) instead of the working copy.")
     ] = None,
+    style: Annotated[str | None, typer.Option(help=STYLE_HELP)] = None,
     sample: Annotated[list[str] | None, typer.Option(help="Extra frame to extract as id=seconds (repeatable).")] = None,
     no_cache: Annotated[bool, typer.Option(help="Render even when a cached result matches the cache key.")] = False,
     timeout: Annotated[float, typer.Option(help="Worker timeout in seconds.")] = 3600,
@@ -800,22 +865,15 @@ def render(
             "faster, the floor frame hidden where the surface covers it). Enters the cache key."
         ),
     ] = "cairo",
+    as_json: Annotated[bool, typer.Option("--json", help=JSON_HELP)] = False,
 ) -> None:
     """Render the storyboard to video with per-scene sections, subtitles and sampled checkpoint frames, at any
     profile: storyboard or snapshot for a quick look at a small size, draft for review, final for delivery."""
+    say = err if as_json else out
+    if profile not in QUALITY_PROFILES:
+        fail(f"profile must be one of {list(QUALITY_PROFILES)}")
     if surface_renderer not in SURFACE_RENDERERS:
         fail(f"surface renderer must be one of {list(SURFACE_RENDERERS)}")
-    proj, report = _prepare(project, require_family=True)
-    if report.family is None:
-        print_report(report, str(project))
-        fail("the project's family could not be resolved; see above")
-    if revision is None and not report.ok:
-        print_report(report, str(project))
-        fail("project does not validate; see above")
-    family = report.family
-    tool_versions = tool_versions_for(family)
-    if not tool_versions:
-        fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
     samples: dict[str, float] = {}
     for item in sample or []:
         name, _, value = item.partition("=")
@@ -823,12 +881,13 @@ def render(
             samples[name] = float(value)
         except ValueError:
             fail(f"--sample expects id=seconds, got '{item}'")
+    proj, report, sources = _render_inputs(project, revision, style, say)
+    family = report.family
+    assert family is not None
+    tool_versions = tool_versions_for(family)
+    if not tool_versions:
+        fail(f"family environment unavailable at {family.venv_dir}; run `scianim family env sync {family.root}`")
     try:
-        sources = (
-            sources_from_revision(proj, load_revision(proj, revision), report)
-            if revision
-            else sources_from_report(proj, report)
-        )
         job, paths, hashes = build_video_job(
             proj,
             sources,
@@ -844,11 +903,14 @@ def render(
     if not no_cache:
         hit = cached_manifest(proj, job.cache_key)
         if hit is not None:
-            out.print(f"[green]cache hit[/green] {job.cache_key[:23]}... -> {hit.job.output_dir}/manifest.json")
-            _print_video(hit)
+            say.print(f"[green]cache hit[/green] {job.cache_key[:23]}... -> {escape(hit.job.output_dir)}/manifest.json")
+            _print_video(hit, say)
+            if as_json:
+                _emit_manifest(hit, cache_hit=True)
             return
-    out.print(
+    say.print(
         f"rendering {profile} video of {sources.revision_id} in family '{family.manifest.id}' "
+        f"under {sources.style.theme}@{sources.style.theme_version} "
         f"({job.manim.pixel_width}x{job.manim.pixel_height} at {job.manim.frame_rate:g} fps, "
         f"{job.output.duration_seconds:g}s, cache {job.cache_key[:23]}...)"
         + (f" with {job.workers} workers" if job.workers > 1 else "")
@@ -856,25 +918,27 @@ def render(
     try:
         if job.workers > 1:
             manifest = run_parallel_video(
-                proj, family, job, paths, hashes, timeout=timeout, log=lambda line: out.print(f"  {line}")
+                proj, family, job, paths, hashes, timeout=timeout, log=lambda line: say.print(f"  {escape(line)}")
             )
         else:
             manifest = run_job(proj, family, job, paths, hashes, timeout=timeout)
     except SpecError as exc:
         fail(str(exc))
     sheet = write_sheet(manifest, sources.storyboard, paths.output_dir / "review_sheet.html")
-    _print_video(manifest)
+    _print_video(manifest, say)
     status = manifest.result.status
-    out.print(
+    say.print(
         f"status: [{'green' if status == 'succeeded' else 'red'}]{status}[/] in {manifest.result.elapsed_seconds:.1f}s"
     )
-    out.print(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}")
+    say.print(escape(f"manifest: {paths.manifest_file}\nreview sheet: {sheet}\nworker log: {paths.log_file}"))
     for line in manifest.result.warnings:
-        out.print(f"  [yellow]warning[/yellow] {line}")
+        say.print(f"  [yellow]warning[/yellow] {escape(line)}")
     if status != "succeeded":
         for line in manifest.result.errors:
-            err.print(f"[red]{line}[/red]")
+            err.print(f"[red]{escape(line)}[/red]")
         raise typer.Exit(1)
+    if as_json:
+        _emit_manifest(manifest)
 
 
 @app.command()
@@ -909,7 +973,7 @@ def timing(
     )
     out_console.print(table)
     for conflict in proposal.conflicts:
-        out_console.print(f"  [red]conflict[/red] {conflict}")
+        out_console.print(f"  [red]conflict[/red] {escape(str(conflict))}")
     if out is not None:
         target = write_proposed_storyboard(proj.storyboard_path, proposal, out)
         out_console.print(f"wrote proposed storyboard to {target}")
@@ -943,11 +1007,11 @@ def stale(
     out.print(f"working copy against {label}:")
     for scene in dependency.scenes:
         mark = "[yellow]stale[/yellow]" if scene.stale else "[green]unchanged[/green]"
-        out.print(f"  {scene.scene_id}: {mark}" + (f" ({'; '.join(scene.reasons)})" if scene.reasons else ""))
+        out.print(f"  {scene.scene_id}: {mark}" + (escape(f" ({'; '.join(scene.reasons)})") if scene.reasons else ""))
     for scene_id in dependency.removed_scenes:
         out.print(f"  {scene_id}: [red]removed[/red]")
     for note in dependency.notes:
-        out.print(f"  [dim]{note}[/dim]")
+        out.print(f"  [dim]{escape(note)}[/dim]")
 
 
 # --- agent operations: sources, context, proposals, inspection ----------------------------------
@@ -981,10 +1045,10 @@ def sources_probe(
             summary = f"{says['width_px']}x{says['height_px']}"
         else:
             summary = ", ".join(f"{k}={v}" for k, v in list(says.items())[:3])
-        table.add_row(extract.source_id, extract.type, extract.role, extract.sha256[:12], summary[:90])
+        table.add_row(extract.source_id, extract.type, extract.role, extract.sha256[:12], escape(summary[:90]))
     out.print(table)
     for message in report.errors:
-        out.print(f"  [red]error[/red] {message}")
+        out.print(f"  [red]error[/red] {escape(message)}")
     out.print(f"wrote {len(extracts)} extract(s) under {proj.root / '.scianim' / 'sources'}")
 
 
@@ -1001,7 +1065,7 @@ def context(
         try:
             probe_all(proj, report)
         except SpecError as exc:
-            out.print(f"  [yellow]warning[/yellow] sources not probed: {exc}")
+            out.print(f"  [yellow]warning[/yellow] sources not probed: {escape(str(exc))}")
     target = export_context(proj, report, out_dir)
     out.print(f"wrote {target / 'CONTEXT.md'} (+ context.json, schemas/, sources/, proposal.template.yaml)")
 
@@ -1028,15 +1092,15 @@ def propose_validate(
         resolved = resolve_proposal(proj, loaded)
     except SpecError as exc:
         fail(str(exc))
-    out.print(f"{loaded.id} ({loaded.kind}) by {loaded.author}: {loaded.summary}")
+    out.print(escape(f"{loaded.id} ({loaded.kind}) by {loaded.author}: {loaded.summary}"))
     for file in resolved.documents:
         out.print(f"  target {file}: {'patched' if resolved.before.get(file) is not None else 'created'}")
     for message in resolved.errors:
-        out.print(f"  [red]error[/red]   {message}")
+        out.print(f"  [red]error[/red]   {escape(message)}")
     for message in resolved.warnings:
-        out.print(f"  [yellow]warning[/yellow] {message}")
+        out.print(f"  [yellow]warning[/yellow] {escape(message)}")
     for question in loaded.uncertainties:
-        out.print(f"  [cyan]uncertainty[/cyan] {question}")
+        out.print(f"  [cyan]uncertainty[/cyan] {escape(question)}")
     if resolved.touches_science:
         out.print("  [magenta]touches scientific content: human sign-off required after applying[/magenta]")
     out.print("valid" if resolved.ok else "invalid")
@@ -1054,14 +1118,14 @@ def propose_apply(
         applied = apply_proposal(proj, loaded)
     except SpecError as exc:
         fail(str(exc))
-    out.print(f"[green]applied[/green] {loaded.id} ({loaded.kind}): {loaded.summary}")
+    out.print(f"[green]applied[/green] {loaded.id} ({loaded.kind}): {escape(loaded.summary)}")
     for file, diff in applied.diffs.items():
         changed = sum(
             1 for line in diff.splitlines() if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
         )
         out.print(f"  {file}: {changed} changed line(s)")
     for message in applied.validation_warnings:
-        out.print(f"  [yellow]warning[/yellow] {message}")
+        out.print(f"  [yellow]warning[/yellow] {escape(message)}")
     if applied.scientific_review_required:
         out.print("  [magenta]scientific content changed: this needs human sign-off; nothing is approved[/magenta]")
     out.print(f"record: {proj.root / 'proposals' / 'applied' / (loaded.id + '.yaml')}")
@@ -1092,11 +1156,15 @@ def propose_from_feedback(
         answers = (
             f" (answers {', '.join(proposal.in_response_to)})" if proposal.in_response_to else " (from inspection)"
         )
-        out.print(f"[green]proposal[/green] {proposal.id}: {proposal.summary}{answers}\n  {path}")
+        out.print(
+            f"[green]proposal[/green] {proposal.id}: {escape(f'{proposal.summary}{answers}')}\n  {escape(str(path))}"
+        )
     for item in generated.unresolved:
         where = " ".join(x for x in (item.snapshot_id, item.object_id, item.feedback_id) if x)
         tag = "[magenta]science[/magenta]" if item.science else "[yellow]unresolved[/yellow]"
-        out.print(f"{tag} {where}: {item.reason}" + (f'\n  "{item.text}"' if item.text else ""))
+        out.print(
+            f"{tag} {escape(str(where))}: {escape(item.reason)}" + (escape(f'\n  "{item.text}"') if item.text else "")
+        )
     if not generated.proposals and not generated.unresolved:
         out.print("nothing open: no feedback awaits an answer and the inspection is clean")
     if apply:
@@ -1162,7 +1230,9 @@ def inspect(
         table.add_column(column)
     for finding in findings:
         color = {"discrepancy": "red", "warning": "yellow", "note": "dim"}[finding.severity]
-        table.add_row(finding.snapshot_id, f"[{color}]{finding.severity}[/{color}]", finding.code, finding.detail)
+        table.add_row(
+            finding.snapshot_id, f"[{color}]{finding.severity}[/{color}]", finding.code, escape(finding.detail)
+        )
     out.print(
         f"inspecting {manifest.job.job_id} ({manifest.job.revision_id}): {len(manifest.result.checkpoints)} checkpoint(s)"
     )
@@ -1306,7 +1376,7 @@ def patterns_check() -> None:
         f"{len(library.references)} references, surveys: {', '.join(library.surveys) or 'none'}"
     )
     for problem in problems:
-        out.print(f"  [red]error[/red]   {problem}", highlight=False)
+        out.print(f"  [red]error[/red]   {escape(problem)}", highlight=False)
     if problems:
         raise typer.Exit(1)
     out.print("[green]ok[/green]")
@@ -1364,7 +1434,7 @@ def bundle_export(
             f"  [yellow]omitted[/yellow] {item.project_id}/{item.source_id} ({item.type}): {item.reason}; {item.relink}"
         )
     for note in manifest.notes:
-        out.print(f"  [dim]{note}[/dim]")
+        out.print(f"  [dim]{escape(note)}[/dim]")
 
 
 @bundle_app.command("inspect")
@@ -1392,10 +1462,10 @@ def bundle_inspect(archive: Annotated[Path, typer.Argument(help="Bundle archive.
         f"environment: lockfile {'yes' if manifest.environment.lockfile else 'no'}; system requirements: {', '.join(r.name for r in manifest.environment.system_requirements) or 'none'}"
     )
     for item in manifest.omitted_sources:
-        out.print(f"  [yellow]omitted[/yellow] {item.project_id}/{item.source_id}: {item.reason}")
+        out.print(f"  [yellow]omitted[/yellow] {item.project_id}/{item.source_id}: {escape(item.reason)}")
     out.print(f"files: {len(report.files)}; checksums verified: {report.verified}")
     for problem in report.problems:
-        out.print(f"  [red]problem[/red] {problem}")
+        out.print(f"  [red]problem[/red] {escape(problem)}")
     raise typer.Exit(0 if report.ok else 1)
 
 
@@ -1417,10 +1487,10 @@ def bundle_import(
         out.print(f"  styles added: {', '.join(report.styles_added)}")
     out.print(f"  lockfile reused: {'yes' if report.lockfile_reused else 'no'}")
     for warning in report.warnings:
-        out.print(f"  [yellow]note[/yellow] {warning}")
+        out.print(f"  [yellow]note[/yellow] {escape(warning)}")
     out.print("next steps:")
     for step in report.next_steps:
-        out.print(f"  {step}")
+        out.print(f"  {escape(step)}")
 
 
 @revision_app.command("create")
@@ -1438,7 +1508,7 @@ def revision_create(
         record = create_revision(proj, report, message, allow_empty=allow_empty)
     except SpecError as exc:
         fail(str(exc))
-    out.print(f"[green]{record.id}[/green] created (parent {record.parent or 'none'}): {record.message}")
+    out.print(f"[green]{record.id}[/green] created (parent {record.parent or 'none'}): {escape(record.message)}")
     out.print(f"  files: {', '.join(record.files)}")
 
 
@@ -1656,7 +1726,9 @@ def compare(
     for item in results:
         changes = "; ".join(f"{c.object_id} {c.change}" for c in item.changes) or "-"
         pixels = "-" if item.pixel_diff_fraction is None else f"{100 * item.pixel_diff_fraction:.2f}%"
-        table.add_row(item.snapshot_id, "yes" if item.identical else "no", pixels, changes, item.note or "")
+        table.add_row(
+            item.snapshot_id, "yes" if item.identical else "no", pixels, escape(changes), escape(item.note or "")
+        )
     out.print(
         f"A = {manifest_a.job.job_id} ({manifest_a.job.revision_id}); B = {manifest_b.job.job_id} ({manifest_b.job.revision_id})"
     )
@@ -1676,7 +1748,7 @@ def index_rebuild(
     projects = index.projects()
     out.print(f"indexed {len(projects)} project(s) into {index.path}")
     for problem in index.problems:
-        out.print(f"  [yellow]problem[/yellow] {problem}")
+        out.print(f"  [yellow]problem[/yellow] {escape(problem)}")
     index.close()
 
 
@@ -1706,7 +1778,7 @@ def main() -> None:
     try:
         app()
     except SpecError as exc:
-        err.print(f"[red]error:[/red] {exc}")
+        err.print(f"[red]error:[/red] {escape(str(exc))}")
         sys.exit(1)
 
 
