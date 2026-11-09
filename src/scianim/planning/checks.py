@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import csv
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from scianim.patterns import load_library, scene_pattern_findings
 from scianim.project import Project, scene_class_name
 from scianim.styles.resolve import resolve_style
 from scianim_core import REGISTRY, AnimationSpec, FamilyManifest, ResolvedStyle, Storyboard
+from scianim_core.animation import OutputSpec
 from scianim_core.common import is_asset_uri
 from scianim_core.components import (
     PARAMETRIC_KINDS,
@@ -22,7 +24,19 @@ from scianim_core.components import (
     FunctionPlotParams,
     NetworkGraphParams,
 )
-from scianim_core.storyboard import Emphasize, MoveObject, Scene, SceneObject, TransformEquation, VaryParameter
+from scianim_core.storyboard import (
+    STOP_REST_SECONDS,
+    STOP_SPACING_SECONDS,
+    Emphasize,
+    MoveObject,
+    OrbitCamera,
+    Scene,
+    SceneObject,
+    Snapshot,
+    TransformEquation,
+    VaryParameter,
+)
+from scianim_core.timing import frames_for
 
 NARRATION_OVERRUN_FACTOR = 1.15
 NARRATION_UNDERRUN_FACTOR = 0.4
@@ -88,11 +102,31 @@ def csv_row_count(path: Path) -> int:
         return max(0, sum(1 for _ in csv.reader(handle)) - 1)
 
 
-def builder_module_exists(module_name: str, project: Project, family: FamilyContext | None) -> bool:
+def builder_module_path(module_name: str, project: Project, family: FamilyContext | None) -> Path | None:
+    """The file a custom builder's module resolves to: the project's `code/` first, then the family's components."""
     relative = module_name.replace(".", "/") + ".py"
-    if (project.code_dir / relative).exists():
-        return True
-    return family is not None and (family.components_dir / relative).exists()
+    for directory in (project.code_dir, family.components_dir if family is not None else None):
+        if directory is not None and (directory / relative).exists():
+            return directory / relative
+    return None
+
+
+def builder_module_exists(module_name: str, project: Project, family: FamilyContext | None) -> bool:
+    return builder_module_path(module_name, project, family) is not None
+
+
+def time_based_functions(path: Path) -> list[str]:
+    """The functions and lambdas of a builder module that take a `dt` parameter. Manim treats an updater with one
+    as time-based and advances it in one step when it fast-forwards a play, so a checkpoint reached while one runs
+    is approximate (the bridge records `fidelity: approximate`)."""
+    found: list[str] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            arguments = node.args
+            names = [a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)]
+            if "dt" in names:
+                found.append(f"{getattr(node, 'name', 'a lambda')} (line {node.lineno})")
+    return found
 
 
 def check_storyboard(
@@ -233,6 +267,8 @@ def check_storyboard(
         if style is not None:
             check_actions(scene, style, animation.output.fps, report)
             check_equation_transforms(scene, equations, style.tokens.typography.equation.engine, report)
+    if style is not None:
+        check_stops(storyboard, style, animation.output, project, report)
     if any(scene.patterns for scene in storyboard.scenes):
         check_patterns(storyboard, report)
     for constraint in animation.scientific_constraints:
@@ -326,6 +362,129 @@ def check_actions(scene: Scene, style: ResolvedStyle, fps: float, report: Report
                         "changes again: start it later"
                         + (" or lengthen its lead-in" if isinstance(later, VaryParameter) else "")
                     )
+
+
+def check_stops(
+    storyboard: Storyboard, style: ResolvedStyle, output: OutputSpec, project: Project, report: Report
+) -> None:
+    """The rules a stop keeps (ADR-045), so that a player can hold the clip there on exactly the frame the scene
+    reached. A stop needs a rest: nothing may reveal, move or fade in the 0.3 s before it (an action may start at
+    the stop), because a player that cannot watch frames pauses up to that much early and then seeks to the stop.
+    It may not sit on a scene's first frame or on the clip's last (the player's start and end holds show those),
+    within 0.5 s of another stop, or where its checkpoint would be approximate. A camera orbit that turns across
+    a stop, or in its rest, is refused unless the stop names it in `stop_through`, which accepts that a hold there
+    freezes the camera mid-turn (the warning `stop_freezes_camera`)."""
+    stops = storyboard.stops()
+    if not stops:
+        return
+    motion = style.tokens.motion
+    fps = output.fps
+    total_frames = frames_for(output.duration_seconds, fps)
+    fades = [
+        (scene.id, max(scene.end_seconds - motion.transition_seconds, scene.start_seconds), scene.end_seconds)
+        for scene in storyboard.scenes[:-1]
+    ]
+    time_based: dict[str, list[str]] = {}
+    for scene, snap in stops:
+        t = snap.at_seconds
+        where = f"stop '{snap.id}' at {t:g}s"
+        frame = frames_for(t, fps)
+        first = next((s for s in storyboard.scenes if frames_for(s.start_seconds, fps) == frame), None)
+        if first is not None:
+            report.error(
+                f"{where} is on the first frame of scene '{first.id}', before anything in it moves; a player holds "
+                "the clip's start by itself, so put the stop where a part of the motion has ended"
+            )
+        if frame >= total_frames - 1:
+            report.error(
+                f"{where} is on the clip's last frame (frame {total_frames - 1} at {fps:g} fps); a player holds the "
+                "end by itself, so remove the stop or put it where a part of the motion has ended"
+            )
+        orbits = {a.id: a for a in scene.actions if isinstance(a, OrbitCamera)}
+        unknown = [name for name in snap.stop_through if name not in orbits]
+        if unknown:
+            report.error(
+                f"{where}: stop_through names {unknown}, which are not orbit_camera actions of scene '{scene.id}'"
+            )
+        busy: list[tuple[str, float, float]] = []
+        moving = scene.orbits_moving_at(t)
+        for orbit in moving:
+            span = f"orbit '{orbit.id}' ({orbit.at_seconds:g}-{orbit.end_seconds:g}s)"
+            if orbit.id in snap.stop_through:
+                report.warn(
+                    f"stop_freezes_camera: {where}: {span} keeps turning through the stop, as its stop_through "
+                    "allows; a player holding there freezes the camera mid-turn"
+                )
+            elif orbit.end_seconds > t + 1e-9:
+                report.error(
+                    f"{where}: {span} turns the camera across the stop, so a player holding there would freeze it "
+                    f"mid-turn; split the orbit so that a piece ends {STOP_REST_SECONDS:g}s before the stop, or name "
+                    "it in the stop's stop_through to accept the freeze"
+                )
+            else:
+                busy.append((span, orbit.at_seconds, orbit.end_seconds))
+        idle = [name for name in snap.stop_through if name in orbits and name not in {o.id for o in moving}]
+        if idle:
+            report.warn(f"{where}: stop_through names {idle}, which do not turn at the stop; remove them")
+        for obj in scene.objects:
+            begins = scene.start_seconds if obj.reveal_at_seconds is None else obj.reveal_at_seconds
+            busy.append((f"the reveal of '{obj.id}'", begins, begins + motion.reveal_seconds))
+        for action in scene.actions:
+            if not isinstance(action, OrbitCamera):
+                what = "lead-in and motion" if getattr(action, "lead_in_seconds", 0) else "motion"
+                busy.append((f"the {what} of '{action.id}'", action.at_seconds, action.end_seconds))
+        for scene_id, fade_start, fade_end in fades:
+            busy.append((f"the closing fade of scene '{scene_id}'", fade_start, fade_end))
+        clash = [
+            (what, start, end) for what, start, end in busy if start < t - 1e-9 and end > t - STOP_REST_SECONDS + 1e-9
+        ]
+        if clash:
+            listed = "; ".join(f"{what} runs {start:g}-{end:.4g}s" for what, start, end in clash)
+            settled = max(end for _, _, end in clash) + STOP_REST_SECONDS
+            fade_start = next((start for scene_id, start, _ in fades if scene_id == scene.id), scene.end_seconds)
+            remedy = (
+                f"move the stop to {settled:.4g}s or later, or end the motion earlier"
+                if settled <= fade_start + 1e-9
+                else "end the motion earlier, or put the stop where the scene rests"
+            )
+            report.error(
+                f"{where} has no rest before it: {listed}. A player may pause up to {STOP_REST_SECONDS:g}s early, "
+                f"so nothing may move in the {STOP_REST_SECONDS:g}s before a stop (an action may start at it); "
+                f"{remedy}"
+            )
+        customs = [o for o in scene.objects if o.kind == "custom"]
+        for obj in customs:
+            module_name = obj.params["builder"].split(":")[0]
+            if module_name not in time_based:
+                path = builder_module_path(module_name, project, report.family)
+                try:
+                    time_based[module_name] = time_based_functions(path) if path is not None else []
+                except (OSError, SyntaxError, UnicodeDecodeError) as exc:
+                    time_based[module_name] = []
+                    report.warn(f"{where}: builder module '{module_name}' could not be read for updaters: {exc}")
+            if time_based[module_name]:
+                report.error(
+                    f"{where}: scene '{scene.id}' draws custom object '{obj.id}', whose builder module "
+                    f"'{module_name}' has functions with a `dt` parameter ({', '.join(time_based[module_name])}), "
+                    "Manim's time-based updaters; their checkpoint is approximate, so a hold could show a frame the "
+                    "room did not see. Drive the motion with storyboard actions, or move the stop to another scene"
+                )
+    for (_, earlier), (_, later) in pairwise(stops):
+        if frames_for(earlier.at_seconds, fps) == frames_for(later.at_seconds, fps):
+            report.error(f"stops '{earlier.id}' and '{later.id}' fall on one frame; keep one")
+        elif later.at_seconds - earlier.at_seconds < STOP_SPACING_SECONDS - 1e-9:
+            report.error(
+                f"stops '{earlier.id}' ({earlier.at_seconds:g}s) and '{later.id}' ({later.at_seconds:g}s) are "
+                f"{later.at_seconds - earlier.at_seconds:.2f}s apart; a part needs at least "
+                f"{STOP_SPACING_SECONDS:g}s, so keep one or move them apart"
+            )
+
+
+def stop_frozen_orbits(scene: Scene, snap: Snapshot) -> list[str]:
+    """The orbits named in a stop's `stop_through` that turn at it: a hold there freezes them (ADR-045)."""
+    if not snap.stop:
+        return []
+    return [orbit.id for orbit in scene.orbits_moving_at(snap.at_seconds) if orbit.id in snap.stop_through]
 
 
 def active_equation(scene: Scene, obj: SceneObject, at_seconds: float) -> tuple[str, str | None]:

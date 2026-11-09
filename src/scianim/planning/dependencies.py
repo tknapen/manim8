@@ -15,6 +15,14 @@ from scianim.revisions.store import RevisionSources, compute_hashes
 from scianim_core import AnimationSpec, Storyboard
 from scianim_core.hashing import sha256_json
 
+PICTURE_FREE_FIELDS: dict[str, Any] = {
+    "patterns": True,
+    "snapshots": {"__all__": {"stop", "label", "stop_through"}},
+}
+"""Scene fields that change no picture: the patterns a scene names (intent, ADR-040) and the stop fields of its
+snapshots (where a player may hold the clip, ADR-045). Scene fingerprints leave them out, and a change to them
+alone does not make a scene stale."""
+
 
 @dataclass
 class SceneChange:
@@ -67,7 +75,10 @@ def changed_scenes(
             if old.actions != scene.actions:
                 change.reasons.append("actions changed")
             if old.snapshots != scene.snapshots:
-                change.reasons.append("snapshots changed")
+                if _pictures(old.snapshots) != _pictures(scene.snapshots):
+                    change.reasons.append("snapshots changed")
+                else:
+                    report.notes.append(f"scene '{scene.id}': stops changed, which changes no picture")
         for obj in scene.objects:
             if obj.data is not None and obj.data.source in data_changed:
                 change.reasons.append(f"data source '{obj.data.source}' changed")
@@ -82,6 +93,10 @@ def changed_scenes(
     if before is None:
         report.notes.append("no revision to compare with: every scene counts as new")
     return report
+
+
+def _pictures(snapshots: list[Any]) -> list[dict[str, Any]]:
+    return [snap.model_dump(mode="json", exclude=PICTURE_FREE_FIELDS["snapshots"]["__all__"]) for snap in snapshots]
 
 
 def compare_with_revision(project: Project, report: Report, revision: RevisionSources | None) -> DependencyReport:
@@ -154,7 +169,7 @@ def scene_fingerprints(
     camera: list[Any] = []
     prints: dict[str, str] = {}
     for scene in storyboard.scenes:
-        mapping = scene.model_dump(mode="json", exclude={"patterns"})  # intent only: no picture depends on it
+        mapping = scene.model_dump(mode="json", exclude=PICTURE_FREE_FIELDS)  # no picture depends on these
         named = _strings(mapping)
         uses_custom = any(o.kind == "custom" for o in scene.objects)
         payload = {

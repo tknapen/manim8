@@ -19,6 +19,7 @@ header {{ margin-bottom: 20px; }} h1 {{ font-size: 1.4rem; margin: 0 0 4px; }} .
 .card img {{ width: 100%; display: block; background: #000; }}
 .card .body {{ padding: 12px 14px; }} .card h2 {{ font-size: 1rem; margin: 0 0 4px; }}
 .kind {{ display: inline-block; font-size: .75rem; padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); }}
+.stop {{ border-color: var(--fg); color: var(--fg); }}
 .warn {{ color: var(--warn); font-size: .9rem; margin: 6px 0 0; }} .narration {{ color: var(--muted); font-style: italic; margin: 6px 0 0; }}
 table {{ border-collapse: collapse; width: 100%; font-size: .8rem; margin-top: 8px; }} td, th {{ text-align: left; padding: 2px 4px; border-top: 1px solid var(--line); }}
 </style></head><body>
@@ -30,7 +31,7 @@ table {{ border-collapse: collapse; width: 100%; font-size: .8rem; margin-top: 8
 
 CARD = """<article class="card">
 <img src="{src}" alt="{alt}" width="{w}" height="{h}">
-<div class="body"><h2>{snapshot_id} <span class="kind">{kind}{fidelity}</span></h2>
+<div class="body"><h2>{snapshot_id} <span class="kind">{kind}{fidelity}</span>{stop}</h2>
 <div class="meta">scene {scene_id} | requested {t:g}s | animation #{anim}</div>
 <p>{description}</p>{narration}{warnings}{layout}</div></article>"""
 
@@ -39,6 +40,7 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
     job = manifest.job
     cards = []
     scenes = {s.id: s for s in storyboard.scenes}
+    stops = {s.snapshot_id: s for s in manifest.result.stops}
     for rec in manifest.result.checkpoints:
         src = Path(rec.png).name
         scene = scenes.get(rec.scene_id)
@@ -57,6 +59,12 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
             if rows
             else ""
         )
+        target = job.snapshots.get(rec.snapshot_id)
+        held = stops.get(rec.snapshot_id)
+        stop = ""
+        if target is not None and target.stop:
+            where = f" | frame {held.frame_index}" if held is not None else ""
+            stop = f' <span class="kind stop">stop: {html.escape(target.label or rec.snapshot_id)}{where}</span>'
         cards.append(
             CARD.format(
                 src=html.escape(src),
@@ -66,6 +74,7 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
                 snapshot_id=html.escape(rec.snapshot_id),
                 kind=rec.kind,
                 fidelity="" if rec.fidelity == "exact" else " | approximate",
+                stop=stop,
                 scene_id=html.escape(rec.scene_id),
                 t=rec.expected_time_seconds,
                 anim=rec.animation_index,
@@ -101,6 +110,20 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
             if manifest.result.subtitles
             else ""
         )
+        every_stop = manifest.result.stops
+        stop_rows = "".join(
+            f"<tr><td>{number}</td><td>{html.escape(s.snapshot_id)}</td><td>{html.escape(s.label)}</td>"
+            f"<td>{s.frame_index}</td><td>{s.time_seconds:.3f}</td><td>{s.rest_before_frames}</td>"
+            f"<td>{s.rest_after_frames}</td><td>{html.escape(', '.join(s.frozen)) or '-'}</td></tr>"
+            for number, s in enumerate(every_stop, 1)
+        )
+        stop_table = (
+            f'<p class="meta">{len(every_stop)} stop(s): a player holds the movie at each until the next key, so it '
+            f"plays in {len(every_stop) + 1} parts</p><table><tr><th>#</th><th>stop</th><th>label</th><th>frame</th>"
+            f"<th>seconds</th><th>rest before</th><th>rest after</th><th>frozen</th></tr>{stop_rows}</table>"
+            if every_stop
+            else ""
+        )
         video += (
             f'<section class="card" style="margin-bottom:20px"><video controls preload="metadata" src="{html.escape(Path(record.path).name)}" '
             f'width="{record.width_px}" height="{record.height_px}" style="width:100%;height:auto"></video>'
@@ -108,6 +131,7 @@ def render_sheet(manifest: ArtifactManifest, storyboard: Storyboard, sheet_dir: 
             f"{record.fps:g} fps · {record.frame_count} frames · {record.duration_seconds:.2f}s · {html.escape(record.codec or '')}</span></h2>"
             f"{verdict}{subtitles}"
             + (f"<table><tr><th>section</th><th>frames</th><th>seconds</th></tr>{rows}</table>" if rows else "")
+            + stop_table
             + "</div></section>"
         )
     return TEMPLATE.format(

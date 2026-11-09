@@ -45,6 +45,7 @@ from scianim.render.jobs import (
 )
 from scianim.render.manifests import manifest_for_ref
 from scianim.render.parallel import resolve_workers, run_parallel_video
+from scianim.render.stops import parts
 from scianim.review.sheet import write_sheet
 from scianim.revisions.store import create_revision, latest_revision, list_revisions, load_revision
 from scianim.skill import install_skill
@@ -63,6 +64,7 @@ from scianim.workspace import (
 from scianim_core import REGISTRY, REGISTRY_VERSION, ArtifactManifest, StyleSelection
 from scianim_core.feedback import Region
 from scianim_core.schemas import export_schemas
+from scianim_core.timing import frames_for
 
 QUALITY_PROFILES = ("storyboard", "snapshot", "draft", "final")
 SURFACE_RENDERERS = ("cairo", "raster")
@@ -812,6 +814,15 @@ def _print_video(manifest: ArtifactManifest, console: Console | None = None) -> 
             console.print(f"  [red]{escape(problem)}[/red]")
         for note in timing.notes:
             console.print(f"  [dim]{escape(note)}[/dim]")
+    for number, stop in enumerate(manifest.result.stops, 1):
+        frozen = f", camera turning ({', '.join(stop.frozen)})" if stop.frozen else ""
+        console.print(
+            escape(
+                f"stop {number}: {stop.snapshot_id} ({stop.label}) at frame {stop.frame_index}, "
+                f"{stop.time_seconds:.3f}s; rest {stop.rest_before_frames} frames before, "
+                f"{stop.rest_after_frames} after{frozen}"
+            )
+        )
     samples = [c for c in manifest.result.checkpoints if c.kind == "sampled_video_frame"]
     if samples:
         console.print(
@@ -974,6 +985,26 @@ def timing(
     out_console.print(table)
     for conflict in proposal.conflicts:
         out_console.print(f"  [red]conflict[/red] {escape(str(conflict))}")
+    stops = report.storyboard.stops()
+    if stops:
+        fps = report.animation.output.fps
+        parts_table = Table(show_header=True, header_style="bold")
+        for column in ("part", "from", "to", "seconds", "frames"):
+            parts_table.add_column(column)
+        boundaries = [(snap.id, snap.at_seconds) for _, snap in stops]
+        for number, (first, last, t0, t1) in enumerate(parts(boundaries, report.animation.output.duration_seconds), 1):
+            parts_table.add_row(
+                str(number),
+                f"{first} ({t0:g}s)",
+                f"{last} ({t1:g}s)",
+                f"{t1 - t0:.2f}",
+                str(frames_for(t1, fps) - frames_for(t0, fps)),
+            )
+        out_console.print(
+            f"{len(stops)} stop(s) present the clip in {len(stops) + 1} parts (ADR-045); a player holds at each stop "
+            "until the next key:"
+        )
+        out_console.print(parts_table)
     if out is not None:
         target = write_proposed_storyboard(proj.storyboard_path, proposal, out)
         out_console.print(f"wrote proposed storyboard to {target}")

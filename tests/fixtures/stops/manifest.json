@@ -1,0 +1,970 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-11-09T13:47:20+00:00",
+  "job": {
+    "schema_version": "1.0",
+    "job_id": "job_20261109T134659_46faa6",
+    "project_id": "divisive_normalization",
+    "revision_id": "working",
+    "family_id": "computational_neuroscience",
+    "operation": "render_video",
+    "quality_profile": "final",
+    "scene_module": "code/scene_divisive_normalization.py",
+    "scene_class": "DivisiveNormalization",
+    "snapshot_ids": [],
+    "snapshots": {
+      "excitation_visible": {
+        "scene_id": "excitation",
+        "expected_time_seconds": 4.0,
+        "description": "The caption with its note beneath it, and the synthetic excitation curve with labelled axes, before the gain sweep begins.",
+        "stop": true,
+        "label": "drive alone",
+        "frozen": []
+      },
+      "pool_introduced": {
+        "scene_id": "normalization",
+        "expected_time_seconds": 8.0,
+        "description": "The schematic response curve for P = 1 with the equation beside it, P and sigma highlighted.",
+        "stop": false,
+        "label": null,
+        "frozen": []
+      },
+      "pool_raised": {
+        "scene_id": "normalization",
+        "expected_time_seconds": 13.0,
+        "description": "After the first sweep the curve is compressed to a fifth of its slope and the readout under the equation reads P = 4.0; the axes are unchanged.",
+        "stop": true,
+        "label": "pool raised to 4",
+        "frozen": []
+      },
+      "rebalanced": {
+        "scene_id": "normalization",
+        "expected_time_seconds": 17.2,
+        "description": "After sigma rose to 3 while the pool fell back to 1, the slope is a quarter: the readouts read P = 1.0 and \u03c3 = 3.0.",
+        "stop": false,
+        "label": null,
+        "frozen": []
+      }
+    },
+    "scenes": [
+      {
+        "scene_id": "excitation",
+        "start_seconds": 0.0,
+        "end_seconds": 6.0
+      },
+      {
+        "scene_id": "normalization",
+        "start_seconds": 6.0,
+        "end_seconds": 18.0
+      }
+    ],
+    "samples": {},
+    "output": {
+      "duration_seconds": 18.0,
+      "width_px": 1920,
+      "height_px": 1080,
+      "aspect_ratio": "16:9",
+      "fps": 30.0,
+      "container": "mp4",
+      "video_codec": "h264",
+      "audio": "none"
+    },
+    "resolved_style": {
+      "schema_version": "1.0",
+      "theme": "tomas_scientific",
+      "theme_version": "0.5.1",
+      "layers": [
+        "theme:default@0.3.0",
+        "theme:default@0.3.1",
+        "theme:default@0.4.0",
+        "theme:default@0.5.0",
+        "theme:tomas_scientific@0.5.1"
+      ],
+      "tokens": {
+        "palette": {
+          "background": "#FFFFFF",
+          "foreground": "#22304A",
+          "secondary_text": "#6E7B8F",
+          "muted": "#A7B1BF",
+          "neutral": "#D9DFE7",
+          "grid": "#EEF1F5",
+          "primary_signal": "#4E86C6",
+          "primary_signal_soft": "#BBD2EC",
+          "uncertainty": "#DCE7F4",
+          "selection": "#EAF1FA",
+          "emphasis": "#E8872A",
+          "comparison": "#D4702B",
+          "comparison_soft": "#F3CDAA",
+          "warning": "#C9A227",
+          "normalization_pool": "#D4702B"
+        },
+        "typography": {
+          "title": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 50.0,
+            "weight": "bold"
+          },
+          "body": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 34.0,
+            "weight": "regular"
+          },
+          "annotation": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 30.0,
+            "weight": "regular"
+          },
+          "axis_label": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 30.0,
+            "weight": "regular"
+          },
+          "tick_label": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 26.0,
+            "weight": "regular"
+          },
+          "caption": {
+            "font_family": "Palatino",
+            "font_fallbacks": [
+              "Palatino Linotype",
+              "Book Antiqua",
+              "TeX Gyre Pagella",
+              "URW Palladio L",
+              "P052",
+              "serif"
+            ],
+            "size_px_at_1080p": 26.0,
+            "weight": "regular"
+          },
+          "equation": {
+            "engine": "typst",
+            "size_px_at_1080p": 46.0,
+            "label_size_px_at_1080p": 38.0,
+            "math_font": "TeX Gyre Pagella Math",
+            "math_font_fallbacks": [
+              "Asana Math",
+              "New Computer Modern Math"
+            ],
+            "latex_packages": [
+              "newpxmath"
+            ]
+          },
+          "minimum_text_px_at_1080p": 26.0
+        },
+        "layout": {
+          "safe_margin_fraction": 0.06,
+          "baseline_grid_px_at_1080p": 16.0,
+          "panel_gap_px_at_1080p": 48.0,
+          "preferred_alignment": "left"
+        },
+        "geometry": {
+          "axis_stroke_px_at_1080p": 1.5,
+          "curve_stroke_px_at_1080p": 2.8,
+          "annotation_stroke_px_at_1080p": 1.6,
+          "marker_radius_px_at_1080p": 4.5,
+          "tick_length_px_at_1080p": 7.0,
+          "line_cap": "round",
+          "marker_rim_px_at_1080p": 1.5
+        },
+        "charts": {
+          "spines": [
+            "left",
+            "bottom"
+          ],
+          "spine_offset_px_at_1080p": 0.0,
+          "grid_visible": false,
+          "use_shared_scales_for_comparison": true,
+          "legend_position": "upper_right",
+          "show_units_when_provided": true
+        },
+        "motion": {
+          "transition_seconds": 0.65,
+          "reveal_seconds": 0.85,
+          "easing": "smooth",
+          "camera_easing": "eased_linear",
+          "ramp_seconds": 1.5,
+          "hold_seconds": 1.0,
+          "emphasis_scale": 1.3,
+          "emphasis_seconds": 0.8,
+          "avoid_decorative_motion": true,
+          "narration_words_per_minute": 150.0
+        },
+        "accessibility": {
+          "do_not_rely_on_color_alone": true,
+          "warn_on_low_contrast": true,
+          "minimum_contrast_body": 4.5
+        },
+        "three_d": {
+          "camera_phi_degrees": 58.0,
+          "camera_theta_degrees": -45.0,
+          "mesh_stroke_px_at_1080p": 0.5,
+          "mesh_role": "muted",
+          "surface_opacity": 1.0,
+          "shading_strength": 0.45,
+          "light_azimuth_degrees": -60.0,
+          "light_elevation_degrees": 55.0
+        }
+      },
+      "provenance": {
+        "accessibility.do_not_rely_on_color_alone": "theme:default@0.3.0",
+        "accessibility.minimum_contrast_body": "theme:default@0.3.0",
+        "accessibility.warn_on_low_contrast": "theme:default@0.3.0",
+        "charts.grid_visible": "theme:default@0.3.0",
+        "charts.legend_position": "theme:default@0.3.0",
+        "charts.show_units_when_provided": "theme:default@0.3.0",
+        "charts.spine_offset_px_at_1080p": "theme:default@0.3.0",
+        "charts.spines": "theme:default@0.3.0",
+        "charts.use_shared_scales_for_comparison": "theme:default@0.3.0",
+        "geometry.annotation_stroke_px_at_1080p": "theme:default@0.3.0",
+        "geometry.axis_stroke_px_at_1080p": "theme:default@0.3.0",
+        "geometry.curve_stroke_px_at_1080p": "theme:default@0.3.0",
+        "geometry.line_cap": "theme:default@0.5.0",
+        "geometry.marker_radius_px_at_1080p": "theme:default@0.3.0",
+        "geometry.marker_rim_px_at_1080p": "theme:default@0.5.0",
+        "geometry.tick_length_px_at_1080p": "theme:default@0.3.0",
+        "layout.baseline_grid_px_at_1080p": "theme:default@0.3.0",
+        "layout.panel_gap_px_at_1080p": "theme:default@0.3.0",
+        "layout.preferred_alignment": "theme:default@0.3.0",
+        "layout.safe_margin_fraction": "theme:default@0.3.0",
+        "motion.avoid_decorative_motion": "theme:default@0.3.0",
+        "motion.camera_easing": "theme:default@0.4.0",
+        "motion.easing": "theme:default@0.4.0",
+        "motion.emphasis_scale": "theme:default@0.3.0",
+        "motion.emphasis_seconds": "theme:default@0.3.0",
+        "motion.hold_seconds": "theme:tomas_scientific@0.5.1",
+        "motion.narration_words_per_minute": "theme:default@0.3.0",
+        "motion.ramp_seconds": "theme:default@0.4.0",
+        "motion.reveal_seconds": "theme:default@0.3.0",
+        "motion.transition_seconds": "theme:default@0.3.0",
+        "palette.background": "theme:default@0.3.0",
+        "palette.comparison": "theme:default@0.3.0",
+        "palette.comparison_soft": "theme:default@0.3.0",
+        "palette.emphasis": "theme:default@0.3.0",
+        "palette.foreground": "theme:default@0.3.0",
+        "palette.grid": "theme:default@0.3.0",
+        "palette.muted": "theme:default@0.3.0",
+        "palette.neutral": "theme:default@0.3.0",
+        "palette.normalization_pool": "theme:default@0.3.0",
+        "palette.primary_signal": "theme:default@0.3.0",
+        "palette.primary_signal_soft": "theme:default@0.3.0",
+        "palette.secondary_text": "theme:default@0.3.0",
+        "palette.selection": "theme:default@0.3.0",
+        "palette.uncertainty": "theme:default@0.3.0",
+        "palette.warning": "theme:default@0.3.0",
+        "three_d.camera_phi_degrees": "theme:default@0.3.0",
+        "three_d.camera_theta_degrees": "theme:default@0.3.0",
+        "three_d.light_azimuth_degrees": "theme:default@0.5.0",
+        "three_d.light_elevation_degrees": "theme:default@0.5.0",
+        "three_d.mesh_role": "theme:default@0.5.0",
+        "three_d.mesh_stroke_px_at_1080p": "theme:default@0.5.0",
+        "three_d.shading_strength": "theme:default@0.5.0",
+        "three_d.surface_opacity": "theme:default@0.5.0",
+        "typography.annotation.font_fallbacks": "theme:default@0.5.0",
+        "typography.annotation.font_family": "theme:default@0.5.0",
+        "typography.annotation.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.annotation.weight": "theme:default@0.3.0",
+        "typography.axis_label.font_fallbacks": "theme:default@0.5.0",
+        "typography.axis_label.font_family": "theme:default@0.5.0",
+        "typography.axis_label.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.axis_label.weight": "theme:default@0.3.0",
+        "typography.body.font_fallbacks": "theme:default@0.5.0",
+        "typography.body.font_family": "theme:default@0.5.0",
+        "typography.body.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.body.weight": "theme:default@0.3.0",
+        "typography.caption.font_fallbacks": "theme:default@0.5.0",
+        "typography.caption.font_family": "theme:default@0.5.0",
+        "typography.caption.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.caption.weight": "theme:default@0.3.0",
+        "typography.equation.engine": "theme:default@0.3.0",
+        "typography.equation.label_size_px_at_1080p": "theme:default@0.3.0",
+        "typography.equation.latex_packages": "theme:default@0.3.0",
+        "typography.equation.math_font": "theme:default@0.3.0",
+        "typography.equation.math_font_fallbacks": "theme:default@0.3.0",
+        "typography.equation.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.minimum_text_px_at_1080p": "theme:default@0.3.0",
+        "typography.tick_label.font_fallbacks": "theme:default@0.5.0",
+        "typography.tick_label.font_family": "theme:default@0.5.0",
+        "typography.tick_label.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.tick_label.weight": "theme:default@0.3.0",
+        "typography.title.font_fallbacks": "theme:default@0.5.0",
+        "typography.title.font_family": "theme:default@0.5.0",
+        "typography.title.size_px_at_1080p": "theme:default@0.3.0",
+        "typography.title.weight": "theme:default@0.5.0"
+      },
+      "hash": "sha256:739f9fac8de53514148f2bc52a04bbbd317b3e583f8b6ca062d1690a08ab2fd4"
+    },
+    "data_files": {
+      "responses": "data/synthetic_responses.csv"
+    },
+    "equations": {
+      "schematic_equation": {
+        "id": "schematic_equation",
+        "typst": "r = E / (sigma + P)",
+        "latex": "r = \\frac{E}{\\sigma + P}",
+        "symbols": {
+          "r": {
+            "meaning": "schematic response",
+            "units": null
+          },
+          "E": {
+            "meaning": "excitatory drive",
+            "units": null
+          },
+          "P": {
+            "meaning": "normalization pool drive",
+            "units": null
+          },
+          "sigma": {
+            "meaning": "positive stabilizing constant",
+            "units": null
+          }
+        },
+        "source": null
+      }
+    },
+    "citations": {
+      "responses": "Synthetic illustrative data generated for this example"
+    },
+    "manim": {
+      "renderer": "cairo",
+      "pixel_width": 1920,
+      "pixel_height": 1080,
+      "frame_rate": 30.0,
+      "background_color": "#FFFFFF",
+      "media_dir": ".scianim/media/working/a1c78b6441a7-a35f4497",
+      "equation_engine": "typst",
+      "seed": 0,
+      "disable_caching": false,
+      "pixel_format": "yuv420p",
+      "video_codec": "libx264",
+      "save_sections": true,
+      "surface_renderer": "cairo"
+    },
+    "output_dir": "renders/working/job_20261109T134659_46faa6",
+    "cache_key": "sha256:218d60080677bd13b99ede4be379b4e9f75442fb1ef4a57a3bfe469782cce830",
+    "workers": 1,
+    "part": null,
+    "merge": null,
+    "registry_version": "0.5.0",
+    "segment_store": ".scianim/segments/c08d8bd2d6204e1c"
+  },
+  "result": {
+    "schema_version": "1.0",
+    "job_id": "job_20261109T134659_46faa6",
+    "status": "succeeded",
+    "checkpoints": [
+      {
+        "snapshot_id": "excitation_visible",
+        "scene_id": "excitation",
+        "kind": "sampled_video_frame",
+        "png": "renders/working/job_20261109T134659_46faa6/excitation_visible.png",
+        "width_px": 1920,
+        "height_px": 1080,
+        "sha256": "ac5c7ab2623e96adc7a2efaf2bc510016e91828c1752d55dc88a46e213ef9c04",
+        "animation_index": 4,
+        "expected_time_seconds": 4.0,
+        "renderer_time_seconds": 4.0,
+        "fidelity": "exact",
+        "fidelity_note": "frame 120 of the rendered video",
+        "frame_index": 120,
+        "layout": [],
+        "warnings": []
+      },
+      {
+        "snapshot_id": "pool_introduced",
+        "scene_id": "normalization",
+        "kind": "sampled_video_frame",
+        "png": "renders/working/job_20261109T134659_46faa6/pool_introduced.png",
+        "width_px": 1920,
+        "height_px": 1080,
+        "sha256": "b08ec5c26784f861ee6ddf65014ab45793d91515897de1fcc48a8d9fb2a327cc",
+        "animation_index": 11,
+        "expected_time_seconds": 8.0,
+        "renderer_time_seconds": 8.0,
+        "fidelity": "exact",
+        "fidelity_note": "frame 240 of the rendered video",
+        "frame_index": 240,
+        "layout": [],
+        "warnings": []
+      },
+      {
+        "snapshot_id": "pool_raised",
+        "scene_id": "normalization",
+        "kind": "sampled_video_frame",
+        "png": "renders/working/job_20261109T134659_46faa6/pool_raised.png",
+        "width_px": 1920,
+        "height_px": 1080,
+        "sha256": "d1697dd8a650a438ad5b12ffee96fe89e37373203b22072979d2c9a21df21b2c",
+        "animation_index": 14,
+        "expected_time_seconds": 13.0,
+        "renderer_time_seconds": 13.0,
+        "fidelity": "exact",
+        "fidelity_note": "frame 390 of the rendered video",
+        "frame_index": 390,
+        "layout": [],
+        "warnings": []
+      },
+      {
+        "snapshot_id": "rebalanced",
+        "scene_id": "normalization",
+        "kind": "sampled_video_frame",
+        "png": "renders/working/job_20261109T134659_46faa6/rebalanced.png",
+        "width_px": 1920,
+        "height_px": 1080,
+        "sha256": "bf4c649ced95352c63b9573b54c3e16977100a8cd4c5496fa477f368e2a62178",
+        "animation_index": 17,
+        "expected_time_seconds": 17.2,
+        "renderer_time_seconds": 17.2,
+        "fidelity": "exact",
+        "fidelity_note": "frame 516 of the rendered video",
+        "frame_index": 516,
+        "layout": [],
+        "warnings": []
+      }
+    ],
+    "videos": [
+      {
+        "path": "renders/working/job_20261109T134659_46faa6/job_20261109T134659_46faa6.mp4",
+        "width_px": 1920,
+        "height_px": 1080,
+        "fps": 30.0,
+        "duration_seconds": 18.0,
+        "frame_count": 540,
+        "codec": "h264",
+        "sha256": "8579834e62a5fa33f667a62e091bdd12636ff594439601d35b657e62362414a6"
+      }
+    ],
+    "sections": [
+      {
+        "name": "excitation",
+        "type": "default.normal",
+        "video": "renders/working/job_20261109T134659_46faa6/sections/job_20261109T134659_46faa6_0000_excitation.mp4",
+        "metadata": {
+          "width": 1920,
+          "height": 1080,
+          "nb_frames": "180",
+          "duration": "6.000000",
+          "avg_frame_rate": "30/1",
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "frames": 180,
+          "duration_seconds": 6.0,
+          "width_px": 1920,
+          "height_px": 1080,
+          "fps": 30.0,
+          "sha256": "d6da7e1a78756e096815d6571a284aacadaca2267a87d0e1ce013a574d457da6"
+        }
+      },
+      {
+        "name": "normalization",
+        "type": "default.normal",
+        "video": "renders/working/job_20261109T134659_46faa6/sections/job_20261109T134659_46faa6_0001_normalization.mp4",
+        "metadata": {
+          "width": 1920,
+          "height": 1080,
+          "nb_frames": "360",
+          "duration": "12.000000",
+          "avg_frame_rate": "30/1",
+          "codec_name": "h264",
+          "pix_fmt": "yuv420p",
+          "frames": 360,
+          "duration_seconds": 12.0,
+          "width_px": 1920,
+          "height_px": 1080,
+          "fps": 30.0,
+          "sha256": "223d87e666ff3a8b3556055514d7e0d362cb38fe7c75558dcc824427e7aa4339"
+        }
+      }
+    ],
+    "subtitles": "renders/working/job_20261109T134659_46faa6/job_20261109T134659_46faa6.srt",
+    "timing": {
+      "fps": 30.0,
+      "tolerance_frames": 1,
+      "expected_total_frames": 540,
+      "actual_total_frames": 540,
+      "actual_duration_seconds": 18.0,
+      "scenes": [
+        {
+          "scene_id": "excitation",
+          "start_seconds": 0.0,
+          "end_seconds": 6.0,
+          "expected_frames": 180,
+          "actual_frames": 180,
+          "delta_frames": 0
+        },
+        {
+          "scene_id": "normalization",
+          "start_seconds": 6.0,
+          "end_seconds": 18.0,
+          "expected_frames": 360,
+          "actual_frames": 360,
+          "delta_frames": 0
+        }
+      ],
+      "notes": []
+    },
+    "plays": [
+      {
+        "index": 0,
+        "scene_id": "excitation",
+        "start_seconds": 0.0,
+        "frames": 26,
+        "static": false,
+        "drawn": true,
+        "seconds": 0.8524996979999742,
+        "splittable": true,
+        "source_index": 0,
+        "piece": 0,
+        "content_hash": "1208c99339ddcac5191c0eda4ffb5e6b51f82f413750e113cc3d5f94f423c307"
+      },
+      {
+        "index": 1,
+        "scene_id": "excitation",
+        "start_seconds": 0.8666666666666667,
+        "frames": 34,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.5059570519999852,
+        "splittable": true,
+        "source_index": 1,
+        "piece": 0,
+        "content_hash": "bfa00d0b3d02d7dcbcc7ce773de12e08c7a1ae5778358a2f08dd9a53925bdec3"
+      },
+      {
+        "index": 2,
+        "scene_id": "excitation",
+        "start_seconds": 2.0,
+        "frames": 26,
+        "static": false,
+        "drawn": true,
+        "seconds": 0.36148548999995,
+        "splittable": true,
+        "source_index": 2,
+        "piece": 0,
+        "content_hash": "ed71e16b334f851bbce2da69a001208fdba2750d021c75d43457f05af1fd04b4"
+      },
+      {
+        "index": 3,
+        "scene_id": "excitation",
+        "start_seconds": 2.8666666666666667,
+        "frames": 34,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.49762127999997574,
+        "splittable": true,
+        "source_index": 3,
+        "piece": 0,
+        "content_hash": "598548b8c0b31b7cf883e44152ca59cbfdc3c11e465a4a8b535b452953a6f25f"
+      },
+      {
+        "index": 4,
+        "scene_id": "excitation",
+        "start_seconds": 4.0,
+        "frames": 39,
+        "static": false,
+        "drawn": true,
+        "seconds": 1.6797307560000263,
+        "splittable": true,
+        "source_index": 4,
+        "piece": 0,
+        "content_hash": "ae4dc650b5431d4019acbfc85e7d18995066acd805007c2f588f9f8129a677d4"
+      },
+      {
+        "index": 5,
+        "scene_id": "excitation",
+        "start_seconds": 5.3,
+        "frames": 1,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.1098987699999725,
+        "splittable": true,
+        "source_index": 5,
+        "piece": 0,
+        "content_hash": "4847b47effb517b65de86d70ab62211d390767c1baa1e8b4e102c3e84f69b952"
+      },
+      {
+        "index": 6,
+        "scene_id": "excitation",
+        "start_seconds": 5.333333333333333,
+        "frames": 20,
+        "static": false,
+        "drawn": true,
+        "seconds": 0.5642517260000659,
+        "splittable": true,
+        "source_index": 6,
+        "piece": 0,
+        "content_hash": "a88abcc082b121620155cd24a1a0004d584b8fbf139a38ad1e2278d1fc4f922a"
+      },
+      {
+        "index": 7,
+        "scene_id": "normalization",
+        "start_seconds": 6.0,
+        "frames": 25,
+        "static": false,
+        "drawn": true,
+        "seconds": 0.5799431569998887,
+        "splittable": true,
+        "source_index": 7,
+        "piece": 0,
+        "content_hash": "c10c7343ac71d685b93558ef26d47a7fa6939b90d1ed71868bcadae2c09a6eb9"
+      },
+      {
+        "index": 8,
+        "scene_id": "normalization",
+        "start_seconds": 6.833333333333333,
+        "frames": 5,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.12913025400007427,
+        "splittable": true,
+        "source_index": 8,
+        "piece": 0,
+        "content_hash": "db9d9b3536fd25b32c143ccea4d0b5d3991da42785c606635d5cd8b9ad9b9596"
+      },
+      {
+        "index": 9,
+        "scene_id": "normalization",
+        "start_seconds": 7.0,
+        "frames": 25,
+        "static": false,
+        "drawn": true,
+        "seconds": 0.35091159300009167,
+        "splittable": true,
+        "source_index": 9,
+        "piece": 0,
+        "content_hash": "a66595c011f61d04beced27a5e7e44ed022bffddf56c1b758ab1e08b796b1523"
+      },
+      {
+        "index": 10,
+        "scene_id": "normalization",
+        "start_seconds": 7.833333333333333,
+        "frames": 5,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.14133896399994228,
+        "splittable": true,
+        "source_index": 10,
+        "piece": 0,
+        "content_hash": "25ad666d95c32af701111ee7ac768f6dfd40d31d0ea74d6c6f2adbc9c7f0a808"
+      },
+      {
+        "index": 11,
+        "scene_id": "normalization",
+        "start_seconds": 8.0,
+        "frames": 15,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.3135059070000352,
+        "splittable": true,
+        "source_index": 11,
+        "piece": 0,
+        "content_hash": "71bb24b30b2810acc3a4b793f20b50e4d20cf5840031358968a431393845d929"
+      },
+      {
+        "index": 12,
+        "scene_id": "normalization",
+        "start_seconds": 8.5,
+        "frames": 120,
+        "static": false,
+        "drawn": true,
+        "seconds": 3.052240559000211,
+        "splittable": true,
+        "source_index": 12,
+        "piece": 0,
+        "content_hash": "bbed31839ff32d75f3ffc3c0458b2d9fb7ba9dfebd5ef869fa051220c033592d"
+      },
+      {
+        "index": 13,
+        "scene_id": "normalization",
+        "start_seconds": 12.5,
+        "frames": 15,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.2100643860001128,
+        "splittable": true,
+        "source_index": 13,
+        "piece": 0,
+        "content_hash": "acf068c350ab3f78fad344f6b4f2b78ce3f73a42cdf889f994d4e9675d2f6766"
+      },
+      {
+        "index": 14,
+        "scene_id": "normalization",
+        "start_seconds": 13.0,
+        "frames": 15,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.22082859500005725,
+        "splittable": true,
+        "source_index": 14,
+        "piece": 0,
+        "content_hash": "896fef0a603a6b5fe5940c4f2969e47923339901a8bc19f51df3277160636906"
+      },
+      {
+        "index": 15,
+        "scene_id": "normalization",
+        "start_seconds": 13.5,
+        "frames": 105,
+        "static": false,
+        "drawn": true,
+        "seconds": 4.160013943999957,
+        "splittable": true,
+        "source_index": 15,
+        "piece": 0,
+        "content_hash": "a18b550c86c6392d7add62e12f1b21adb8f259651d4d44bcf1f0086a758f195e"
+      },
+      {
+        "index": 16,
+        "scene_id": "normalization",
+        "start_seconds": 17.0,
+        "frames": 6,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.1514743279999493,
+        "splittable": true,
+        "source_index": 16,
+        "piece": 0,
+        "content_hash": "f43200fe5ad6f11e0cf5235776f709854fe235ff504e08d8511f8d94d792dc51"
+      },
+      {
+        "index": 17,
+        "scene_id": "normalization",
+        "start_seconds": 17.2,
+        "frames": 24,
+        "static": true,
+        "drawn": true,
+        "seconds": 0.3314801310000348,
+        "splittable": true,
+        "source_index": 17,
+        "piece": 0,
+        "content_hash": "6ae06ffe546a65a7f153cbf4384517e070ba7697b8815e8eb7dfa582f37f69a2"
+      }
+    ],
+    "reached": [
+      {
+        "snapshot_id": "excitation_visible",
+        "animation_index": 4,
+        "time_seconds": 4.0
+      },
+      {
+        "snapshot_id": "pool_introduced",
+        "animation_index": 11,
+        "time_seconds": 8.0
+      },
+      {
+        "snapshot_id": "pool_raised",
+        "animation_index": 14,
+        "time_seconds": 13.0
+      },
+      {
+        "snapshot_id": "rebalanced",
+        "animation_index": 17,
+        "time_seconds": 17.2
+      }
+    ],
+    "stops": [
+      {
+        "snapshot_id": "excitation_visible",
+        "label": "drive alone",
+        "notes": "The caption with its note beneath it, and the synthetic excitation curve with labelled axes, before the gain sweep begins.",
+        "frame_index": 120,
+        "time_seconds": 4.0,
+        "rest_before_frames": 34,
+        "rest_after_frames": 0,
+        "frozen": []
+      },
+      {
+        "snapshot_id": "pool_raised",
+        "label": "pool raised to 4",
+        "notes": "After the first sweep the curve is compressed to a fifth of its slope and the readout under the equation reads P = 4.0; the axes are unchanged.",
+        "frame_index": 390,
+        "time_seconds": 13.0,
+        "rest_before_frames": 15,
+        "rest_after_frames": 15,
+        "frozen": []
+      }
+    ],
+    "segments": [
+      {
+        "play_index": 0,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/1208c99339ddcac5191c0eda4ffb5e6b51f82f413750e113cc3d5f94f423c307.mp4",
+        "frames": 26
+      },
+      {
+        "play_index": 1,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/bfa00d0b3d02d7dcbcc7ce773de12e08c7a1ae5778358a2f08dd9a53925bdec3.mp4",
+        "frames": 34
+      },
+      {
+        "play_index": 2,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/ed71e16b334f851bbce2da69a001208fdba2750d021c75d43457f05af1fd04b4.mp4",
+        "frames": 26
+      },
+      {
+        "play_index": 3,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/598548b8c0b31b7cf883e44152ca59cbfdc3c11e465a4a8b535b452953a6f25f.mp4",
+        "frames": 34
+      },
+      {
+        "play_index": 4,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/ae4dc650b5431d4019acbfc85e7d18995066acd805007c2f588f9f8129a677d4.mp4",
+        "frames": 39
+      },
+      {
+        "play_index": 5,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/4847b47effb517b65de86d70ab62211d390767c1baa1e8b4e102c3e84f69b952.mp4",
+        "frames": 1
+      },
+      {
+        "play_index": 6,
+        "scene_id": "excitation",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/a88abcc082b121620155cd24a1a0004d584b8fbf139a38ad1e2278d1fc4f922a.mp4",
+        "frames": 20
+      },
+      {
+        "play_index": 7,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/c10c7343ac71d685b93558ef26d47a7fa6939b90d1ed71868bcadae2c09a6eb9.mp4",
+        "frames": 25
+      },
+      {
+        "play_index": 8,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/db9d9b3536fd25b32c143ccea4d0b5d3991da42785c606635d5cd8b9ad9b9596.mp4",
+        "frames": 5
+      },
+      {
+        "play_index": 9,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/a66595c011f61d04beced27a5e7e44ed022bffddf56c1b758ab1e08b796b1523.mp4",
+        "frames": 25
+      },
+      {
+        "play_index": 10,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/25ad666d95c32af701111ee7ac768f6dfd40d31d0ea74d6c6f2adbc9c7f0a808.mp4",
+        "frames": 5
+      },
+      {
+        "play_index": 11,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/71bb24b30b2810acc3a4b793f20b50e4d20cf5840031358968a431393845d929.mp4",
+        "frames": 15
+      },
+      {
+        "play_index": 12,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/bbed31839ff32d75f3ffc3c0458b2d9fb7ba9dfebd5ef869fa051220c033592d.mp4",
+        "frames": 120
+      },
+      {
+        "play_index": 13,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/acf068c350ab3f78fad344f6b4f2b78ce3f73a42cdf889f994d4e9675d2f6766.mp4",
+        "frames": 15
+      },
+      {
+        "play_index": 14,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/896fef0a603a6b5fe5940c4f2969e47923339901a8bc19f51df3277160636906.mp4",
+        "frames": 15
+      },
+      {
+        "play_index": 15,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/a18b550c86c6392d7add62e12f1b21adb8f259651d4d44bcf1f0086a758f195e.mp4",
+        "frames": 105
+      },
+      {
+        "play_index": 16,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/f43200fe5ad6f11e0cf5235776f709854fe235ff504e08d8511f8d94d792dc51.mp4",
+        "frames": 6
+      },
+      {
+        "play_index": 17,
+        "scene_id": "normalization",
+        "path": ".scianim/media/working/a1c78b6441a7-a35f4497/videos/1080p30/partial_movie_files/DivisiveNormalization/6ae06ffe546a65a7f153cbf4384517e070ba7697b8815e8eb7dfa582f37f69a2.mp4",
+        "frames": 24
+      }
+    ],
+    "parts": [],
+    "tool_versions": {
+      "python": "3.12.3",
+      "platform": "Linux-6.18.44-fc-v310-x86_64-with-glibc2.39",
+      "manim": "0.22.1",
+      "scianim_bridge": "0.1.0a0",
+      "scianim_core": "0.1.0a0",
+      "typst": "0.15.2",
+      "av": "19.0.2",
+      "bridge_fingerprint": "a1c78b6441a7cccb5b65e72428d33c063b77ef870a3254fdcbd4eeb8708756aa"
+    },
+    "elapsed_seconds": 20.191303373999972,
+    "errors": [],
+    "warnings": [
+      "font 'Palatino' is not installed; using fallback 'TeX Gyre Pagella'"
+    ]
+  },
+  "inputs": {
+    "animation_spec": "d9d9942923ca4862deb7b68b8e4020e5477e2b436ac8de94aa7296a3ecadad99",
+    "storyboard": "86833753132c2f598706941e39b7a8b6c051c99f5cb045cc523c5e2091ab678a",
+    "scene_code": "8ccc31ced7cabbdc61219125cc4de96489ac4b44b225848a512bc507bd3a08eb",
+    "resolved_style": "sha256:739f9fac8de53514148f2bc52a04bbbd317b3e583f8b6ca062d1690a08ab2fd4",
+    "data_files": {
+      "responses": "daf23afba8d51be5caedc7c381697878763fccb0c780943b89bce1e0d9d1fefc"
+    },
+    "custom_code": {},
+    "lockfile": "87b51b64c3588bfba6465c6055f7c6b6bd546f7c0cb09d6489277a40e6807867",
+    "scene_fingerprints": {
+      "excitation": "26a7cbbef14c4d5ae0f3446b11dfa92f412162e6239ee42a52fa4c6407fce1ea",
+      "normalization": "2d6b825b57c7d522558611be2fbe73ad933b0c51a622376e25d37464f8f6ac64"
+    }
+  },
+  "cache_hit": false
+}

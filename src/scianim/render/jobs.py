@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from scianim.config.loader import SpecError, format_validation_error, load_animation, load_storyboard
 from scianim.families.resolve import FamilyContext, probe_environment
-from scianim.planning.checks import Report
+from scianim.planning.checks import Report, stop_frozen_orbits
 from scianim.planning.dependencies import scene_fingerprints
 from scianim.project import Project, scene_class_name
 from scianim.render.manifests import write_text_atomic
@@ -328,6 +328,22 @@ def new_job_id() -> str:
     return f"job_{dt.datetime.now(dt.UTC).strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:6]}"
 
 
+def snapshot_targets(storyboard: Storyboard) -> dict[str, SnapshotTarget]:
+    """Every storyboard snapshot as a job target, with what a stop needs for `result.stops` (ADR-045)."""
+    return {
+        snap.id: SnapshotTarget(
+            scene_id=scene.id,
+            expected_time_seconds=snap.at_seconds,
+            description=snap.description,
+            stop=snap.stop,
+            label=snap.stop_label if snap.stop else None,
+            frozen=stop_frozen_orbits(scene, snap),
+        )
+        for scene in storyboard.scenes
+        for snap in scene.snapshots
+    }
+
+
 def build_snapshot_job(
     project: Project,
     sources: JobSources,
@@ -350,12 +366,7 @@ def build_snapshot_job(
         raise SpecError(
             sources.storyboard_path, f"unknown snapshot id(s) {unknown}; known: {storyboard.snapshot_ids()}"
         )
-    targets = {
-        snap.id: SnapshotTarget(scene_id=scene.id, expected_time_seconds=snap.at_seconds, description=snap.description)
-        for scene in storyboard.scenes
-        for snap in scene.snapshots
-        if snap.id in wanted
-    }
+    targets = {sid: target for sid, target in snapshot_targets(storyboard).items() if sid in wanted}
     key = cache_key(hashes, manim, wanted, "render_snapshots", tool_versions or {})
     job = RenderJob(
         job_id=job_id,
@@ -404,11 +415,7 @@ def build_video_job(
     media_dir = media_directory(project, sources.revision_id, tool_versions)
     manim = manim_settings(spec, style, profile, media_dir, video=True, surface_renderer=surface_renderer)
     hashes = input_hashes(project, sources, family)
-    targets = {
-        snap.id: SnapshotTarget(scene_id=scene.id, expected_time_seconds=snap.at_seconds, description=snap.description)
-        for scene in storyboard.scenes
-        for snap in scene.snapshots
-    }
+    targets = snapshot_targets(storyboard)
     scenes = [
         SceneTarget(scene_id=s.id, start_seconds=s.start_seconds, end_seconds=s.end_seconds) for s in storyboard.scenes
     ]
@@ -582,7 +589,16 @@ def read_worker_result(paths: JobPaths, stderr: str = "") -> WorkerResult:
 def finish_manifest(
     project: Project, job: RenderJob, paths: JobPaths, hashes: InputHashes, result: WorkerResult
 ) -> ArtifactManifest:
-    """Write `manifest.json` for a finished job and, when it succeeded, point the cache at it."""
+    """Write `manifest.json` for a finished job and, when it succeeded, point the cache at it. A video job's
+    result gains its stops first (ADR-045), and a final render whose stops a player could not hold fails."""
+    if job.operation == "render_video":
+        from scianim.render.stops import apply_stops
+
+        derived = apply_stops(job, result)
+        if derived is not result:
+            result = derived
+            if (paths.output_dir / "result.json").exists():
+                write_text_atomic(paths.output_dir / "result.json", result.model_dump_json(indent=2))
     manifest = ArtifactManifest(
         created_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         job=job,
@@ -639,6 +655,7 @@ __all__ = [
     "restyle_revision",
     "run_job",
     "segment_store_directory",
+    "snapshot_targets",
     "sources_from_report",
     "sources_from_revision",
     "style_selection",
