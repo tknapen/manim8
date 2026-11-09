@@ -105,3 +105,19 @@ jobs:
       - run: uv python install 3.12
       - run: .github/scripts/release_install_check.sh "$RUNNER_TEMP/release"
 
+
+  git-install:
+    # manim8 installed from git, not editable, as another tool installs it: the example family must take the bridge
+    # from the same commit, and `render --json` must answer for a fresh and a cached job and under `--style`
+    # (ADR-043). The full history lets uv fetch the commit from this checkout.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libcairo2-dev libpango1.0-dev pkg-config fonts-dejavu-core
+      - run: uv python install 3.12
+      - run: .github/scripts/git_install_check.sh "$RUNNER_TEMP/git-install"
