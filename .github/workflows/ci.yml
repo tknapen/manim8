@@ -2,6 +2,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:        # run by hand, e.g. when GitHub failed to start a job
 
 jobs:
   control-plane:
