@@ -296,19 +296,21 @@ def sync_environment(
             f"run `scianim migrate {ctx.root}` and sync again",
         )
     notes: list[str] = []
+    # The family has its own .venv; a caller's active environment (`uv run scianim`) is not the one to sync.
+    env = {key: value for key, value in os.environ.items() if key != "VIRTUAL_ENV"}
     repaired = repair_bridge_sources(ctx, locked=locked, rewrite=rewrite_sources)
     if repaired:
         notes.append(repaired)
     if not ctx.lockfile.exists():
         if locked:
             raise SpecError(ctx.path, f"lockfile {ctx.lockfile} is missing and --locked was requested")
-        lock = run_command([uv, "lock"], cwd=ctx.env_root, timeout=timeout)
+        lock = run_command([uv, "lock"], cwd=ctx.env_root, timeout=timeout, env=env)
         if not lock.ok:
             lock.note = "\n".join([*notes, "uv lock failed"])
             return lock
         notes.append(f"created lockfile {ctx.lockfile.name}; commit it")
     argv = [uv, "sync", "--no-dev"] + (["--locked"] if locked else [])
-    result = run_command(argv, cwd=ctx.env_root, timeout=timeout)
+    result = run_command(argv, cwd=ctx.env_root, timeout=timeout, env=env)
     result.note = "\n".join(notes) or None
     return result
 

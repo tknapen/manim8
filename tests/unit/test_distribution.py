@@ -288,6 +288,17 @@ def test_sync_rewrites_path_sources_that_do_not_resolve(monkeypatch, workspace: 
     assert _sources((family / "pyproject.toml").read_text())["manim8-bridge"]["rev"] == "v0.1.0a0"
 
 
+def test_a_path_source_that_climbs_above_the_root_does_not_resolve(tmp_path: Path) -> None:
+    """A workspace moved to a shallower directory: the OS reads `/..` as `/`, uv refuses the path."""
+    relative = ws.packages_relative_to(tmp_path)
+    assert relative is not None and ws._path_source_resolves(tmp_path, f"{relative}/scianim_bridge")
+    climbing = "../" * (len(tmp_path.parts) + 3) + str(REPO / "packages" / "scianim_bridge").lstrip("/")
+    assert (tmp_path / climbing / "pyproject.toml").exists()  # what the operating system says
+    assert not ws._path_source_resolves(tmp_path, climbing)
+    assert ws._path_source_resolves(tmp_path, str(REPO / "packages" / "scianim_core"))  # absolute
+    assert not ws._path_source_resolves(tmp_path, "../nowhere/scianim_core")
+
+
 def test_rewriting_sources_moves_between_every_mode() -> None:
     git = ws.BridgeSource("git", "git install", url="https://github.com/tknapen/manim8", ref=COMMIT)
     path = ws.BridgeSource("path", "checkout", path="../../packages")

@@ -424,9 +424,22 @@ def unresolved_path_sources(env_root: Path, pyproject_text: str) -> list[str]:
     broken: list[str] = []
     for entry in declared_bridge_sources(pyproject_text).values():
         path = entry.get("path")
-        if isinstance(path, str) and not (env_root / path / "pyproject.toml").exists():
+        if isinstance(path, str) and not _path_source_resolves(env_root, path):
             broken.append(path)
     return broken
+
+
+def _path_source_resolves(env_root: Path, path: str) -> bool:
+    """Whether uv finds a package at `path` from `env_root`. uv joins the two lexically and refuses a relative path
+    that climbs above the filesystem root, which the operating system would quietly read as the root itself."""
+    relative = Path(path)
+    if not relative.is_absolute():
+        level = len(env_root.resolve().parts) - 1
+        for part in relative.parts:
+            level += -1 if part == ".." else 0 if part == "." else 1
+            if level < 0:
+                return False
+    return (env_root / relative / "pyproject.toml").is_file()
 
 
 _BRIDGE_KEY = re.compile(r"^\s*\"?(manim8-bridge|manim8-core)\"?\s*=")
