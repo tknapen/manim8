@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -11,8 +12,14 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """The CLI in a subprocess, at a wide COLUMNS so that rich does not wrap a message that names a long path."""
     return subprocess.run(
-        [sys.executable, "-m", "scianim.cli", *args], capture_output=True, text=True, check=False, cwd=cwd
+        [sys.executable, "-m", "scianim.cli", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=cwd,
+        env={**os.environ, "COLUMNS": "400"},
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,22 @@ from scianim.workspace import EXAMPLE_FAMILY, EXAMPLE_PROJECT, init_workspace
 REPO = Path(__file__).resolve().parents[2]
 EXAMPLE = REPO / "examples" / "families" / EXAMPLE_FAMILY / EXAMPLE_PROJECT
 STYLES = REPO / "styles"
+CONSOLE_WIDTH = 400
+
+
+@pytest.fixture(autouse=True)
+def wide_cli_consoles() -> Iterator[None]:
+    """The CLI's rich consoles at one wide width for every test. Without a terminal, rich wraps at COLUMNS or 80
+    columns, so a message that names an absolute path (`<path>: valid (0 errors, 0 warnings)`) broke across lines
+    in a checkout with a long path or under a narrow COLUMNS, and an assertion on it failed."""
+    from scianim import cli
+
+    saved = [(console, console._width) for console in (cli.out, cli.err)]
+    for console, _ in saved:
+        console.width = CONSOLE_WIDTH
+    yield
+    for console, width in saved:
+        console._width = width
 
 
 @pytest.fixture
