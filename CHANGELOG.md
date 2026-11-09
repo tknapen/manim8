@@ -35,6 +35,10 @@ section gives the uv and pip commands. PyPI wheels may follow.
   optionally travelling from a symbol to the object it names, or a pulse of the symbols. `fade_object` takes
   `ink`, a fraction of full ink, to dim the context and restore it.
 - Tutorials (`docs/tutorials/`): ten minutes to a picture, and change one thing. Each page runs in CI as written.
+- Cache keys follow the fonts (ADR-044): the font families the family environment's Pango finds, under the
+  fontconfig the render runs with, enter the job cache key, the segment store's key and Manim's media
+  directory. A job rendered where a style's faces were missing no longer answers a render that has them. The
+  first render after the upgrade is not a cache hit.
 - The manim8 agent skill (ADR-042): `.claude/skills/manim8/SKILL.md`, a playbook for an agent that drives the
   package from a brief to a final clip, asking at each stage; `scianim skill install [--to DIR]` puts it where an
   agent finds it outside the checkout. The wheel carries it.

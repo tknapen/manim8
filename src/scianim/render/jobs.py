@@ -250,14 +250,20 @@ def input_hashes(project: Project, sources: JobSources, family: FamilyContext | 
     )
 
 
+def _fonts_fingerprint(tool_versions: dict[str, object] | None) -> str:
+    """The font families the family environment's Pango finds (ADR-044), or '' when the probe could not tell."""
+    return str((tool_versions or {}).get("fonts_fingerprint") or "")
+
+
 def media_directory(project: Project, revision_id: str, tool_versions: dict[str, object] | None) -> str:
-    """Manim's media directory for a revision, under the bridge's code fingerprint (ADR-033): Manim's per-play
-    cache knows the scene's content but not the code that draws it, so drawings made by other code are never
-    found."""
+    """Manim's media directory for a revision, under the bridge's code fingerprint (ADR-033) and the fonts it
+    finds (ADR-044): Manim's per-play cache knows the scene's content but not the code that draws it, nor the
+    face a font name resolves to, so drawings made by other code or with other fonts are never found."""
     base = project.scianim_dir / "media" / revision_id
     fingerprint = str((tool_versions or {}).get("bridge_fingerprint") or "")
     if fingerprint:
-        base = base / fingerprint[:12]
+        fonts = _fonts_fingerprint(tool_versions)
+        base = base / (fingerprint[:12] + (f"-{fonts[:8]}" if fonts else ""))
     return base.relative_to(project.root).as_posix()
 
 
@@ -270,7 +276,10 @@ def segment_store_directory(
     if not fingerprint:
         return None
     settings = manim.model_dump(mode="json", exclude={"media_dir", "save_sections", "disable_caching"})
-    key = sha256_json({"bridge": fingerprint, "manim": settings})[:16]
+    payload: dict[str, object] = {"bridge": fingerprint, "manim": settings}
+    if _fonts_fingerprint(tool_versions):
+        payload["fonts"] = _fonts_fingerprint(tool_versions)
+    key = sha256_json(payload)[:16]
     return (project.scianim_dir / "segments" / key).relative_to(project.root).as_posix()
 
 
@@ -287,6 +296,8 @@ def cache_key(
             k: tool_versions.get(k) for k in ("manim", "scianim_bridge", "typst", "python", "bridge_fingerprint")
         },
     }
+    if _fonts_fingerprint(tool_versions):  # the faces a style's font names resolve to change pixels (ADR-044)
+        payload["fonts"] = _fonts_fingerprint(tool_versions)
     return f"sha256:{sha256_json(payload)}"
 
 

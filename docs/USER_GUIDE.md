@@ -133,7 +133,9 @@ number of workers; the report says how many plays were drawn and how many came f
 manifest records each play's content hash, so two renders can be compared play by play; with
 `SCIANIM_HASH_TRACE=1` a render also writes what went into each hash (`hash_inputs/` beside its job file). The store and
 Manim's cache are keyed by a fingerprint of the bridge's code, so updating SciAnim never reuses pictures drawn
-by the old code; `scianim clean` removes both.
+by the old code, and, like the job cache, by the font families the family environment finds under the
+fontconfig the render runs with (`FONTCONFIG_FILE`), so a render made where a style's faces were missing is not
+reused where they are present (ADR-044); `scianim clean` removes both.
 
 ```bash
 scianim propose from-feedback <project>            # open feedback and inspection findings -> proposals by rules

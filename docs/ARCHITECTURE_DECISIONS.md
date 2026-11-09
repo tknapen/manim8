@@ -1365,3 +1365,34 @@ a workspace to share; installed from GitHub, the families point at GitHub. `--js
 `snapshot` only. Two styles that differ only in tokens that do not reach a picture (`tomas_scientific@0.5.1`
 and `default@0.5.0` differ in `motion.hold_seconds`, a validation rule) give byte-identical movies under
 different cache keys. Human output on stderr is still wrapped at the terminal's width.
+
+## ADR-044: The fonts a family environment finds are part of every cache that holds pixels
+
+**Status:** accepted, 9 November 2026
+
+**Context.** A style names its faces by family (`font_family` and `font_fallbacks`), and the bridge picks the
+first one Pango finds when the worker runs. Which one that is depends on the fonts installed and on the
+fontconfig the process sees: lecturekit's `lk clips` points `FONTCONFIG_FILE` at a configuration that adds the
+deck's bundled faces, while a `scianim render` in the same workspace sees only the system's. The job cache key
+named the inputs, the Manim settings and the tool versions, not the fonts, although the specification's cache
+rules (PROJECT_SPEC, section 8) require "the resolved font files". So a job rendered on a machine without a
+style's faces, with the generic family in their place and a warning in its manifest, answered a later request
+made under a configuration that has them, and a consumer copied the wrong faces into a deck as a cache hit.
+Manim's per-play cache and the segment store (ADR-033) have the same blind spot: Manim hashes a text's font
+name, not the face it resolves to.
+
+**Decision.** The environment probe, which already runs in the family environment before every job, reports
+`fonts_fingerprint`: the SHA-256 of the sorted, de-duplicated family names `manimpango.list_fonts()` returns
+under the probe's environment, the one the worker inherits for fontconfig (`FONTCONFIG_FILE` and
+`FONTCONFIG_PATH` pass to the worker, `worker_env`). When the probe reports one, it enters the job cache key
+(`fonts`), the segment store's key and the name of Manim's media directory for the revision
+(`<bridge fingerprint>-<fonts>`). A probe without manimpango reports none, and the keys are as before.
+
+**Why.** The family names Pango lists are what the bridge chooses from, so two processes that list the same
+families resolve a style's faces alike, and two that list different ones may not. Hashing the list is cheap,
+needs nothing outside the family environment, and keeps the control plane free of Manim and Pango.
+
+**Limits.** The fingerprint covers family names, not font files: replacing a face's file by another version
+under the same name is not seen. Installing or removing any font changes the fingerprint and so every key on
+that machine, which costs one render per job and never gives a wrong picture. Keys computed before this
+decision differ from the new ones, so the first render after the upgrade is not a cache hit.

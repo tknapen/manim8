@@ -38,6 +38,12 @@ try:
     out["bridge_fingerprint"] = code_fingerprint()
 except Exception:  # noqa: BLE001 - an older bridge has no fingerprint
     out["bridge_fingerprint"] = None
+try:  # the font families Pango finds under this process's fontconfig (FONTCONFIG_FILE included), ADR-044
+    import hashlib, manimpango
+    families = "\n".join(sorted(set(manimpango.list_fonts())))
+    out["fonts_fingerprint"] = hashlib.sha256(families.encode()).hexdigest()
+except Exception:  # noqa: BLE001 - no manimpango: no fonts to name
+    out["fonts_fingerprint"] = None
 print(json.dumps(out))
 """
 
