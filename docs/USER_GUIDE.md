@@ -423,9 +423,9 @@ twice. `--json` and `--style` work the same on `snapshot`.
 
 A consumer that keeps a workspace inside its own repository commits the specs, the styles, `code/`,
 `revisions/`, `feedback/` and the family's `pyproject.toml` and `uv.lock`; the workspace's `.gitignore` leaves out
-the rest. To pin manim8 for such a tool, depend on the release tag: lecturekit's `manim8` extra names
-`manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0` and the matching `manim8-core` subdirectory, which is
-what pip needs (`README.md`, Installing a release).
+the rest. To pin manim8 for such a tool, depend on a release commit (or its tag, once pushed): lecturekit's `manim8` extra
+names `manim8 @ git+https://github.com/tknapen/manim8@d37489eeb08df040f18201b37450514220bb7fcd` and the matching `manim8-core` subdirectory,
+which is what pip needs (`README.md`, Installing a release).
 
 ## Where things are
 

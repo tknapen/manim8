@@ -3,9 +3,9 @@
 The distributions `manim8`, `manim8-core` and `manim8-bridge` share one version. Decisions are recorded in
 `docs/ARCHITECTURE_DECISIONS.md`; this file lists what changed for someone upgrading.
 
-## Unreleased (0.1.0a0)
+## 0.1.0a0 (9 November 2026, commit d37489e)
 
-First version under the name manim8 (ADR-037). It is released as the git tag `v0.1.0a0`; the README's install
+First version under the name manim8 (ADR-037). It is released as commit `d37489e`, to be tagged `v0.1.0a0`; the README's install
 section gives the uv and pip commands. PyPI wheels may follow.
 
 - The distributions are `manim8`, `manim8-core` and `manim8-bridge`; the command `manim8` joins `scianim`.

@@ -36,19 +36,20 @@ look at the pictures and answer its questions. The [user guide](docs/USER_GUIDE.
 
 ## Installing a release
 
-The first release is the git tag `v0.1.0a0`; manim8 is not on PyPI yet. It needs Python 3.12 or later and, for
+The first release, 0.1.0a0, is commit `d37489e`; it will also carry the tag `v0.1.0a0`, and until that tag is
+pushed the commands below name the commit. manim8 is not on PyPI yet. It needs Python 3.12 or later and, for
 rendering, the Cairo and Pango libraries (see the developer setup below). With uv, one requirement is enough,
 because uv takes `manim8-core` from the same commit:
 
 ```bash
-uv tool install "manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0"   # or, in an environment: uv pip install ...
+uv tool install "manim8 @ git+https://github.com/tknapen/manim8@d37489eeb08df040f18201b37450514220bb7fcd"   # or, in an environment: uv pip install ...
 ```
 
 pip does not read uv's sources, so name the contracts beside the control plane:
 
 ```bash
-pip install "manim8 @ git+https://github.com/tknapen/manim8@v0.1.0a0" \
-  "manim8-core @ git+https://github.com/tknapen/manim8@v0.1.0a0#subdirectory=packages/scianim_core"
+pip install "manim8 @ git+https://github.com/tknapen/manim8@d37489eeb08df040f18201b37450514220bb7fcd" \
+  "manim8-core @ git+https://github.com/tknapen/manim8@d37489eeb08df040f18201b37450514220bb7fcd#subdirectory=packages/scianim_core"
 ```
 
 Then, the same for both:
